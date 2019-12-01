@@ -86,7 +86,6 @@ float dis2Points(const gpsMsg_t& point1, const gpsMsg_t& point2,bool is_sqrt)
 	return x*x+y*y;
 }
 
-
 size_t findNearestPoint(const std::vector<gpsMsg_t>& path_points, const gpsMsg_t& current_point)
 {
 	size_t index = 0;
@@ -326,8 +325,9 @@ float maxCurvatureInRange(const std::vector<gpsMsg_t>& path_points, size_t start
 	float max = 0.;
 	for(size_t i=startIndex; i<endIndex; i++)
 	{
-		if(fabs(path_points[i].curvature) > max)
-			max = fabs(path_points[i].curvature);
+		float abs_cur = fabs(path_points[i].curvature);
+		if(abs_cur > max)
+			max = abs_cur;
 	}
 	return max;
 }

@@ -1,18 +1,19 @@
 <!-- -->
 <launch>
 
-	<arg name="gps_port" default="/dev/ttyS2"/>
+	<arg name="gps_port" default="/dev/ttyS2"/>		    <!-- GPS-->
 	<arg name="file_name" default="path.txt" />
-	<arg name="max_speed" default="10.0" />
-
-	<include file="$(find ant_driver)/launch/ant_driver.launch" />
+	<arg name="max_speed" default="30.0" />
+<!--底层 -->
+	<include file="$(find ant_driver)/launch/ant_driver.launch"/>
 	
 	<node name="path_tracking_node" pkg="path_tracking" type="path_tracking_node" output="screen">
+		<param name="file_path" value="$(find recorder)/data/path_data/result/"/>
 		<param name="path_points_file" value="$(find recorder)/data/path_data/result/$(arg file_name)"/>
 		<param name="disThreshold" value="6.0"/>
-		<param name="max_side_accel" value="1.5"/>
-		<param name="foreSightDistance_coefficient_" value = "1.8"/>
-		<param name="foreSightDis_latErrCoefficient" value = "1.0"/>
+		<param name="max_side_accel" value="1.0"/>
+		<param name="foreSightDistance_coefficient_" value = "1.4"/>
+		<param name="foreSightDis_latErrCoefficient" value = "-2.0"/>
 		<param name="speed" value="$(arg max_speed)"/>
 	</node>
 	
@@ -23,6 +24,7 @@
 		<param name="log_commands" value="inspvaxb ontime 0.05" />
 		<param name="is_lltoutm"   value="true"/>
 		<param name="ll2utm_topic" value="/ll2utm_odom"/>
+		<!--param name="x_offset" value="-1.3"/ -->
 		
 	</node>
 	

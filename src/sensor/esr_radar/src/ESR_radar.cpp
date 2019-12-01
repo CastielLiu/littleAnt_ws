@@ -65,7 +65,6 @@ bool ESR_RADAR::init()
 		
 		out_can2serial->configBaudrate(500);
 		ROS_INFO("send to esr initialization complete");
-		
 	}
 	
 	if(!in_can2serial->configure_port(in_port_name_.c_str()))

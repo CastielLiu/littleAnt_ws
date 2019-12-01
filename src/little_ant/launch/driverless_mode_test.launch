@@ -1,0 +1,19 @@
+<!-- little Ant -->
+
+<launch>
+	<arg name="base_control_port" default="/dev/U4"/>   <!--底层can分析仪-->
+	<arg name="stm32_port" default="/dev/U6"/>          <!-- STM32-->
+	
+	<node name="base_control" pkg="little_ant" type="base_control" output="screen">
+		<param name ="obd_can_port_name" value="$(arg base_control_port)"/>
+		<param name ="stm32_port_name" value="$(arg stm32_port)"/>
+		<param name ="stm32_baudrate" value="115200"/>
+		<param name ="max_steering_speed" value="5.0"/> <!--前后帧转角最大差值 -->
+	</node>
+	
+	<node name="rqt_publisher" pkg="rqt_publisher" type="rqt_publisher"/>
+	
+	 <!--总决策-->
+	<!-- node  type="decision_making_node" pkg ="decision_making" name="decision_making_node"  /-->  
+
+</launch>

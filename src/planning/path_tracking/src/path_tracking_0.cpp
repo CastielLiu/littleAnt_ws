@@ -5,14 +5,12 @@
 #include<std_msgs/Float32.h>
 #include<std_msgs/UInt32.h>
 #include<std_msgs/UInt8.h>
-#include<std_msgs/Bool.h>
 #include<vector>
 
 #include<nav_msgs/Odometry.h> 
 #include<geometry_msgs/Quaternion.h>
 #include<tf/transform_datatypes.h>
 #include<std_msgs/Float32.h>
-#include<js_control/Info.h>
 
 #include<ant_math/ant_math.h>
 #include<path_tracking/State.h>
@@ -37,9 +35,6 @@ public:
 	void vehicleSpeed_callback(const little_ant_msgs::State2::ConstPtr& msg);
 	void avoiding_flag_callback(const std_msgs::Float32::ConstPtr& msg);
 	void reload_seq_callback(const std_msgs::UInt8::ConstPtr& msg);
-	void jsBraking_callback(const std_msgs::Float32::ConstPtr& msg);
-	void isManual_callback(const std_msgs::Bool::ConstPtr& msg);
-	void joyInfo_callback(const js_control::Info::ConstPtr& msg);
 
 	bool is_gps_data_valid(gpsMsg_t& point);
 	void rosSpinThread(){ros::spin();}
@@ -54,11 +49,6 @@ private:
 	ros::Subscriber sub_vehicleState4_;
 	ros::Subscriber sub_avoiding_from_lidar_;
 	ros::Subscriber sub_reload_seq_;
-	//lc
-	ros::Subscriber sub_isMaunal_;
-	ros::Subscriber sub_jsBraking_;
-	ros::Subscriber sub_joy_info_;
-	
 	ros::Timer timer_;
 	
 	ros::Publisher pub_gps_cmd_;
@@ -102,11 +92,6 @@ private:
 	float foreSightDis_speedCoefficient_;
 	float foreSightDis_latErrCoefficient_;
 	
-	//lc
-	bool isManual_;
-	float jsBrakingVar_;
-	
-	
 };
 
 PathTracking::PathTracking():
@@ -116,8 +101,7 @@ PathTracking::PathTracking():
 	avoiding_offset_(0.0),
 	max_roadwheelAngle_(25.0),
 	is_avoiding_(false),
-	reload_seq_(0),
-	isManual_(0)
+	reload_seq_(0)
 {
 	gps_controlCmd_.origin = little_ant_msgs::ControlCmd::_GPS;
 	gps_controlCmd_.status = true;
@@ -150,11 +134,6 @@ bool PathTracking::init(ros::NodeHandle nh,ros::NodeHandle nh_private)
 	sub_avoiding_from_lidar_ = nh.subscribe("/start_avoiding",1,&PathTracking::avoiding_flag_callback,this);
 	
 	sub_reload_seq_ = nh.subscribe("/reload_seq",1, &PathTracking::reload_seq_callback,this);
-	
-	//lc
-	sub_isMaunal_ = nh.subscribe("/isManual",1, &PathTracking::isManual_callback, this);
-	sub_jsBraking_ = nh.subscribe("/jsBrakingCmd",1, &PathTracking::jsBraking_callback,this);
-	sub_joy_info_ = nh.subscribe("/joy_info",1, &PathTracking::joyInfo_callback, this);
 	
 	pub_gps_cmd_ = nh.advertise<little_ant_msgs::ControlCmd>("/sensor_decision",1);
 	
@@ -292,7 +271,7 @@ void PathTracking::run()
 		//ROS_INFO("t_roadWheelAngle :%f\n",t_roadWheelAngle);
 		
 		//find the index of a path point x meters from the current point
-		size_t index = findIndexForGivenDis(path_points_,nearest_point_index_,disThreshold_ + 10); 
+		size_t index = findIndexForGivenDis(path_points_,nearest_point_index_,disThreshold_ + 20); 
 		if(index ==0)
 		{
 			ROS_INFO("findIndexForGivenDis faild!");
@@ -353,15 +332,9 @@ void PathTracking::reload_seq_callback(const std_msgs::UInt8::ConstPtr& msg)
 }
 
 void PathTracking::pub_gps_cmd_callback(const ros::TimerEvent&)
-{	
-	//lc
-	if(isManual_)
-		return ;
-	gps_controlCmd_.cmd2.set_brake = jsBrakingVar_;
+{
 	pub_gps_cmd_.publish(gps_controlCmd_);
 }
-
-
 
 
 void PathTracking::gps_odom_callback(const nav_msgs::Odometry::ConstPtr& utm)
@@ -392,25 +365,9 @@ void PathTracking::avoiding_flag_callback(const std_msgs::Float32::ConstPtr& msg
 
 bool PathTracking::is_gps_data_valid(gpsMsg_t& point)
 {
-	if(point.x > 100 && point.y >= 100)
+	if(point.x !=0 && point.y !=0)
 		return true;
 	return false;
-}
-
-//lc
-void PathTracking::isManual_callback(const std_msgs::Bool::ConstPtr& msg)
-{
-	isManual_ = msg->data;
-	return ;
-}
-void PathTracking::jsBraking_callback(const std_msgs::Float32::ConstPtr& msg)
-{
-	jsBrakingVar_ = msg->data;
-}
-
-void PathTracking::joyInfo_callback(const js_control::Info::ConstPtr& msg)
-{
-	track_speed_ = msg->soft_gear*5;
 }
 
 int main(int argc,char**argv)
