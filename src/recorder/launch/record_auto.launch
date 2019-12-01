@@ -1,0 +1,14 @@
+<!-- -->
+<launch>
+	<arg name="file_path" default="$(find recorder)/data/state/" />
+	<arg name="file_name" default="auto_state.txt" />
+	
+	<node name="record_auto_node" pkg="recorder" type="record_all_msgs_node" output= "screen">
+		<param name="file_path" value="$(arg file_path)"/>
+		<param name="file_name" value="$(arg file_name)"/>
+		<param name="imu_topic" value="/corr_imu" />
+		<param name="utm_topic" value="/ll2utm_odom" />
+		<param name="state_topic" value="/tracking_state"/>
+	</node>
+
+</launch>

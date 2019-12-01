@@ -1,0 +1,29 @@
+<!-- -->
+<launch>
+	<arg name="pathTracking_file_name" default="$(find data)/data/2.txt"/>
+	
+
+<!--避障-->	
+	<node type="avoiding_node" pkg="avoiding"  name="avoiding_node" output="screen" >
+
+		<param name="avoid_speed" value="3.0" />						 <!-- 避障时的车速  -->
+		<param name="objects_topic" value="/detected_bounding_boxs" />
+		<param name="deceleration_cofficient" value="10" />              <!--系数越大  表明车辆制动性能越差  -->
+																		<!-- 应与实际值保持一致 -->
+																		
+		<param name="max_deceleration" value="5.0"/>																
+		<param name="path_points_file" value="$(arg pathTracking_file_name)"/>
+		<param name="safety_distance_side" value="0.4"/>    <!--   两侧安全距离       -->
+		<param name="pedestrian_detection_area_side" value="2.6" />   <!--  行人检测区宽度（参照雷达）   -->
+		<param name="danger_distance_side"  value="1.2" />  <!--   两侧危险距离（参照雷达中心）       -->
+		
+		<param name="maxOffset_left" value="-3.0"/>  <!-- 左右侧避障偏移最大值 -->
+		<param name="maxOffset_right" value="3.0"/>
+		
+	</node>
+
+
+</launch>
+
+
+

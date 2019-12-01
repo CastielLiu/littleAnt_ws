@@ -1,0 +1,36 @@
+<!-- -->
+<launch>
+	<arg name="gps_port" default="/dev/ttyS1"/>		    <!-- GPS -->
+	<arg name="base_control_port" default="/dev/U4"/>   <!-- CAN -->
+	<arg name="stm32_port" default="/dev/U6"/>          <!-- STM32-->
+	
+	<arg name="file_path" default="$(find recorder)/data/state/" />
+	<arg name="file_name" default="manual_state.txt" />
+	
+	<node pkg="novatel" type="novatel_node" name="novatel_node" >
+		<param name="port" value="$(arg gps_port)" />
+		<param name="baudrate" value="115200" />
+		<param name="log_commands" value="inspvaxb ontime 0.05; corrimudatasb ontime 0.01" />
+		<param name="log_corrimu_frequency" value="100"/>
+		<param name="inspvax_topic" value = "/gps" />
+		<param name="is_lltoutm"   value="true"/>
+		<param name="ll2utm_topic" value="/ll2utm_odom"/>
+		<param name="corr_imu_topic" value="/corr_imu"/>
+	</node>
+	
+	<node name="base_control" pkg="little_ant" type="base_control" output="screen">
+		<param name ="obd_can_port_name" value="$(arg base_control_port)"/>
+		<param name ="stm32_port_name" value="$(arg stm32_port)"/>
+		<param name ="stm32_baudrate" value="115200"/>
+		<param name ="max_steering_speed" value="5.0"/> <!--前后帧转角最大差值 -->
+	</node>
+	
+	<node name="record_manual_node" pkg="recorder" type="record_all_msgs_node" output= "screen">
+		<param name="file_path" value="$(arg file_path)"/>
+		<param name="file_name" value="$(arg file_name)"/>
+		<param name="imu_topic" value="/corr_imu" />
+		<param name="utm_topic" value="/ll2utm_odom" />
+		<param name="state_topic" value="/tracking_state"/>
+	</node>
+
+</launch>

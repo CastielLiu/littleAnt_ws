@@ -1,0 +1,13 @@
+<!-- -->
+<launch>
+	
+	<arg name="file_path" default="$(find recorder)/data/state/" />
+	<arg name="file_name" default="path_tracking_state.txt" />
+
+	<node name="record_pathtracking_state_node" pkg="recorder" type="record_pathtracking_state_node" output= "screen">
+		<param name="file_path" value="$(arg file_path)"/>
+		<param name="file_name" value="$(arg file_name)"/>
+		<param name="state_topic" value="/tracking_state"/>
+	</node>
+
+</launch>
