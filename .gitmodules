@@ -1,0 +1,9 @@
+[submodule "src/rtcm3.2"]
+	path = src/rtcm3.2
+	url = https://github.com/CastielLiu/rtcm3.2.git
+[submodule "src/ant_driver"]
+	path = src/ant_driver
+	url = https://github.com/CastielLiu/ant_driver.git
+[submodule "src/lib/can2serial"]
+	path = src/lib/can2serial
+	url = https://github.com/CastielLiu/can2serial.git
