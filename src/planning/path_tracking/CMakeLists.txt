@@ -38,8 +38,6 @@ catkin_package(
 
 
 
-
-
 ###########
 ## Build ##
 ###########
@@ -55,12 +53,3 @@ include_directories(
 add_executable(path_tracking_node src/path_tracking.cpp)
 add_dependencies(path_tracking_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 target_link_libraries(path_tracking_node   ${catkin_LIBRARIES})
-
-add_executable(purepursuit_node src/pure_pursuit.cpp)
-add_dependencies(purepursuit_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
-target_link_libraries(purepursuit_node  ${catkin_LIBRARIES})
-
-add_executable(pid_tracking_node src/pid_tracking.cpp)
-add_dependencies(pid_tracking_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
-target_link_libraries(pid_tracking_node  ${catkin_LIBRARIES})
-

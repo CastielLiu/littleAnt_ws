@@ -16,6 +16,8 @@ class Record
 		FILE *fp;
 		FILE *fp_wgs84;
 		
+		bool record_wgs84_; 
+		
 		gpsMsg_t last_point , current_point;
 		bool is_generate_curvature_;
 		float sample_distance_;
@@ -52,6 +54,7 @@ bool Record::init()
 	private_nh.param<std::string>("file_path",file_path_,"");
 	private_nh.param<std::string>("file_name",file_name_,"");
 	private_nh.param<bool>("curvature_gen",is_generate_curvature_,false);
+	private_nh.param<bool>("record_wgs84",record_wgs84_,true);
 	
 	if(file_path_.empty() || file_name_.empty())
 	{
@@ -114,9 +117,12 @@ void Record::cartesian_gps_callback(const nav_msgs::Odometry::ConstPtr& msg)
 		fprintf(fp,"%.3f\t%.3f\t%.4f\n",current_point.x,current_point.y,current_point.yaw);
 		fflush(fp);
 		
-		fprintf(fp_wgs84,"%.7f\t%.7f\n",msg->pose.covariance[1],msg->pose.covariance[2]);
-		fflush(fp_wgs84);
-		
+		if(record_wgs84_)
+		{
+			fprintf(fp_wgs84,"%.7f\t%.7f\n",msg->pose.covariance[1],msg->pose.covariance[2]);
+			fflush(fp_wgs84);
+		}
+
 		ROS_INFO("row:%d\t%.3f\t%.3f\t%.3f",row_num++,current_point.x,current_point.y,current_point.yaw);
 		last_point = current_point;
 	}

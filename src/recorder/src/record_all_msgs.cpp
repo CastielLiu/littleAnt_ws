@@ -48,7 +48,7 @@ public:
 		sub_utm_odom_ = nh.subscribe(nh_private.param<std::string>("utm_topic","/ll2utm_odom") ,1,&Recorder::utm_callback,this);
 		sub_state_ = nh.subscribe(nh_private.param<std::string>("state_topic", ""), 1, &Recorder::state_callback, this);
 		
-		timer_ = nh.createTimer(ros::Duration(0.03), &Recorder::timer_callback, this);
+		timer_ = nh.createTimer(ros::Duration(0.03), &Recorder::timer_callback, this);//¶¨Ê±¼ÇÂ¼ 
 		
 		return true;
 	}
@@ -121,7 +121,7 @@ private:
 
 int main(int argc,char**argv)
 {
-	ros::init(argc,argv,"record_manual_node");
+	ros::init(argc,argv,"record_allMsgs_node");
 	Recorder recorder;
 	if(!recorder.init())
 		return 1;

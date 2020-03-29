@@ -1,2 +1,0 @@
-float64 curvature
-float64 distance_from_center
