@@ -28,7 +28,7 @@
 		<param name="log_commands" value="inspvaxb ontime 0.05; corrimudatasb ontime 0.01" />
 		<param name="log_corrimu_frequency" value="100"/>
 		<param name="is_lltoutm"   value="true"/>
-		<param name="ll2utm_topic" value="/ll2utm_odom"/>		
+		<param name="ll2utm_topic" value="/ll2utm_odom"/>
 		<param name="corr_imu_topic" value="/corr_imu"/>
 		
 	</node>

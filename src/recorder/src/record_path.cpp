@@ -69,18 +69,22 @@ bool Record::init()
 
 	fp = fopen((file_path_+file_name_).c_str(),"w");
 	
-	fp_wgs84 = fopen((file_path_+"wgs84"+file_name_).c_str(),"w");
-	
+	if(record_wgs84_)
+	{
+		fp_wgs84 = fopen((file_path_+"wgs84"+file_name_).c_str(),"w");
+		if(fp_wgs84 == NULL)
+		{
+			ROS_ERROR("open record data file %s failed !!!",(file_path_+"wgs84"+file_name_).c_str());
+			return false;
+		}
+	}
+		
 	if(fp == NULL)
 	{
-		ROS_INFO("open record data file %s failed !!!",(file_path_+file_name_).c_str());
+		ROS_ERROR("open record data file %s failed !!!",(file_path_+file_name_).c_str());
 		return false;
 	}
-	if(fp_wgs84 == NULL)
-	{
-		ROS_INFO("open record data file %s failed !!!",(file_path_+"wgs84"+file_name_).c_str());
-		return false;
-	}
+	
 	return true;
 }
 
@@ -119,7 +123,7 @@ void Record::cartesian_gps_callback(const nav_msgs::Odometry::ConstPtr& msg)
 		
 		if(record_wgs84_)
 		{
-			fprintf(fp_wgs84,"%.7f\t%.7f\n",msg->pose.covariance[1],msg->pose.covariance[2]);
+			fprintf(fp_wgs84,"%.7f,%.7f\r\n",msg->pose.covariance[2],msg->pose.covariance[1]);
 			fflush(fp_wgs84);
 		}
 

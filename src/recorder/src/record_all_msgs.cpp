@@ -48,7 +48,7 @@ public:
 		sub_utm_odom_ = nh.subscribe(nh_private.param<std::string>("utm_topic","/ll2utm_odom") ,1,&Recorder::utm_callback,this);
 		sub_state_ = nh.subscribe(nh_private.param<std::string>("state_topic", ""), 1, &Recorder::state_callback, this);
 		
-		timer_ = nh.createTimer(ros::Duration(0.03), &Recorder::timer_callback, this);//��ʱ��¼ 
+		timer_ = nh.createTimer(ros::Duration(0.1), &Recorder::timer_callback, this);
 		
 		return true;
 	}
@@ -78,15 +78,31 @@ public:
 		state_msg_ = *state;
 	}
 	
+	bool is_stationary(const float& speed)
+	{
+		if(fabs(speed) < 0.02)
+			return true;
+		return false;
+	}
+	
 	void timer_callback(const ros::TimerEvent&)
 	{
-		static int delay = 50;
-		if(delay > 0)
-		{
-			delay -- ;
-			return ;
-		}
-			
+		//等待所有数据就绪
+		static int delay = 30;
+		if(delay-- > 0)
+			return;
+		
+		static bool flag = false;
+		
+		if(!flag && speed_ > 0.01 )
+			flag = true;
+		if(!flag) return;
+		
+		static float last_speed = 1.0;
+		if(is_stationary(speed_) && is_stationary(last_speed))
+			return;
+		last_speed = speed_;
+		
 		out_file_ << std::fixed << std::setprecision(3)
 				  << odom_msg_.pose.pose.position.x << "\t" << odom_msg_.pose.pose.position.y << "\t" << odom_msg_.pose.covariance[0] << "\t"
 				  << roadwheel_angle_ << "\t" << speed_ << "\t"

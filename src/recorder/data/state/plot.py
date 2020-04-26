@@ -21,7 +21,7 @@ def main(argv):
 			data = [float(x) for x in data]
 			datas.append(data)
 	datas = np.array(datas)
-	plt.plot(range(datas.shape[0]),datas[:,3])
+	plt.plot(range(datas.shape[0]),datas[:,11])
 #	plt.plot(datas[:,0],datas[:,1])
 	
 #	plt.plot(path_points.y,path_points.x,'r.',label="reference path")

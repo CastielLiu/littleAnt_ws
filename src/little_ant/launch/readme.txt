@@ -6,10 +6,10 @@ roslaunch little_ant path_tracking.launch file_name:="path" max_speed:="5.0" k1:
 roslaunch little_ant path_tracking.launch file_name:="path" max_speed:="5.0" k1:=0.0 k2:=0.0 l_min:=6.0
 
 整定k1
-roslaunch little_ant path_tracking.launch file_name:="path" max_speed:="30." k2:=0 l_min:=5.0  k1:=0.5
-roslaunch little_ant path_tracking.launch file_name:="path" max_speed:="30." k2:=0 l_min:=5.0  k1:=0.6
-roslaunch little_ant path_tracking.launch file_name:="path" max_speed:="30." k2:=0 l_min:=5.0  k1:=0.7
-roslaunch little_ant path_tracking.launch file_name:="path" max_speed:="30." k2:=0 l_min:=5.0  k1:=0.8
+roslaunch little_ant path_tracking.launch file_name:="path" max_speed:="30." k2:=0 l_min:=4.0  k1:=0.5
+roslaunch little_ant path_tracking.launch file_name:="path" max_speed:="30." k2:=0 l_min:=4.0  k1:=0.6
+roslaunch little_ant path_tracking.launch file_name:="path" max_speed:="30." k2:=0 l_min:=4.0  k1:=0.7
+roslaunch little_ant path_tracking.launch file_name:="path" max_speed:="30." k2:=0 l_min:=4.0  k1:=0.8
 
 
 整定k2

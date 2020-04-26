@@ -1,4 +1,5 @@
 
+# coding=utf-8
 import matplotlib.pyplot as plt
 import numpy as np
 import math
@@ -24,15 +25,17 @@ def main(argv):
 	datas = []
 	with open(file_name,'r') as f:
 		line = f.readline()
-		while line is not None:
+		while True:
 			line = f.readline()
+			if(len(line)==0):
+				break
 			data = line.split()
 			data = [float(i) for i in data]
 			datas.append(data)
 	
 	datas = np.array(datas)
 	latErrs = np.abs(datas[:,11])
-	print("mean latErr: %f" %np.mean(latErr))
+	print("mean latErr: %f" %np.mean(latErrs))
 
 
 main(sys.argv)
