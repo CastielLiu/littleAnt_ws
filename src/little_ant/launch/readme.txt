@@ -29,5 +29,4 @@ roslaunch little_ant path_tracking.launch file_name:="path" l_min:=5.0  k1:=1.0 
 roslaunch little_ant path_tracking.launch file_name:="path" l_min:=5.0  k1:=1.0  k2:=-1.0  max_speed:="30." max_ay:="0.8"
 
 
-
-
+roslaunch little_ant path_tracking.launch file_name:="path" max_speed:="5.0" k2:=-1.0 l_min:=4.0  k1:=0.8

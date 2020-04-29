@@ -21,11 +21,14 @@ class Points:
 			return False
 			
 		for line in lines:
-			x,y,yaw,curvature = line.split()
+			data = line.split()
+			
+			x = data[0]
+			y = data[1]
+			yaw = data[2]
 			self.x.append(float(x))
 			self.y.append(float(y))
 			self.yaw.append(float(yaw))
-			self.curvature.append(float(curvature))
 		return True
 			
 	def clear(self):
@@ -74,8 +77,8 @@ class Points:
 			
 def plot(file_name):
 	path_points = Points()
-	file_name = "../result/" + file_name
-	path_points.load(file_name)
+	file1 = "../result/" + file_name
+	path_points.load(file1)
 	
 	reference_point_x = path_points.x[0]
 	reference_point_y = path_points.y[0]
@@ -83,13 +86,13 @@ def plot(file_name):
 	path_points.offsetPoints(reference_point_x,reference_point_y )
 	
 	debug_points = Points()
-	file_name = "../debug/" + file_name
-	debug_points.load(file_name)
+	file2 = "../debug/" + file_name
+	debug_points.load(file2)
 	
 	debug_points.offsetPoints(reference_point_x,reference_point_y)
 	
-	plt.plot(path_points.x,path_points.y,'r.',label="reference path")
-	plt.plot(debug_points.x,debug_points.y,'b-.',label="trajactory")
+	plt.plot(path_points.x,path_points.y,'r-',label="reference path")
+	plt.plot(debug_points.x,debug_points.y,'b-',label="trajactory")
 
 	plt.legend()
 
@@ -97,6 +100,7 @@ def plot(file_name):
 	
 	#plt.xticks(np.arange(0,200,2))
 	plt.grid('on')
+	plt.axis('equal')
 
 #	plt.savefig('a.pdf')
 
