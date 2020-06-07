@@ -28,8 +28,8 @@ public:
 	bool init(ros::NodeHandle nh,ros::NodeHandle nh_private);
 	void run();
 	
-	void pub_gps_cmd_callback(const ros::TimerEvent&);
-	void gps_odom_callback(const nav_msgs::Odometry::ConstPtr& msg);
+	void publishCmdTimer(const ros::TimerEvent&);
+	void utmOdom_callback(const nav_msgs::Odometry::ConstPtr& msg);
 	
 	void vehicleState4_callback(const little_ant_msgs::State4::ConstPtr& msg);
 	void vehicleSpeed_callback(const little_ant_msgs::State2::ConstPtr& msg);
@@ -42,19 +42,19 @@ private:
 	gpsMsg_t pointOffset(const gpsMsg_t& point,float offset);
 	void publishPathTrackingState();
 private:
-	ros::Subscriber sub_utm_odom_;
+	ros::Subscriber sub_utmOdom_;
 	ros::Subscriber sub_vehicleState2_;
 	ros::Subscriber sub_vehicleState4_;
-	ros::Subscriber sub_avoiding_from_lidar_;
+	ros::Subscriber sub_offset_;
 	ros::Timer timer_;
 	
-	ros::Publisher pub_gps_cmd_;
-	little_ant_msgs::ControlCmd gps_controlCmd_;
+	ros::Publisher pub_cmd_;
+	little_ant_msgs::ControlCmd controlCmd_;
 	
 	ros::Publisher pub_tracking_state_;
 	path_tracking::State tracking_state_;
 	
-	boost::shared_ptr<boost::thread> rosSpin_thread_ptr_;
+	boost::shared_ptr<boost::thread> spinThread_;
 	
 	std::string path_points_file_;
 	std::vector<gpsMsg_t> path_points_;
@@ -97,17 +97,17 @@ PathTracking::PathTracking():
 	max_roadwheelAngle_(25.0),
 	is_avoiding_(false)
 {
-	gps_controlCmd_.origin = little_ant_msgs::ControlCmd::_GPS;
-	gps_controlCmd_.status = true;
+	controlCmd_.origin = little_ant_msgs::ControlCmd::_GPS;
+	controlCmd_.status = true;
 	
-	gps_controlCmd_.cmd2.set_gear =1;
-	gps_controlCmd_.cmd2.set_speed =0.0;
-	gps_controlCmd_.cmd2.set_brake=0.0;
-	gps_controlCmd_.cmd2.set_accelerate =0.0;
-	gps_controlCmd_.cmd2.set_roadWheelAngle =0.0;
-	gps_controlCmd_.cmd2.set_emergencyBrake =0;
+	controlCmd_.cmd2.set_gear =1;
+	controlCmd_.cmd2.set_speed =0.0;
+	controlCmd_.cmd2.set_brake=0.0;
+	controlCmd_.cmd2.set_accelerate =0.0;
+	controlCmd_.cmd2.set_roadWheelAngle =0.0;
+	controlCmd_.cmd2.set_emergencyBrake =0;
 	
-	gps_controlCmd_.cmd1.set_driverlessMode =true;
+	controlCmd_.cmd1.set_driverlessMode =true;
 }
 
 PathTracking::~PathTracking()
@@ -119,17 +119,17 @@ bool PathTracking::init(ros::NodeHandle nh,ros::NodeHandle nh_private)
 	std::string utm_odom_topic = nh_private.param<std::string>("utm_odom_topic","/ll2utm_odom");
 	std::string tracking_info_topic = nh_private.param<std::string>("tracking_info_topic","/tracking_state");
 	
-	sub_utm_odom_ = nh.subscribe(utm_odom_topic, 5,&PathTracking::gps_odom_callback,this);
+	sub_utmOdom_ = nh.subscribe(utm_odom_topic, 5,&PathTracking::utmOdom_callback,this);
 
 	sub_vehicleState2_ = nh.subscribe("/vehicleState2",1,&PathTracking::vehicleSpeed_callback,this);
 	
 	sub_vehicleState4_ = nh.subscribe("/vehicleState4",1,&PathTracking::vehicleState4_callback,this);
 	
-	sub_avoiding_from_lidar_ = nh.subscribe("/start_avoiding",1,&PathTracking::avoiding_flag_callback,this);
+	sub_offset_ = nh.subscribe("/start_avoiding",1,&PathTracking::avoiding_flag_callback,this);
 	
-	pub_gps_cmd_ = nh.advertise<little_ant_msgs::ControlCmd>("/sensor_decision",1);
+	pub_cmd_ = nh.advertise<little_ant_msgs::ControlCmd>("/sensor_decision",1);
 	
-	timer_ = nh.createTimer(ros::Duration(0.01),&PathTracking::pub_gps_cmd_callback,this);
+	timer_ = nh.createTimer(ros::Duration(0.01),&PathTracking::publishCmdTimer,this);
 	
 	pub_tracking_state_ = nh.advertise<path_tracking::State>(tracking_info_topic,1);
 	
@@ -151,7 +151,7 @@ bool PathTracking::init(ros::NodeHandle nh,ros::NodeHandle nh_private)
 	}
 	
 	//start the ros::spin() thread
-	rosSpin_thread_ptr_ = boost::shared_ptr<boost::thread >(new boost::thread(boost::bind(&PathTracking::rosSpinThread, this)));
+	spinThread_ = boost::shared_ptr<boost::thread >(new boost::thread(boost::bind(&PathTracking::rosSpinThread, this)));
 	
 	if(!loadPathPoints(path_points_file_, path_points_))
 		return false;
@@ -252,15 +252,15 @@ void PathTracking::run()
 		float max_curvature = maxCurvatureInRange(path_points_, nearest_point_index_, index);
 		float max_speed = generateMaxTolarateSpeedByCurvature(max_curvature, max_side_accel_);
 		
-		gps_controlCmd_.cmd2.set_speed = track_speed_ > max_speed ? max_speed : track_speed_;
+		controlCmd_.cmd2.set_speed = track_speed_ > max_speed ? max_speed : track_speed_;
 				
-		gps_controlCmd_.cmd2.set_roadWheelAngle = t_roadWheelAngle;
+		controlCmd_.cmd2.set_roadWheelAngle = t_roadWheelAngle;
 		
 		this->publishPathTrackingState();
 		if(i%20==0)
 		{
 			ROS_INFO("min_r:%.3f\t max_speed:%.1f",1.0/max_curvature, max_speed);
-			ROS_INFO("set_speed:%f\t speed:%f",gps_controlCmd_.cmd2.set_speed ,vehicle_speed_*3.6);
+			ROS_INFO("set_speed:%f\t speed:%f",controlCmd_.cmd2.set_speed ,vehicle_speed_*3.6);
 			ROS_INFO("dis2target:%.2f\t yaw_err:%.2f\t lat_err:%.2f",dis_yaw.first,yaw_err_*180.0/M_PI,lateral_err_);
 			ROS_INFO("disThreshold:%f\t expect roadwheel angle:%.2f",disThreshold_,t_roadWheelAngle);
 			ROS_INFO("avoiding_offset_:%f\n",avoiding_offset_);
@@ -272,8 +272,8 @@ void PathTracking::run()
 	
 	ROS_INFO("driverless completed...");
 	
-	gps_controlCmd_.cmd2.set_roadWheelAngle = 0.0;
-	gps_controlCmd_.cmd2.set_speed = 0.0;
+	controlCmd_.cmd2.set_roadWheelAngle = 0.0;
+	controlCmd_.cmd2.set_speed = 0.0;
 	
 	while(ros::ok())
 	{
@@ -298,13 +298,13 @@ void PathTracking::publishPathTrackingState()
 	
 }
 
-void PathTracking::pub_gps_cmd_callback(const ros::TimerEvent&)
+void PathTracking::publishCmdTimer(const ros::TimerEvent&)
 {
-	pub_gps_cmd_.publish(gps_controlCmd_);
+	pub_cmd_.publish(controlCmd_);
 }
 
 
-void PathTracking::gps_odom_callback(const nav_msgs::Odometry::ConstPtr& utm)
+void PathTracking::utmOdom_callback(const nav_msgs::Odometry::ConstPtr& utm)
 {
 	current_point_.x = utm->pose.pose.position.x;
 	current_point_.y = utm->pose.pose.position.y;

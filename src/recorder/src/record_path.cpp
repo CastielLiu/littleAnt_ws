@@ -1,5 +1,4 @@
 #include<ros/ros.h>
-#include "gps_msgs/Inspvax.h"
 #include <unistd.h>
 #include<cmath>
 #include<nav_msgs/Odometry.h> 
