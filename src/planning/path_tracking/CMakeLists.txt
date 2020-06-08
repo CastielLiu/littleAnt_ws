@@ -17,6 +17,7 @@ find_package(catkin REQUIRED COMPONENTS
   message_filters
   ant_math
   message_generation
+  diagnostic_msgs
 )
 
 add_message_files(

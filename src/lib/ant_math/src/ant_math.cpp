@@ -18,8 +18,8 @@ float limitRoadwheelAngleBySpeed(const float& angle, const float& speed)
 		min_steering_radius = 3.0;
 	
 	float max_roadwheelAngle = fabs(generateRoadwheelAngleByRadius(min_steering_radius));
-	if(max_roadwheelAngle > MAX_ROAD_WHEEL_ANGLE - 5.0)
-	   max_roadwheelAngle = MAX_ROAD_WHEEL_ANGLE -5.0;
+	if(max_roadwheelAngle > MAX_ROAD_WHEEL_ANGLE - 2.0)
+	   max_roadwheelAngle = MAX_ROAD_WHEEL_ANGLE -2.0;
 	//ROS_INFO("max_angle:%f\t angle:%f",max_roadwheelAngle,angle);
 	return saturationEqual(angle,max_roadwheelAngle);
 }

@@ -132,56 +132,19 @@ void PathTracking::publishDiagnostics(uint8_t level,const std::string& msg)
 bool PathTracking::init(ros::NodeHandle nh,ros::NodeHandle nh_private)
 {
 	std::string utm_odom_topic = nh_private.param<std::string>("utm_odom_topic","/ll2utm_odom");
-	std::string tracking_info_topic = nh_private.param<std::string>("tracking_info_topic","/tracking_state");
-	
-	sub_utm_odom_ = nh.subscribe(utm_odom_topic, 5,&PathTracking::gps_odom_callback,this);
-	sub_vehicleState2_ = nh.subscribe("/vehicleState2",1,&PathTracking::vehicleSpeed_callback,this);
-	sub_vehicleState4_ = nh.subscribe("/vehicleState4",1,&PathTracking::vehicleState4_callback,this);
-	
-	sub_avoiding_from_lidar_ = nh.subscribe("/start_avoiding",1,&PathTracking::avoiding_flag_callback,this);
-	
-	pub_cmd_ = nh.advertise<little_ant_msgs::ControlCmd>("/sensor_decision",1);
+	std::string tracking_info_topic = nh_private.param<std::string>("tracking_info_topic","/tracking_state")；
+
 	pub_diagnostic_ = nh.advertise<diagnostic_msgs::DiagnosticStatus>("driverless/diagnostic",1);
 	
-	timer_ = nh.createTimer(ros::Duration(0.01),&PathTracking::pub_cmd_timer,this);
-	
 	pub_tracking_state_ = nh.advertise<path_tracking::State>(tracking_info_topic,1);
-	
-	nh_private.param<std::string>("path_points_file",path_points_file_,"");
 
 	nh_private.param<float>("speed",track_speed_,5.0);
-
 	nh_private.param<float>("foreSightDis_speedCoefficient", foreSightDis_speedCoefficient_,0.8);
 	nh_private.param<float>("foreSightDis_latErrCoefficient", foreSightDis_latErrCoefficient_,-3.0);
 	nh_private.param<float>("min_foresight_distance",min_foresight_distance_,4.0);
 	nh_private.param<float>("max_side_accel",max_side_accel_,1.0);
 	
-	if(path_points_file_.empty())
-	{
-		ROS_ERROR("no input path points file !!");
-		publishDiagnostics(diagnostic_msgs::DiagnosticStatus::ERROR,"No input path file!");
-		return false;
-	}
-	
-	//start the ros::spin() thread
-	rosSpin_thread_ptr_ = boost::shared_ptr<boost::thread >(new boost::thread(boost::bind(&PathTracking::rosSpinThread, this)));
-	
-	if(!loadPathPoints(path_points_file_, path_points_))
-	{
-		publishDiagnostics(diagnostic_msgs::DiagnosticStatus::ERROR,"Path file error!");
-		return false;
-	}
-		
-	
-	ROS_INFO("pathPoints size:%d",path_points_.size());
-	
-	while(ros::ok() && !is_gps_data_valid(current_point_))
-	{
-		ROS_INFO("gps data is invalid, please check the gps topic or waiting...");
-		publishDiagnostics(diagnostic_msgs::DiagnosticStatus::WARN,"gps data is invalid");
-		sleep(1);
-	}
-	
+
 	target_point_index_ = findNearestPoint(path_points_,current_point_);
 	
 	if(target_point_index_ > path_points_.size() - 10)
@@ -189,13 +152,6 @@ bool PathTracking::init(ros::NodeHandle nh,ros::NodeHandle nh_private)
 		ROS_ERROR("target index:%d\t, No target point was found !!!",target_point_index_);
 		publishDiagnostics(diagnostic_msgs::DiagnosticStatus::ERROR,"Remaind target path is too short!");
 		return false;
-	}
-	
-	while(!vehicle_speed_status_ && ros::ok())
-	{
-		ROS_INFO("waiting for vehicle speed data ok ...");
-		publishDiagnostics(diagnostic_msgs::DiagnosticStatus::WARN,"Vehicle speed is invalid");
-		usleep(500000);
 	}
 	
 	target_point_ = path_points_[target_point_index_];
