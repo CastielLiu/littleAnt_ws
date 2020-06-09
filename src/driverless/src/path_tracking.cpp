@@ -4,7 +4,8 @@ PathTracking::PathTracking():
 	target_point_index_(0),
 	nearest_point_index_(0),
 	avoiding_offset_(0.0),
-	expect_speed_(5.0) //defult expect speed
+	expect_speed_(5.0), //defult expect speed
+	is_ready_(false)
 {
 	diagnostic_msg_.hardware_id = "path_tracking";
 	path_points_resolution_ = 0.1;
@@ -64,6 +65,7 @@ void PathTracking::start()
 {
 	is_running_ = true;
 	std::thread t(&PathTracking::trackingThread,this);
+	t.detach();
 }
 
 void PathTracking::stop()
@@ -82,7 +84,7 @@ void PathTracking::trackingThread()
 	state_mutex_.lock();
 	size_t target_index = findNearestPoint(path_points_,current_point_); //跟踪目标点索引
 	state_mutex_.unlock();
-	
+
 	if(target_index > path_points_.size() - 10)
 	{
 		ROS_ERROR("target index:%d\t, No target point was found !!!",target_index);

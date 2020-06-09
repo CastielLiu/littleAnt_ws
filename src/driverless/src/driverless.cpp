@@ -30,7 +30,8 @@ void AutoDrive::publishDiagnostics(uint8_t level,const std::string& msg)
 
 bool AutoDrive::is_gps_data_valid(const gpsMsg_t& point)
 {
-	if(point.x !=0 && point.y !=0)
+	//std::cout << point.x  << "\t"  <<point.y << std::endl;
+	if(fabs(point.x) > 100 && fabs(point.y) > 100)
 		return true;
 	return false;
 }
@@ -91,6 +92,7 @@ void AutoDrive::run()
 	//配置路径跟踪控制器
 	tracker_.setExpectSpeed(max_speed_);
 	tracker_.setPath(path_points_);
+
     if(!tracker_.init(nh_, nh_private_))
 	{
 		publishDiagnostics(diagnostic_msgs::DiagnosticStatus::ERROR,"Init path tracker failed!");
@@ -99,7 +101,7 @@ void AutoDrive::run()
 
 	//启动路径跟踪控制器
 	tracker_.start();
-	
+
 	ros::Rate loop_rate(20);
 	
 	while(ros::ok())

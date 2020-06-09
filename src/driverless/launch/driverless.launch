@@ -6,7 +6,7 @@
 
 	<include file="$(find ant_driver)/launch/ant_driver.launch" />
 	
-	<node name="driverless_node" pkg="driverless" type="driverless_node" output="screen">
+	<node name="driverless_node" pkg="driverless" type="driverless_node" output="screen" required="true">
 		<!-- -->
 		<param name="path_points_file" value="$(arg roadnet_file)"/>
 		<param name="max_speed" value="$(arg max_speed)"/>
