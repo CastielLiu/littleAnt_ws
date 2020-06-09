@@ -1,0 +1,57 @@
+<!-- -->
+<launch>
+
+	<arg name="gps_port" default="/dev/ttyS2"/>
+	<arg name="file_name" default="path" />
+	<arg name="max_ay" default="1.0"/>
+	<arg name="max_speed" default="10.0" />
+	<arg name="k1" default="0.8"/>
+	<arg name="k2" default="-1.0"/>
+	<arg name="l_min" default="4.0"/>
+
+	<include file="$(find ant_driver)/launch/ant_driver.launch" />
+	
+	<node name="path_tracking_node" pkg="path_tracking" type="path_tracking_node" output="screen">
+		<param name="path_points_file" value="$(find recorder)/data/path_data/result/$(arg file_name).txt"/>
+		<param name="max_side_accel" value="$(arg max_ay)"/>
+
+		<param name="min_foresight_distance" value="$(arg l_min)"/>
+		<param name="foreSightDis_speedCoefficient" value = "$(arg k1)"/>
+		<param name="foreSightDis_latErrCoefficient" value = "$(arg k2)"/>
+		<param name="speed" value="$(arg max_speed)"/>
+	</node>
+	
+	<node pkg="novatel" type="novatel_node" name="novatel_node"  >
+
+		<param name="port" value="$(arg gps_port)" />
+		<param name="baudrate" value="115200" />
+		<param name="log_commands" value="inspvaxb ontime 0.05; corrimudatasb ontime 0.01" />
+		<param name="log_corrimu_frequency" value="100"/>
+		<param name="is_lltoutm"   value="true"/>
+		<param name="ll2utm_topic" value="/ll2utm_odom"/>
+		<param name="corr_imu_topic" value="/corr_imu"/>
+		
+	</node>
+
+	<node  type="decision_making_node" pkg ="decision_making" name="decision_making_node" >  
+		<param name ="traffic_mark_topic" value="/traffic_mark" />
+	</node>
+	
+	<node name="record_debug_path_node" pkg="recorder" type="record_path_node">
+		<param name="file_path" value="$(find recorder)/data/path_data/debug/"/>
+		<param name="file_name" value="$(arg file_name)_$(arg max_speed).txt"/>
+		<param name="sample_distance" value="0.1" />
+		<param name="utm_topic" value="/ll2utm_odom" />
+		<param name="record_wgs84" value="false" />
+	</node>
+
+	<node name="record_auto_node" pkg="recorder" type="record_all_msgs_node" output= "screen">
+		<param name="file_path" value="$(find recorder)/data/state/"/>
+		<param name="file_name" value="$(arg file_name)_$(arg max_speed).txt"/>
+		<param name="imu_topic" value="/corr_imu" />
+		<param name="utm_topic" value="/ll2utm_odom" />
+		<param name="state_topic" value="/tracking_state"/>
+	</node>
+	
+
+</launch>

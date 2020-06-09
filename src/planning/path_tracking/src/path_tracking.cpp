@@ -61,6 +61,7 @@ private:
 	
 	gpsMsg_t current_point_, target_point_;
 	
+	float fix_foresight_dis_;
 	float min_foresight_distance_;
 	float disThreshold_;
 	float avoiding_offset_;
@@ -136,7 +137,7 @@ bool PathTracking::init(ros::NodeHandle nh,ros::NodeHandle nh_private)
 	nh_private.param<std::string>("path_points_file",path_points_file_,"");
 
 	nh_private.param<float>("speed",track_speed_,5.0);
-
+	nh_private.param<float>("fix_foresight_dis",fix_foresight_dis_,-1);
 	nh_private.param<float>("foreSightDis_speedCoefficient", foreSightDis_speedCoefficient_,1.8);
 	nh_private.param<float>("foreSightDis_latErrCoefficient", foreSightDis_latErrCoefficient_,0.3);
 	
@@ -211,10 +212,16 @@ void PathTracking::run()
 			break;
 		}
 		
-		disThreshold_ = foreSightDis_speedCoefficient_ * vehicle_speed_ + foreSightDis_latErrCoefficient_ * fabs(lateral_err_);
+		if(fix_foresight_dis_ < 0)
+		{
+			disThreshold_ = foreSightDis_speedCoefficient_ * vehicle_speed_ + foreSightDis_latErrCoefficient_ * fabs(lateral_err_);
+			if(disThreshold_ < min_foresight_distance_) 
+				disThreshold_  = min_foresight_distance_;
+		}
+		else
+			disThreshold_ = fix_foresight_dis_;
 	
-		if(disThreshold_ < min_foresight_distance_) 
-			disThreshold_  = min_foresight_distance_;
+
 			
 //		 disThreshold_ = min_foresight_distance_ + 
 //						 foreSightDis_speedCoefficient_ * vehicle_speed_ + 
