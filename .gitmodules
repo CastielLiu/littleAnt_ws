@@ -7,3 +7,6 @@
 [submodule "src/lib/can2serial"]
 	path = src/lib/can2serial
 	url = https://github.com/CastielLiu/can2serial.git
+[submodule "src/av_console"]
+	path = src/av_console
+	url = https://github.com/CastielLiu/av_console.git
