@@ -23,20 +23,18 @@ public:
 		ros::NodeHandle nh_private("~");
 	
 		nh_private.param<std::string>("file_path",file_path_,"");
-		nh_private.param<std::string>("file_name",file_name_,"");
 	
-		if(file_path_.empty() || file_name_.empty())
+		if(file_path_.empty())
 		{
-			ROS_ERROR("please input file path and file name in launch file!!!");
+			ROS_ERROR("please set file path in launch file!");
 			return false;
 		}
-		
-		std::string full_file_name = file_path_ + file_name_;
-		out_file_.open(full_file_name);
+
+		out_file_.open(file_path_);
 		
 		if(!out_file_.is_open())
 		{
-			ROS_ERROR("open %s failed!!!", full_file_name.c_str());
+			ROS_ERROR("open %s failed!!!", file_path_.c_str());
 			return false;
 		}
 		
@@ -92,12 +90,14 @@ public:
 		if(delay-- > 0)
 			return;
 		
-		static bool flag = false;
+		static bool start = false;
 		
-		if(!flag && speed_ > 0.01 )
-			flag = true;
-		if(!flag) return;
+		//车辆起步后才开始记录
+		if(!start && !is_stationary(speed_))
+			start = true;
+		if(!start) return;
 		
+		//车辆停止后停止记录
 		static float last_speed = 1.0;
 		if(is_stationary(speed_) && is_stationary(last_speed))
 			return;
@@ -110,14 +110,13 @@ public:
 				  << imu_msg_.linear_acceleration.x << "\t" << imu_msg_.linear_acceleration.y << "\t" << imu_msg_.linear_acceleration.z << "\t"
 				  << state_msg_.lateral_error << "\t" << state_msg_.yaw_error  << "\t"
 				  << std::setprecision(7)
-				  << odom_msg_.pose.covariance[1] << "\t" << odom_msg_.pose.covariance[2]<< std::endl;
+				  << odom_msg_.pose.covariance[1] << "\t" << odom_msg_.pose.covariance[2]<< std::endl; //longitude latitude
 		out_file_.flush();
 	}
 	
 	
 private:
 	std::string file_path_;
-	std::string	file_name_;
 	std::ofstream out_file_;
 	
 	ros::Subscriber sub_state2_;
@@ -137,7 +136,7 @@ private:
 
 int main(int argc,char**argv)
 {
-	ros::init(argc,argv,"record_allMsgs_node");
+	ros::init(argc,argv,"record_drive_status");
 	Recorder recorder;
 	if(!recorder.init())
 		return 1;

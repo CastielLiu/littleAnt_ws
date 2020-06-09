@@ -1,0 +1,12 @@
+<!-- -->
+<launch>
+	<arg name="file_path"/>
+	
+	<node name="record_drive_status_node" pkg="recorder" type="record_drive_status_node" output= "screen">
+		<param name="file_path" value="$(arg file_path)"/>
+		<param name="imu_topic" value="/corr_imu" />
+		<param name="utm_topic" value="/ll2utm_odom" />
+		<param name="state_topic" value="/tracking_state"/>
+	</node>
+
+</launch>

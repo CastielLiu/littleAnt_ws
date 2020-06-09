@@ -47,7 +47,7 @@ add_executable(record_IMU_node src/record_imu.cpp)
 add_dependencies(record_IMU_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 target_link_libraries(record_IMU_node   ${catkin_LIBRARIES})
 
-add_executable(record_all_msgs_node src/record_all_msgs.cpp)
-add_dependencies(record_all_msgs_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
-target_link_libraries(record_all_msgs_node   ${catkin_LIBRARIES})
+add_executable(record_drive_status_node src/record_drive_status.cpp)
+add_dependencies(record_drive_status_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+target_link_libraries(record_drive_status_node   ${catkin_LIBRARIES})
 
