@@ -1,14 +1,14 @@
 <!-- -->
 <launch>
 
-	<arg name="file_name" default="path" />
+	<arg name="roadnet_file" />
 	<arg name="max_speed" default="10.0" />
 
 	<include file="$(find ant_driver)/launch/ant_driver.launch" />
 	
 	<node name="driverless_node" pkg="driverless" type="driverless_node" output="screen">
 		<!-- -->
-		<param name="path_points_file" value="$(arg file_name)"/>
+		<param name="path_points_file" value="$(arg roadnet_file)"/>
 		<param name="max_speed" value="$(arg max_speed)"/>
 		<param name="odom_topic" value="/ll2utm_odom"/>
 		<!-- path_tracking -->
@@ -29,7 +29,7 @@
 	
 	<node name="record_debug_path_node" pkg="recorder" type="record_path_node">
 		<param name="file_path" value="$(find recorder)/data/path_data/debug/"/>
-		<param name="file_name" value="debug_$(arg k1)_$(arg k2)_$(arg l_min)_$(arg max_speed).txt"/>
+		<param name="file_name" value="debug.txt"/>
 		<param name="sample_distance" value="0.1" />
 		<param name="utm_topic" value="/ll2utm_odom" />
 		<param name="record_wgs84" value="false" />
@@ -37,7 +37,7 @@
 
 	<node name="record_auto_node" pkg="recorder" type="record_all_msgs_node" output= "screen">
 		<param name="file_path" value="$(find recorder)/data/state/"/>
-		<param name="file_name" value="state_$(arg k1)_$(arg k2)_$(arg l_min)_$(arg max_speed)_$(arg max_ay).txt"/>
+		<param name="file_name" value="state.txt"/>
 		<param name="imu_topic" value="/corr_imu" />
 		<param name="utm_topic" value="/ll2utm_odom" />
 		<param name="state_topic" value="/tracking_state"/>
