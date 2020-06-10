@@ -10,3 +10,9 @@
 [submodule "src/av_console"]
 	path = src/av_console
 	url = https://github.com/CastielLiu/av_console.git
+[submodule "src/drivers/ros_can"]
+	path = src/drivers/ros_can
+	url = https://github.com/CastielLiu/ros_can.git
+[submodule "src/drivers/gps_driver"]
+	path = src/drivers/gps_driver
+	url = https://github.com/CastielLiu/gps_driver.git

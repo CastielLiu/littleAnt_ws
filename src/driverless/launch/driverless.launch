@@ -27,21 +27,5 @@
 		<param name="corr_imu_topic" value="/corr_imu"/>
 	</node>
 	
-	<node name="record_debug_path_node" pkg="recorder" type="record_path_node">
-		<param name="file_path" value="$(find recorder)/data/path_data/debug/"/>
-		<param name="file_name" value="debug.txt"/>
-		<param name="sample_distance" value="0.1" />
-		<param name="utm_topic" value="/ll2utm_odom" />
-		<param name="record_wgs84" value="false" />
-	</node>
-
-	<node name="record_auto_node" pkg="recorder" type="record_all_msgs_node" output= "screen">
-		<param name="file_path" value="$(find recorder)/data/state/"/>
-		<param name="file_name" value="state.txt"/>
-		<param name="imu_topic" value="/corr_imu" />
-		<param name="utm_topic" value="/ll2utm_odom" />
-		<param name="state_topic" value="/tracking_state"/>
-	</node>
-	
 
 </launch>
