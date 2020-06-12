@@ -115,10 +115,10 @@ inline float generateSafetyDisByDangerDis(const float &danger_dis)
 float limitRoadwheelAngleBySpeed(const float& angle, const float& speed);
 float limitSpeedByPathCurvature(const float& speed,const float& curvature);
 float limitSpeedByCurrentRoadwheelAngle(float speed,float angle);
-bool   loadPathPoints(std::string file_path,std::vector<gpsMsg_t>& points);
-float  calculateDis2path(const double& X_,const double& Y_,
+bool  loadPathPoints(std::string file_path,std::vector<gpsMsg_t>& points);
+float calculateDis2path(const double& x,const double& y,
 						 const std::vector<gpsMsg_t>& path_points, 
-						 const size_t& target_point_index,
+						 size_t   ref_point_index, //参考点索引
 						 size_t * const nearest_point_index_ptr=NULL);
 						 
 float maxRoadWheelAngleWhenChangeLane(const float& offset,const float& distance);
@@ -132,6 +132,8 @@ float disBetweenPoints(const gpsMsg_t& point1, const gpsMsg_t& point2);
 size_t findIndexForGivenDis(const std::vector<gpsMsg_t>& path_points, size_t startIndex,float dis);
 float minCurvatureInRange(const std::vector<gpsMsg_t>& path_points, size_t startIndex,size_t endIndex);
 float maxCurvatureInRange(const std::vector<gpsMsg_t>& path_points, size_t startIndex,size_t endIndex);
+float maxCurvatureInRange(const std::vector<gpsMsg_t>& path_points, size_t startIndex,float dis);
+
 float dis2Points(const gpsMsg_t& point1, const gpsMsg_t& point2,bool is_sqrt=true);
 size_t findNearestPoint(const std::vector<gpsMsg_t>& path_points, const gpsMsg_t& current_point);
 std::pair<float, float> get_dis_yaw(gpsMsg_t &point1,gpsMsg_t &point2);

@@ -26,9 +26,9 @@ public:
 	PathTracking();
 	~PathTracking();
 	bool init(ros::NodeHandle nh,ros::NodeHandle nh_private);
-	bool setPath(const std::vector<gpsMsg_t>& path);
+	bool setGlobalPath(const std::vector<gpsMsg_t>& path);
 	bool setExpectSpeed(float speed);
-	void start();
+	bool start();
 	void stop();
 	bool isRunning();
 	controlCmd_t getControlCmd();
@@ -39,6 +39,7 @@ private:
 	float limitSpeedByDestination(const float& speed,const float& acc=1.5);
 	void publishDiagnostics(uint8_t level,const std::string& msg);
 	gpsMsg_t pointOffset(const gpsMsg_t& point,float offset);
+	bool extendGlobalPath(float extendDis);
 	void publishPathTrackingState();
 	float disToEnd();
 private:
@@ -66,6 +67,7 @@ private:
 	float yaw_err_;
 	size_t target_point_index_;
 	size_t nearest_point_index_;
+	int    dst_index_; //终点索引
 	bool is_ready_; //是否准备就绪
 	bool is_running_;
 	
@@ -74,6 +76,5 @@ private:
 	float foreSightDis_latErrCoefficient_;
 	float min_foresight_distance_;
 	float disThreshold_;
-	float avoiding_offset_;
 	float max_side_accel_;
 };

@@ -1,9 +1,9 @@
 #include "driverless/path_tracking.h"
+#define __NODE__ "path_tracking"
 
 PathTracking::PathTracking():
 	target_point_index_(0),
 	nearest_point_index_(0),
-	avoiding_offset_(0.0),
 	expect_speed_(5.0), //defult expect speed
 	is_ready_(false)
 {
@@ -23,7 +23,7 @@ void PathTracking::publishDiagnostics(uint8_t level,const std::string& msg)
 	pub_diagnostic_.publish(diagnostic_msg_);
 }
 
-bool PathTracking::setPath(const std::vector<gpsMsg_t>& path)
+bool PathTracking::setGlobalPath(const std::vector<gpsMsg_t>& path)
 {
 	if(path_points_.size()!=0)
 		return false;
@@ -53,24 +53,71 @@ bool PathTracking::init(ros::NodeHandle nh,ros::NodeHandle nh_private)
 	nh_private.param<float>("foreSightDis_latErrCoefficient", foreSightDis_latErrCoefficient_,-3.0);
 	nh_private.param<float>("min_foresight_distance",min_foresight_distance_,4.0);
 	nh_private.param<float>("max_side_accel",max_side_accel_,1.0);
+	nh_private.param<int>  ("dst_index",dst_index_,0);
 
 	pub_diagnostic_ = nh.advertise<diagnostic_msgs::DiagnosticStatus>("driverless/diagnostic",1);
 	pub_tracking_state_ = nh.advertise<driverless::TrackingState>(tracking_info_topic,1);
-	
+
+	if(path_points_.size()==0)
+	{
+		ROS_ERROR("[%s] please set global path first",__NODE__);
+		return false;
+	}
+		
 	return true;
 }
 
 //启动跟踪线程
-void PathTracking::start()
+bool PathTracking::start()
 {
+	if(!extendGlobalPath(10))
+		return false;
 	is_running_ = true;
 	std::thread t(&PathTracking::trackingThread,this);
 	t.detach();
+	return true;
 }
 
 void PathTracking::stop()
 {
 	is_running_ = false;
+}
+
+/*@brief 拓展全局路径，防止车辆临近终点时无法预瞄
+ *@param extendDis 拓展长度，保证实际终点距离虚拟终点大于等于extendDis
+ *
+ */
+bool PathTracking::extendGlobalPath(float extendDis)
+{
+	if(dst_index_ == 0) //终点索引为默认0
+		dst_index_ = path_points_.size()-1;
+	float remaindDis = 0.0; //期望终点与路径终点的路程
+	for(size_t i=dst_index_; i<path_points_.size()-1; ++i)
+		remaindDis += dis2Points(path_points_[i],path_points_[i+1]);
+	if(remaindDis > extendDis)
+		return true;
+	
+	int n = 5;
+	size_t endIndex = path_points_.size()-1;
+	if(endIndex < n)
+		return false;
+	
+	//取最后一个点与倒数第n个点的连线向后插值
+	float dx = (path_points_[endIndex].x - path_points_[endIndex-n].x)/n;
+	float dy = (path_points_[endIndex].y - path_points_[endIndex-n].y)/n;
+	float ds = sqrt(dx*dx+dy*dy);
+
+	gpsMsg_t point;
+	for(;;)
+	{
+		point.x = path_points_[endIndex].x + dx;
+		point.y = path_points_[endIndex].y + dy;
+		path_points_.push_back(point);
+		remaindDis += ds;
+		if(remaindDis > extendDis)
+			break;
+	}
+	return true;
 }
 
 //跟踪线程
@@ -99,37 +146,24 @@ void PathTracking::trackingThread()
 	ros::Rate loop_rate(30);
 
 	float vehicle_speed,roadwheel_angle;
-	gpsMsg_t current_point;
-	
+	gpsMsg_t now_point;
 	while(ros::ok() && is_running_)
 	{
 		//加锁，状态数据拷贝
 		state_mutex_.lock();
 		vehicle_speed = vehicle_speed_;
 		roadwheel_angle = roadwheel_angle_;
-		current_point = current_point_;
+		now_point = current_point_;
 		state_mutex_.unlock();
-
-		if( avoiding_offset_ != 0.0)
-			target_point = pointOffset(path_points_[target_index],avoiding_offset_);
 		
-		try
-		{
-			lateral_err_ = calculateDis2path(current_point.x, current_point.y,path_points_,
-											 target_index,&nearest_point_index_) - avoiding_offset_;
-		}
-		catch(const char* str)
-		{
-			ROS_INFO("%s",str);
-			break;
-		}
+		lateral_err_ = calculateDis2path(now_point.x, now_point.y,path_points_,nearest_point_index_,&nearest_point_index_);
 		
 		disThreshold_ = foreSightDis_speedCoefficient_ * vehicle_speed + foreSightDis_latErrCoefficient_ * fabs(lateral_err_);
 	
 		if(disThreshold_ < min_foresight_distance_) 
 			disThreshold_  = min_foresight_distance_;
 									 
-		std::pair<float, float> dis_yaw = get_dis_yaw(target_point, current_point);
+		std::pair<float, float> dis_yaw = get_dis_yaw(target_point, now_point);
 
 		if( dis_yaw.first < disThreshold_)
 		{
@@ -137,7 +171,7 @@ void PathTracking::trackingThread()
 			continue;
 		}
 		
-		yaw_err_ = dis_yaw.second - current_point_.yaw;
+		yaw_err_ = dis_yaw.second - now_point.yaw;
 		
 		if(yaw_err_==0.0) continue;
 		
@@ -147,15 +181,10 @@ void PathTracking::trackingThread()
 		
 		t_roadWheelAngle = limitRoadwheelAngleBySpeed(t_roadWheelAngle,vehicle_speed);
 		
-		//此处需要修改
-		//find the index of a path point x meters from the current point
-		size_t index = findIndexForGivenDis(path_points_,nearest_point_index_,disThreshold_ + 13); 
-		if(index ==0)
-		{
-			ROS_INFO("findIndexForGivenDis faild!");
-			break;
-		}
-		float max_curvature = maxCurvatureInRange(path_points_, nearest_point_index_, index);
+		float curvature_search_distance = disThreshold_ + 13; //曲率搜索距离 
+
+		float max_curvature = maxCurvatureInRange(path_points_,nearest_point_index_,curvature_search_distance);
+
 		float max_speed = generateMaxTolarateSpeedByCurvature(max_curvature, max_side_accel_);
 
 		max_speed = limitSpeedByDestination(max_speed); 
@@ -173,7 +202,6 @@ void PathTracking::trackingThread()
 			ROS_INFO("set_speed:%f\t speed:%f",cmd_.speed ,vehicle_speed_*3.6);
 			ROS_INFO("dis2target:%.2f\t yaw_err:%.2f\t lat_err:%.2f",dis_yaw.first,yaw_err_*180.0/M_PI,lateral_err_);
 			ROS_INFO("disThreshold:%f\t expect roadwheel angle:%.2f",disThreshold_,t_roadWheelAngle);
-			ROS_INFO("avoiding_offset_:%f\n",avoiding_offset_);
 			publishDiagnostics(diagnostic_msgs::DiagnosticStatus::OK,"Running");
 		}
 		

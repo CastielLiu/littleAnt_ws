@@ -91,7 +91,7 @@ void AutoDrive::run()
 {
 	//配置路径跟踪控制器
 	tracker_.setExpectSpeed(max_speed_);
-	tracker_.setPath(path_points_);
+	tracker_.setGlobalPath(path_points_);
 
     if(!tracker_.init(nh_, nh_private_))
 	{

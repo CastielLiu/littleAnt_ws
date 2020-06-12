@@ -9,13 +9,13 @@ add_compile_options(-std=c++11)
 ## is used, also find other catkin packages
 find_package(catkin REQUIRED COMPONENTS
   ant_math
-  array_msgs
   diagnostic_msgs
   gps_msgs
   jsk_recognition_msgs
   little_ant_msgs
   message_filters
   message_generation
+  euclidean_cluster
   roscpp
   rospy
   std_msgs
@@ -77,7 +77,7 @@ add_message_files(
 ## Generate added messages and services with any dependencies listed here
  generate_messages(
    DEPENDENCIES
-   # array_msgs#   diagnostic_msgs#   gps_msgs#   jsk_recognition_msgs#   little_ant_msgs#   
+   #   diagnostic_msgs#   gps_msgs#   jsk_recognition_msgs#   little_ant_msgs#   
    std_msgs
  )
 
@@ -113,7 +113,7 @@ add_message_files(
 catkin_package(
 #  INCLUDE_DIRS include
 #  LIBRARIES driverless
-#  CATKIN_DEPENDS ant_math array_msgs diagnostic_msgs gps_msgs jsk_recognition_msgs little_ant_msgs message_filters message_generation roscpp rospy std_msgs
+#  CATKIN_DEPENDS ant_math diagnostic_msgs gps_msgs jsk_recognition_msgs little_ant_msgs message_filters message_generation roscpp rospy std_msgs
 #  DEPENDS system_lib
 )
 

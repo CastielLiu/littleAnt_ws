@@ -16,3 +16,9 @@
 [submodule "src/drivers/ant_driver"]
 	path = src/drivers/ant_driver
 	url = https://github.com/CastielLiu/ant_driver.git
+[submodule "src/drivers/esr_radar"]
+	path = src/drivers/esr_radar
+	url = https://github.com/CastielLiu/esr_radar.git
+[submodule "src/lidar_detect"]
+	path = src/lidar_detect
+	url = https://github.com/CastielLiu/lidar_detect.git

@@ -51,7 +51,6 @@
   <buildtool_depend>catkin</buildtool_depend>
   <build_depend>little_ant_msgs</build_depend>
   <build_depend>gps_msgs</build_depend>
-  <build_depend>array_msgs</build_depend>  
   
   <build_depend>roscpp</build_depend>
   <build_depend>rospy</build_depend>
