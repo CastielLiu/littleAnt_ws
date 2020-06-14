@@ -94,6 +94,8 @@ size_t findNearestPoint(const std::vector<gpsMsg_t>& path_points, const gpsMsg_t
 	
 	for(size_t i=0; i<path_points.size(); ++i)
 	{
+		if(fabs(path_points[i].yaw-current_point.yaw) > M_PI/2)
+			continue;
 		float dis2 = dis2Points(path_points[i],current_point,false);
 		if(dis2 < min_dis2)
 		{
@@ -107,7 +109,7 @@ size_t findNearestPoint(const std::vector<gpsMsg_t>& path_points, const gpsMsg_t
 		ROS_ERROR("find correct nearest point failed! the nearest point distance over 15 meters");
 		return path_points.size();
 	}
-		
+		std::cout <<index << std::endl;
 	return index;
 }
 
@@ -118,17 +120,23 @@ float calculateDis2path(const double& x,const double& y,
 {
 	int searchDir; //搜索方向 -1:向后搜索， 1：向前搜索， 0 搜索完毕
 	if(ref_point_index == 0)
+	{
+		ref_point_index = 1;
 		searchDir = 1;
-	else if(ref_point_index == path_points.size())
+	}
+	else if(ref_point_index == path_points.size()-1)
+	{
+		ref_point_index = path_points.size()-2;
 		searchDir = -1;
+	}
 	else
 	{
 		float dis2ref  = pow(path_points[ref_point_index].x   - x, 2) + 
 					     pow(path_points[ref_point_index].y   - y, 2);
-		float dis2last = pow(path_points[ref_point_index+1].x - x, 2) + 
-					     pow(path_points[ref_point_index+1].y - y, 2);
-		float dis2next = pow(path_points[ref_point_index-1].x - x, 2) + 
+		float dis2last = pow(path_points[ref_point_index-1].x - x, 2) + 
 					     pow(path_points[ref_point_index-1].y - y, 2);
+		float dis2next = pow(path_points[ref_point_index+1].x - x, 2) + 
+					     pow(path_points[ref_point_index+1].y - y, 2);
 		if(dis2next > dis2ref && dis2last > dis2ref) 
 			searchDir = 0;
 		else if(dis2next > dis2ref && dis2ref > dis2last)
@@ -136,17 +144,20 @@ float calculateDis2path(const double& x,const double& y,
 		else
 			searchDir = 1;
 	}
-
+	
+	//std::cout  <<  "searchDir:"  << "\t" << searchDir << "\r\n";
 	while(ref_point_index>0 && ref_point_index<path_points.size()-1)
 	{
 		float dis2ref  = pow(path_points[ref_point_index].x   - x, 2) + 
 							pow(path_points[ref_point_index].y   - y, 2);
-		float dis2last = pow(path_points[ref_point_index+1].x - x, 2) + 
-							pow(path_points[ref_point_index+1].y - y, 2);
-		float dis2next = pow(path_points[ref_point_index-1].x - x, 2) + 
+		float dis2last = pow(path_points[ref_point_index-1].x - x, 2) + 
 							pow(path_points[ref_point_index-1].y - y, 2);
-		
-		if(dis2next > dis2ref && dis2last > dis2ref)
+		float dis2next = pow(path_points[ref_point_index+1].x - x, 2) + 
+							pow(path_points[ref_point_index+1].y - y, 2);
+	//std::cout  << ref_point_index << "\t" <<  sqrt(dis2last)  << "\t" << sqrt(dis2ref) << "\t" << sqrt(dis2next) << "\r\n";		
+		if((searchDir == 1 && dis2next > dis2ref) ||
+		   (searchDir ==-1 && dis2last > dis2ref) ||
+		   (searchDir == 0))
 			break;
 
 		ref_point_index += searchDir;
@@ -262,7 +273,6 @@ float maxCurvatureInRange(const std::vector<gpsMsg_t>& path_points, size_t start
 		now_cuvature = fabs(path_points[i].curvature);
 		if(max_cuvature < now_cuvature)
 			max_cuvature = now_cuvature;
-
 		sum_dis	+= disBetweenPoints(path_points[i],path_points[1+i]);
 		if(sum_dis >= dis)
 			break;

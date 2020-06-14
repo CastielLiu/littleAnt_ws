@@ -108,10 +108,10 @@ bool PathTracking::extendGlobalPath(float extendDis)
 	float ds = sqrt(dx*dx+dy*dy);
 
 	gpsMsg_t point;
-	for(;;)
+	for(size_t i=1;;++i)
 	{
-		point.x = path_points_[endIndex].x + dx;
-		point.y = path_points_[endIndex].y + dy;
+		point.x = path_points_[endIndex].x + dx*i;
+		point.y = path_points_[endIndex].y + dy*i;
 		path_points_.push_back(point);
 		remaindDis += ds;
 		if(remaindDis > extendDis)
@@ -129,7 +129,8 @@ void PathTracking::trackingThread()
 	}
 
 	state_mutex_.lock();
-	size_t target_index = findNearestPoint(path_points_,current_point_); //跟踪目标点索引
+	nearest_point_index_ = findNearestPoint(path_points_,current_point_); 
+	size_t target_index = nearest_point_index_;//跟踪目标点索引
 	state_mutex_.unlock();
 
 	if(target_index > path_points_.size() - 10)
@@ -186,13 +187,12 @@ void PathTracking::trackingThread()
 		float max_curvature = maxCurvatureInRange(path_points_,nearest_point_index_,curvature_search_distance);
 
 		float max_speed = generateMaxTolarateSpeedByCurvature(max_curvature, max_side_accel_);
-
 		max_speed = limitSpeedByDestination(max_speed); 
-		
 		cmd_mutex_.lock();
-		cmd_.speed = expect_speed_ > max_speed ? max_speed : expect_speed_;
+		cmd_.speed = (expect_speed_>max_speed) ? max_speed : expect_speed_;
 		cmd_.roadWheelAngle = t_roadWheelAngle;
 		cmd_mutex_.unlock();
+		//ROS_INFO("speed:%.2f\t max:%.2f\t e:%.2f",cmd_.speed,max_speed,expect_speed_);
 		
 		publishPathTrackingState();
 
@@ -202,6 +202,7 @@ void PathTracking::trackingThread()
 			ROS_INFO("set_speed:%f\t speed:%f",cmd_.speed ,vehicle_speed_*3.6);
 			ROS_INFO("dis2target:%.2f\t yaw_err:%.2f\t lat_err:%.2f",dis_yaw.first,yaw_err_*180.0/M_PI,lateral_err_);
 			ROS_INFO("disThreshold:%f\t expect roadwheel angle:%.2f",disThreshold_,t_roadWheelAngle);
+			ROS_INFO("nearest_point_index:%d",nearest_point_index_);
 			publishDiagnostics(diagnostic_msgs::DiagnosticStatus::OK,"Running");
 		}
 		
@@ -254,16 +255,23 @@ gpsMsg_t PathTracking::pointOffset(const gpsMsg_t& point,float offset)
 
 float PathTracking::disToEnd()
 {
-	float dis1 = path_points_resolution_ * fabs(path_points_.size()-nearest_point_index_); //估计路程
-	float dis2 = disBetweenPoints(path_points_[path_points_.size()-1],path_points_[nearest_point_index_]);//直线距离
+	static bool over = false;
+	if(over)
+		return 0;
+	float dis1 = path_points_resolution_ * fabs(dst_index_-nearest_point_index_); //估计路程
+	float dis2 = disBetweenPoints(path_points_[dst_index_],path_points_[nearest_point_index_]);//直线距离
+	float dis2end = dis1 > dis2 ? dis1 : dis2;
+	if(fabs(dis2end) < 0.5)
+		over = true;
 	
-	return dis1 > dis2 ? dis1 : dis2;
+	return dis2end;
 }
 
 float PathTracking::limitSpeedByDestination(const float& speed,const float& acc)
 {
 	float dis2end = disToEnd();
 	float maxSpeed = sqrt(2*acc*dis2end);
+	//ROS_INFO("dis2end:%.2f\tmaxSpeed:%.2f",dis2end,maxSpeed);
 	if(dis2end < 0.5) //到达终点附近
 		return 0;
 

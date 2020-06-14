@@ -36,7 +36,7 @@ public:
 
 private:
 	void trackingThread();
-	float limitSpeedByDestination(const float& speed,const float& acc=1.5);
+	float limitSpeedByDestination(const float& speed,const float& acc=5);
 	void publishDiagnostics(uint8_t level,const std::string& msg);
 	gpsMsg_t pointOffset(const gpsMsg_t& point,float offset);
 	bool extendGlobalPath(float extendDis);
