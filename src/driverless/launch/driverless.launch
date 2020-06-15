@@ -16,7 +16,7 @@
 		
 	</node> 
 	
-	<node pkg="novatel" type="novatel_node" name="novatel_node"  >
+	<node name="novatel_node" pkg="novatel" type="novatel_node">
 
 		<param name="port" value="/dev/ttyS2" />
 		<param name="baudrate" value="115200" />
@@ -26,6 +26,8 @@
 		<param name="ll2utm_topic" value="/ll2utm_odom"/>
 		<param name="corr_imu_topic" value="/corr_imu"/>
 	</node>
+	
+	<include file="$(find esr_radar)/launch/esr_radar.launch" />
 	
 
 </launch>
