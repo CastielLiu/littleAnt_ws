@@ -6,6 +6,11 @@
 #include <esr_radar/ObjectArray.h>
 #include <diagnostic_msgs/DiagnosticStatus.h>
 #include <ant_math/ant_math.h>
+#include <nav_msgs/Path.h>
+#include <geometry_msgs/Quaternion.h>
+#include <geometry_msgs/PoseStamped.h>
+#include <tf/transform_broadcaster.h>
+#include <tf/tf.h>
 #include <std_msgs/UInt8.h>
 #include <vector>
 #include <thread>
@@ -31,12 +36,14 @@ private:
 	void object_callback(const esr_radar::ObjectArray::ConstPtr& objects);
 	void updateTimer_callback(const ros::TimerEvent&);
 	void carFollowingThread();
+	void publishLocalPath();
 	
 private:
 	ros::NodeHandle nh_;
 	ros::NodeHandle nh_private_;
 	ros::Subscriber sub_objects_;
 	ros::Publisher  pub_diagnostic_;
+	ros::Publisher  pub_local_path_;
 
 	ros::Timer      update_timer_;
 	std::string     objects_topic_;

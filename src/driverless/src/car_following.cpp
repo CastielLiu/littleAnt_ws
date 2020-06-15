@@ -2,6 +2,8 @@
 
 #define __NAME__ "car_following"
 
+float offset = 5.0/180.0*M_PI;
+
 CarFollowing::CarFollowing()
 {
 	targetId_ = 0xff; //no target
@@ -57,6 +59,7 @@ bool CarFollowing::start()
 	is_running_ = true;
 	sub_objects_  = nh_.subscribe(objects_topic_,10,&CarFollowing::object_callback,this);
 	update_timer_ = nh_.createTimer(ros::Duration(0.10),&CarFollowing::updateTimer_callback,this);
+	pub_local_path_=nh_.advertise<nav_msgs::Path>("/local_path",2);
 	return true;
 }
 
@@ -75,6 +78,7 @@ void CarFollowing::updateTimer_callback(const ros::TimerEvent&)
 		cmd_.validity = false;
 		cmd_mutex_.unlock();
 	}
+	publishLocalPath();
 }
 
 //1. 目标分类，障碍物/非障碍物(假定目标尺寸，计算与全局路径的距离)
@@ -102,7 +106,7 @@ void CarFollowing::object_callback(const esr_radar::ObjectArray::ConstPtr& objec
 		
 		//目标局部坐标转换到大地全局坐标
 		std::pair<float, float> object_global_pos =  
-			coordinationConvert(vehicle_pose.x,vehicle_pose.y,vehicle_pose.yaw, object.x,object.y);
+			local2global(vehicle_pose.x,vehicle_pose.y,vehicle_pose.yaw-offset, object.x,object.y);
 		
 		//计算目标到全局路径的距离
 		float dis2path = calculateDis2path(object_global_pos.first, object_global_pos.second,path_points_,pose_index);
@@ -142,12 +146,46 @@ void CarFollowing::object_callback(const esr_radar::ObjectArray::ConstPtr& objec
 		t_speed = vehicle_speed + nearestObstal.speed + distanceErr *0.3;
 			
 	ROS_INFO("target dis:%.2f  speed:%.2f  dis2path:%.2f  vehicle speed:%.2f  t_speed:%.2f  t_dis:%.2f   dis:%f",minDis,vehicle_speed + nearestObstal.speed,targetDis2path, vehicle_speed,t_speed,follow_distance_,nearestObstal.distance);
+	ROS_INFO("target x:%.2f  y:%.2f  id:%2d",nearestObstal.x,nearestObstal.y,nearestObstal.id);
 	
 	cmd_update_time_ = ros::Time::now().toSec();
 	cmd_mutex_.lock();
 	cmd_.validity = true;
 	cmd_.speed = t_speed;
 	cmd_mutex_.unlock();
+}
+
+void CarFollowing::publishLocalPath()
+{
+	nav_msgs::Path path;
+    path.header.stamp=ros::Time::now();
+    path.header.frame_id="esr_radar";
+	size_t startIndex = nearest_point_index_;
+	size_t endIndex   = std::min(startIndex+200,path_points_.size()-1);
+	gpsMsg_t origin_point = vehicle_pose_;
+	path.poses.reserve(endIndex-startIndex+1);
+	
+	for(size_t i=startIndex; i<endIndex; ++i)
+	{
+		const auto& global_point = path_points_[i];
+		std::pair<float,float> local_point = 
+			global2local(origin_point.x,origin_point.y,origin_point.yaw+offset,global_point.x,global_point.y);
+		
+		geometry_msgs::PoseStamped this_pose_stamped;
+        this_pose_stamped.pose.position.x = local_point.first;
+        this_pose_stamped.pose.position.y = local_point.second;
+
+        geometry_msgs::Quaternion goal_quat = tf::createQuaternionMsgFromYaw(origin_point.yaw-global_point.yaw);
+        this_pose_stamped.pose.orientation.x = goal_quat.x;
+        this_pose_stamped.pose.orientation.y = goal_quat.y;
+        this_pose_stamped.pose.orientation.z = goal_quat.z;
+        this_pose_stamped.pose.orientation.w = goal_quat.w;
+
+        //this_pose_stamped.header.stamp=current_time;
+        this_pose_stamped.header.frame_id="esr_radar";
+        path.poses.push_back(this_pose_stamped);
+	}
+	pub_local_path_.publish(path);
 }
 
 controlCmd_t CarFollowing::getControlCmd() 
