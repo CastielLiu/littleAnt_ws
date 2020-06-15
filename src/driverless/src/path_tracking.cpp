@@ -157,7 +157,9 @@ void PathTracking::trackingThread()
 		now_point = current_point_;
 		state_mutex_.unlock();
 		
+		nearest_point_index_mutex_.lock();
 		lateral_err_ = calculateDis2path(now_point.x, now_point.y,path_points_,nearest_point_index_,&nearest_point_index_);
+		nearest_point_index_mutex_.unlock();
 		
 		disThreshold_ = foreSightDis_speedCoefficient_ * vehicle_speed + foreSightDis_latErrCoefficient_ * fabs(lateral_err_);
 	
@@ -166,10 +168,11 @@ void PathTracking::trackingThread()
 									 
 		std::pair<float, float> dis_yaw = get_dis_yaw(target_point, now_point);
 
-		if( dis_yaw.first < disThreshold_)
+		//循环查找满足disThreshold_的目标点
+		while( dis_yaw.first < disThreshold_)
 		{
 			target_point = path_points_[++target_index];
-			continue;
+			dis_yaw = get_dis_yaw(target_point, now_point);
 		}
 		
 		yaw_err_ = dis_yaw.second - now_point.yaw;
@@ -189,6 +192,7 @@ void PathTracking::trackingThread()
 		float max_speed = generateMaxTolarateSpeedByCurvature(max_curvature, max_side_accel_);
 		max_speed = limitSpeedByDestination(max_speed); 
 		cmd_mutex_.lock();
+		cmd_.validity = true;
 		cmd_.speed = (expect_speed_>max_speed) ? max_speed : expect_speed_;
 		cmd_.roadWheelAngle = t_roadWheelAngle;
 		cmd_mutex_.unlock();
@@ -218,6 +222,12 @@ void PathTracking::trackingThread()
 	cmd_mutex_.unlock();
 	
 	is_running_ = false;
+}
+
+size_t PathTracking::getNearestPointIndex()
+{
+	std::lock_guard<std::mutex> lock(nearest_point_index_mutex_);
+	return nearest_point_index_;
 }
 
 controlCmd_t PathTracking::getControlCmd() 
@@ -255,16 +265,17 @@ gpsMsg_t PathTracking::pointOffset(const gpsMsg_t& point,float offset)
 
 float PathTracking::disToEnd()
 {
-	static bool over = false;
-	if(over)
+	if(nearest_point_index_ >  dst_index_) //超出终点
 		return 0;
-	float dis1 = path_points_resolution_ * fabs(dst_index_-nearest_point_index_); //估计路程
-	float dis2 = disBetweenPoints(path_points_[dst_index_],path_points_[nearest_point_index_]);//直线距离
-	float dis2end = dis1 > dis2 ? dis1 : dis2;
-	if(fabs(dis2end) < 0.5)
-		over = true;
-	
-	return dis2end;
+	else if(nearest_point_index_ == dst_index_)
+		return disBetweenPoints(path_points_[dst_index_],path_points_[nearest_point_index_]);
+	else
+	{
+		float dis1 = path_points_resolution_ * fabs(dst_index_-nearest_point_index_); //估计路程
+		float dis2 = disBetweenPoints(path_points_[dst_index_],path_points_[nearest_point_index_]);//直线距离
+		float dis2end = dis1 > dis2 ? dis1 : dis2;
+		return dis2end;
+	}
 }
 
 float PathTracking::limitSpeedByDestination(const float& speed,const float& acc)

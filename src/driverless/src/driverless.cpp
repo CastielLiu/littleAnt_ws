@@ -92,24 +92,35 @@ void AutoDrive::run()
 	//配置路径跟踪控制器
 	tracker_.setExpectSpeed(max_speed_);
 	tracker_.setGlobalPath(path_points_);
-
     if(!tracker_.init(nh_, nh_private_))
 	{
 		publishDiagnostics(diagnostic_msgs::DiagnosticStatus::ERROR,"Init path tracker failed!");
 		return;
 	}
 
-	//启动路径跟踪控制器
-	tracker_.start();
+	car_follower_.setGlobalPath(path_points_);
+	if(!car_follower_.init(nh_, nh_private_))
+	{
+		publishDiagnostics(diagnostic_msgs::DiagnosticStatus::ERROR,"Init car follower failed!");
+		return;
+	}
+
+	//启动子功能
+	tracker_.start();//路径跟踪控制器
+	car_follower_.start(); //跟车控制器
 
 	ros::Rate loop_rate(20);
 	
 	while(ros::ok())
 	{
 		tracker_.updateStatus(vehicle_pose_, vehicle_speed_, roadwheel_angle_);
-        tracker_cmd_ = tracker_.getControlCmd();
-		decisionMaking();
+		size_t nearest_point_index = tracker_.getNearestPointIndex();
+		car_follower_.updateStatus(vehicle_pose_,vehicle_speed_,nearest_point_index);
 
+        tracker_cmd_ = tracker_.getControlCmd();
+		follower_cmd_= car_follower_.getControlCmd();
+		
+		decisionMaking();
 		loop_rate.sleep();
 	}
 	
@@ -120,7 +131,11 @@ void AutoDrive::run()
 void AutoDrive::decisionMaking()
 {
 	std::lock_guard<std::mutex> lock(command_mutex_);
-	controlCmd2_.set_speed = tracker_cmd_.speed;
+
+	if(follower_cmd_.validity && follower_cmd_.speed < tracker_cmd_.speed)
+		controlCmd2_.set_speed = follower_cmd_.speed;
+	else
+		controlCmd2_.set_speed = tracker_cmd_.speed;
 	controlCmd2_.set_roadWheelAngle = tracker_cmd_.roadWheelAngle;
 }
 

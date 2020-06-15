@@ -32,12 +32,13 @@ public:
 	void stop();
 	bool isRunning();
 	controlCmd_t getControlCmd();
+	size_t getNearestPointIndex();
 	bool updateStatus(const gpsMsg_t& pose,const float& speed, const float& roadWheelAngle);
 
 private:
-	void trackingThread();
+	void  trackingThread();
 	float limitSpeedByDestination(const float& speed,const float& acc=5);
-	void publishDiagnostics(uint8_t level,const std::string& msg);
+	void  publishDiagnostics(uint8_t level,const std::string& msg);
 	gpsMsg_t pointOffset(const gpsMsg_t& point,float offset);
 	bool extendGlobalPath(float extendDis);
 	void publishPathTrackingState();
@@ -66,6 +67,7 @@ private:
 	float lateral_err_;
 	float yaw_err_;
 	size_t target_point_index_;
+	std::mutex nearest_point_index_mutex_;
 	size_t nearest_point_index_;
 	int    dst_index_; //终点索引
 	bool is_ready_; //是否准备就绪

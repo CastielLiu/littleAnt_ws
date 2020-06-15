@@ -1,6 +1,7 @@
 
 #include "ros/ros.h"
 #include "path_tracking.h"
+#include "car_following.h"
 
 #include<little_ant_msgs/ControlCmd1.h>
 #include<little_ant_msgs/ControlCmd2.h>
@@ -57,4 +58,7 @@ private:
     float avoid_offset_;
     PathTracking tracker_;
     controlCmd_t tracker_cmd_;
+
+    CarFollowing car_follower_;
+    controlCmd_t follower_cmd_;
 };

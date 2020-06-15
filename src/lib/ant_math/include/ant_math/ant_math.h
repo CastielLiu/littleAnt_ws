@@ -64,6 +64,11 @@ typedef struct
 	
 }gpsMsg_t;
 
+typedef struct
+{
+	double x,y;
+}point_t;
+
 extern const float g_vehicle_width;
 extern const float g_vehicle_length;
 extern const float g_max_deceleration;
@@ -133,6 +138,8 @@ size_t findIndexForGivenDis(const std::vector<gpsMsg_t>& path_points, size_t sta
 float minCurvatureInRange(const std::vector<gpsMsg_t>& path_points, size_t startIndex,size_t endIndex);
 float maxCurvatureInRange(const std::vector<gpsMsg_t>& path_points, size_t startIndex,size_t endIndex);
 float maxCurvatureInRange(const std::vector<gpsMsg_t>& path_points, size_t startIndex,float dis);
+std::pair<float, float> coordinationConvert(float X,float Y,float Theta, float x,float y);
+point_t coordinationConvert(point_t origin,float theta, point_t local);
 
 float dis2Points(const gpsMsg_t& point1, const gpsMsg_t& point2,bool is_sqrt=true);
 size_t findNearestPoint(const std::vector<gpsMsg_t>& path_points, const gpsMsg_t& current_point);

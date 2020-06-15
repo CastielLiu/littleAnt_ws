@@ -10,7 +10,6 @@ const float g_max_deceleration = 5.0; // m/s/s
 static const float max_side_acceleration = 1.5; // m/s/s
 
 
-
 float limitRoadwheelAngleBySpeed(const float& angle, const float& speed)
 {
 	float min_steering_radius = speed*speed/max_side_acceleration;
@@ -51,7 +50,9 @@ float limitSpeedByCurrentRoadwheelAngle(float speed,float angle)
 //	return true;
 //}
 
-
+/*@param 从文件载入路径点
+ *
+ */
 bool loadPathPoints(std::string file_path,std::vector<gpsMsg_t>& points)
 {
 	std::ifstream in_file(file_path.c_str());
@@ -113,6 +114,12 @@ size_t findNearestPoint(const std::vector<gpsMsg_t>& path_points, const gpsMsg_t
 	return index;
 }
 
+/*@brief 计算目标点到达路径的距离
+ *@param x,y         目标点坐标
+ *@param path_points 路径点集
+ *@param ref_point_index 参考点索引，以此参考点展开搜索，加速计算
+ *@param nearest_point_index_ptr 输出与目标点最近的路径点索引(可选参数)
+ */
 float calculateDis2path(const double& x,const double& y,
 						 const std::vector<gpsMsg_t>& path_points, 
 						 size_t   ref_point_index, //参考点索引
@@ -262,7 +269,9 @@ float minCurvatureInRange(const std::vector<gpsMsg_t>& path_points, size_t start
 	}
 	return min;
 }
-
+/*@brief 搜索从startIndex开始到dis距离区间的最大曲率
+ *@brief剩余距离小于期望距离时输出剩余部分的最大曲率
+*/
 float maxCurvatureInRange(const std::vector<gpsMsg_t>& path_points, size_t startIndex,float dis)
 {
 	float sum_dis = 0.0;
@@ -291,7 +300,10 @@ float maxCurvatureInRange(const std::vector<gpsMsg_t>& path_points, size_t start
 	return max;
 }
 
-
+/*@brief 获取两点间的距离以及航向
+ *@param point1 终点
+ *@param point2 起点
+ */
 std::pair<float, float> get_dis_yaw(gpsMsg_t &point1,gpsMsg_t &point2)
 {
 	float x = point1.x - point2.x;
@@ -304,6 +316,34 @@ std::pair<float, float> get_dis_yaw(gpsMsg_t &point1,gpsMsg_t &point2)
 	if(dis_yaw.second <0)
 		dis_yaw.second += 2*M_PI;
 	return dis_yaw;
+}
+
+/*@brief 坐标变换
+ *@param X,Y   局部坐标系在全局坐标下的位置
+ *@param Theta 局部坐标系在全局坐标下的角度
+ *@param x,y   点在局部坐标系下的坐标
+ *@return      点在全局坐标系下的坐标
+ */
+std::pair<float, float> coordinationConvert(float X,float Y,float Theta, float x,float y)
+{
+	std::pair<float, float> out;
+	out.first  = x*cos(Theta) - y*sin(Theta) + X;
+	out.second = x*sin(Theta) + y*cos(Theta) + Y;
+	return out;
+}
+
+/*@brief 坐标变换
+ *@param origin   局部坐标系原点在全局坐标下的位置
+ *@param theta    局部坐标系在全局坐标下的角度
+ *@param local   点在局部坐标系下的位置
+ *@return        点在全局坐标系下的位置
+ */
+point_t coordinationConvert(point_t origin,float theta, point_t local)
+{
+	point_t global;
+	global.x = local.x*cos(theta) - local.y*sin(theta) + origin.x;
+	global.y = local.x*sin(theta) + local.y*cos(theta) + origin.y;
+	return global;
 }
 
 
