@@ -28,6 +28,8 @@
   <build_depend>rospy</build_depend>
   <build_depend>std_msgs</build_depend>
   <build_depend>euclidean_cluster</build_depend>
+  <build_depend>esr_radar</build_depend>
+  
 
   <build_export_depend>ant_math</build_export_depend>
   <build_export_depend>diagnostic_msgs</build_export_depend>
@@ -41,6 +43,7 @@
   <exec_depend>ant_math</exec_depend>
   <exec_depend>diagnostic_msgs</exec_depend>
   <exec_depend>gps_msgs</exec_depend>
+  <exec_depend>esr_radar</exec_depend>
   <exec_depend>jsk_recognition_msgs</exec_depend>
   <exec_depend>little_ant_msgs</exec_depend>
   <exec_depend>message_filters</exec_depend>

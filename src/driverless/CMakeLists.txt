@@ -13,6 +13,7 @@ find_package(catkin REQUIRED COMPONENTS
   gps_msgs
   jsk_recognition_msgs
   little_ant_msgs
+  esr_radar
   message_filters
   message_generation
   euclidean_cluster

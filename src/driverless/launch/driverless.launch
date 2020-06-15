@@ -18,7 +18,7 @@
 	
 	<node name="novatel_node" pkg="novatel" type="novatel_node">
 
-		<param name="port" value="/dev/ttyS2" />
+		<param name="port" value="/dev/ttyS1" />
 		<param name="baudrate" value="115200" />
 		<param name="log_commands" value="inspvaxb ontime 0.05; corrimudatasb ontime 0.01" />
 		<param name="log_corrimu_frequency" value="100"/>

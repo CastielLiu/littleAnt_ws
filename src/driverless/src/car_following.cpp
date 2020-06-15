@@ -6,7 +6,7 @@ CarFollowing::CarFollowing()
 {
 	targetId_ = 0xff; //no target
 	cmd_update_time_ = 0.0;
-	safety_side_dis_ = 1.5+1.5+2;
+	safety_side_dis_ = 0.0+1.5+0.5;
 	cmd_.validity = false;
 	is_running_ = false;
 	is_ready_ = false;
@@ -16,9 +16,7 @@ bool CarFollowing::init(ros::NodeHandle nh,ros::NodeHandle nh_private)
 {
 	nh_ = nh;
 	nh_private_ = nh_private;
-
-	std::string objects_topic_ = 
-	nh_private.param<std::string>("mm_radar_objects_topic","/esr_objects");
+	objects_topic_ = nh_private.param<std::string>("mm_radar_objects_topic","/esr_objects");
 	//nh_private.param<float>("max_following_speed",max_following_speed_,15.0);
 
 	pub_diagnostic_ = nh.advertise<diagnostic_msgs::DiagnosticStatus>("driverless/diagnostic",1);
@@ -97,6 +95,7 @@ void CarFollowing::object_callback(const esr_radar::ObjectArray::ConstPtr& objec
 	follow_distance_ = vehicle_speed*vehicle_speed/(2*2.0)  + 8.0;
 
 	std::vector<esr_radar::Object> obstacles;
+	float targetDis2path=1111;;
 	for(size_t i=0; i< objects->objects.size(); ++i)
 	{
 		const esr_radar::Object& object = objects->objects[i];
@@ -107,8 +106,14 @@ void CarFollowing::object_callback(const esr_radar::ObjectArray::ConstPtr& objec
 		
 		//计算目标到全局路径的距离
 		float dis2path = calculateDis2path(object_global_pos.first, object_global_pos.second,path_points_,pose_index);
+		//std::cout << std::fixed << std::setprecision(2) <<
+		//	object.x <<"  "<<object.y <<"\t" << dis2path << std::endl;
 		if(fabs(dis2path) < safety_side_dis_)
+		{
+			targetDis2path = dis2path;
 			obstacles.push_back(object);
+		}
+			
 	}
 	if(obstacles.size() == 0) return;
 
@@ -136,8 +141,7 @@ void CarFollowing::object_callback(const esr_radar::ObjectArray::ConstPtr& objec
 	else
 		t_speed = vehicle_speed + nearestObstal.speed + distanceErr *0.3;
 			
-	ROS_INFO("target speed:%f \t vehicle speed:%f \t t_speed:%f\t t_dis:%f\t dis:%f",
-						vehicle_speed + nearestObstal.speed,vehicle_speed,t_speed,follow_distance_,nearestObstal.distance);
+	ROS_INFO("target dis:%.2f  speed:%.2f  dis2path:%.2f  vehicle speed:%.2f  t_speed:%.2f  t_dis:%.2f   dis:%f",minDis,vehicle_speed + nearestObstal.speed,targetDis2path, vehicle_speed,t_speed,follow_distance_,nearestObstal.distance);
 	
 	cmd_update_time_ = ros::Time::now().toSec();
 	cmd_mutex_.lock();
