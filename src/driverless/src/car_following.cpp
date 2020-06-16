@@ -2,7 +2,7 @@
 
 #define __NAME__ "car_following"
 
-float offset = 5.0/180.0*M_PI;
+float offset = 0.0/180.0*M_PI;
 
 CarFollowing::CarFollowing()
 {
@@ -114,7 +114,7 @@ void CarFollowing::object_callback(const esr_radar::ObjectArray::ConstPtr& objec
 		
 		//目标局部坐标转换到大地全局坐标
 		std::pair<float, float> object_global_pos =  
-			local2global(vehicle_pose.x,vehicle_pose.y,vehicle_pose.yaw, base_pose.first,base_pose.second);
+			local2global(vehicle_pose.x,vehicle_pose.y,-vehicle_pose.yaw, base_pose.first,base_pose.second);
 		
 		//计算目标到全局路径的距离
 		float dis2path = calculateDis2path(object_global_pos.first, object_global_pos.second,path_points_,pose_index);
@@ -167,7 +167,7 @@ void CarFollowing::publishLocalPath()
 {
 	nav_msgs::Path path;
     path.header.stamp=ros::Time::now();
-    path.header.frame_id="esr_radar";
+    path.header.frame_id="base_link";
 	size_t startIndex = nearest_point_index_;
 	size_t endIndex   = std::min(startIndex+200,path_points_.size()-1);
 	gpsMsg_t origin_point = vehicle_pose_;
@@ -177,20 +177,20 @@ void CarFollowing::publishLocalPath()
 	{
 		const auto& global_point = path_points_[i];
 		std::pair<float,float> local_point = 
-			global2local(origin_point.x,origin_point.y,origin_point.yaw+offset,global_point.x,global_point.y);
+			global2local(origin_point.x,origin_point.y,-origin_point.yaw,global_point.x,global_point.y);
 		
 		geometry_msgs::PoseStamped this_pose_stamped;
         this_pose_stamped.pose.position.x = local_point.first;
         this_pose_stamped.pose.position.y = local_point.second;
 
-        geometry_msgs::Quaternion goal_quat = tf::createQuaternionMsgFromYaw(origin_point.yaw-global_point.yaw);
-        this_pose_stamped.pose.orientation.x = goal_quat.x;
-        this_pose_stamped.pose.orientation.y = goal_quat.y;
-        this_pose_stamped.pose.orientation.z = goal_quat.z;
-        this_pose_stamped.pose.orientation.w = goal_quat.w;
+//        geometry_msgs::Quaternion goal_quat = tf::createQuaternionMsgFromYaw(origin_point.yaw-global_point.yaw);
+//        this_pose_stamped.pose.orientation.x = goal_quat.x;
+//        this_pose_stamped.pose.orientation.y = goal_quat.y;
+//        this_pose_stamped.pose.orientation.z = goal_quat.z;
+//        this_pose_stamped.pose.orientation.w = goal_quat.w;
 
         //this_pose_stamped.header.stamp=current_time;
-        this_pose_stamped.header.frame_id="esr_radar";
+        this_pose_stamped.header.frame_id="base_link";
         path.poses.push_back(this_pose_stamped);
 	}
 	pub_local_path_.publish(path);

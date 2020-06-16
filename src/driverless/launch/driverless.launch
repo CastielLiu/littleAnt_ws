@@ -18,8 +18,8 @@
 		
 		<!-- car_following -->
 		<param name="radar_in_base_x" value="0.0"/>   <!-- m -->
-		<param name="radar_in_base_y" value="2.0"/>   <!-- m -->
-		<param name="radar_in_base_yaw" value="0.0"/> <!--deg -->
+		<param name="radar_in_base_y" value="1.0"/>   <!-- m -->
+		<param name="radar_in_base_yaw" value="-0.0"/> <!--deg -->
 		
 	</node> 
 	

@@ -346,7 +346,7 @@ global2local(float origin_x,float origin_y,float theta, float global_x,float glo
 {
 	std::pair<float, float> local;
 	local.first  = (global_x-origin_x)*cos(theta) + (global_y-origin_y)*sin(theta);
-	local.second = (global_x-origin_x)*sin(theta) + (global_y-origin_y)*cos(theta);
+	local.second = -(global_x-origin_x)*sin(theta) + (global_y-origin_y)*cos(theta);
 	return local;
 }
 
