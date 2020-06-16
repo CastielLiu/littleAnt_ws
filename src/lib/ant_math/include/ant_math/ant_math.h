@@ -139,7 +139,8 @@ float minCurvatureInRange(const std::vector<gpsMsg_t>& path_points, size_t start
 float maxCurvatureInRange(const std::vector<gpsMsg_t>& path_points, size_t startIndex,size_t endIndex);
 float maxCurvatureInRange(const std::vector<gpsMsg_t>& path_points, size_t startIndex,float dis);
 std::pair<float, float> coordinationConvert(float X,float Y,float Theta, float x,float y);
-point_t coordinationConvert(point_t origin,float theta, point_t local);
+std::pair<float, float> local2global(float origin_x,float origin_y,float theta,float local_x,float local_y);
+std::pair<float, float> global2local(float origin_x,float origin_y,float theta,float global_x,float global_y);
 
 float dis2Points(const gpsMsg_t& point1, const gpsMsg_t& point2,bool is_sqrt=true);
 size_t findNearestPoint(const std::vector<gpsMsg_t>& path_points, const gpsMsg_t& current_point);

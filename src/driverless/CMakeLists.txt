@@ -14,6 +14,8 @@ find_package(catkin REQUIRED COMPONENTS
   jsk_recognition_msgs
   little_ant_msgs
   esr_radar
+  nav_msgs
+  geometry_msgs
   message_filters
   message_generation
   euclidean_cluster

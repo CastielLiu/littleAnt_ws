@@ -318,18 +318,36 @@ std::pair<float, float> get_dis_yaw(gpsMsg_t &point1,gpsMsg_t &point2)
 	return dis_yaw;
 }
 
-/*@brief 坐标变换
- *@param X,Y   局部坐标系在全局坐标下的位置
- *@param Theta 局部坐标系在全局坐标下的角度
- *@param x,y   点在局部坐标系下的坐标
+
+
+/*@brief local2global坐标变换
+ *@param origin_x,origin_y   局部坐标系在全局坐标下的位置
+ *@param theta 局部坐标系在全局坐标下的角度
+ *@param local_x,local_y   点在局部坐标系下的坐标
  *@return      点在全局坐标系下的坐标
  */
-std::pair<float, float> coordinationConvert(float X,float Y,float Theta, float x,float y)
+std::pair<float, float> 
+local2global(float origin_x,float origin_y,float theta, float local_x,float local_y)
 {
-	std::pair<float, float> out;
-	out.first  = x*cos(Theta) - y*sin(Theta) + X;
-	out.second = x*sin(Theta) + y*cos(Theta) + Y;
-	return out;
+	std::pair<float, float> global;
+	global.first  = local_x*cos(theta) - local_y*sin(theta) + origin_x;
+	global.second = local_x*sin(theta) + local_y*cos(theta) + origin_y;
+	return global;
+}
+
+/*@brief global2local坐标变换
+ *@param origin_x,origin_y   局部坐标系在全局坐标下的位置
+ *@param theta 局部坐标系在全局坐标下的角度
+ *@param local_x,local_y   点在局部坐标系下的坐标
+ *@return      点在全局坐标系下的坐标
+ */
+std::pair<float, float> 
+global2local(float origin_x,float origin_y,float theta, float global_x,float global_y)
+{
+	std::pair<float, float> local;
+	local.first  = (global_x-origin_x)*cos(theta) + (global_y-origin_y)*sin(theta);
+	local.second = (global_x-origin_x)*sin(theta) + (global_y-origin_y)*cos(theta);
+	return local;
 }
 
 /*@brief 坐标变换
