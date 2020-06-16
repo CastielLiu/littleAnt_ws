@@ -72,6 +72,10 @@ private:
 	double  cmd_update_time_;
 	
 	//雷达在基坐标系的位置
+	std::string base_link_frame_;
+	tf::TransformListener tf_listener;
+	tf::StampedTransform transform_;
+	
 	float   radar_in_base_x_;
 	float   radar_in_base_y_;
 	float   radar_in_base_yaw_;

@@ -19,11 +19,7 @@ bool CarFollowing::init(ros::NodeHandle nh,ros::NodeHandle nh_private)
 	nh_ = nh;
 	nh_private_ = nh_private;
 	objects_topic_     = nh_private.param<std::string>("mm_radar_objects_topic","/esr_objects");
-	radar_in_base_x_   = nh_private.param<float>("radar_in_base_x",  0.0);
-	radar_in_base_y_   = nh_private.param<float>("radar_in_base_y",  2.0);
-	radar_in_base_yaw_ = nh_private.param<float>("radar_in_base_yaw",0.0);//deg
-
-	//nh_private.param<float>("max_following_speed",max_following_speed_,15.0);
+	base_link_frame_   = nh_private.param<std::string>("base_link_frame", "base_link");
 
 	pub_diagnostic_ = nh.advertise<diagnostic_msgs::DiagnosticStatus>("driverless/diagnostic",1);
 	return true;
@@ -92,6 +88,29 @@ void CarFollowing::object_callback(const esr_radar::ObjectArray::ConstPtr& objec
 {
 	if(!is_ready_) return;
 	if(objects->objects.size()==0) return;
+	
+	static bool transform_ok = false;
+	if(!transform_ok)
+	{
+		if(!tf_listener.canTransform(base_link_frame_, objects->header.frame_id, ros::Time(0))) 
+		{
+			ROS_ERROR_STREAM("failed to find transform between " << base_link_frame_ << " and " << objects->header.frame_id);
+			return;
+		}
+		tf_listener.waitForTransform(base_link_frame_, objects->header.frame_id, ros::Time(0), ros::Duration(2.0));
+		tf_listener.lookupTransform(base_link_frame_, objects->header.frame_id, ros::Time(0), transform_);
+		transform_ok = true;
+		const auto& T = transform_.getOrigin();
+		const auto& R = transform_.getBasis();
+		radar_in_base_x_   = T[0];
+		radar_in_base_y_   = T[1];
+		double roll,yaw,pitch;
+		R.getRPY(roll,pitch,yaw);
+		radar_in_base_yaw_ = yaw;
+		ROS_INFO("mm_radar in base_link, x:%.2f  y:%.2f  yaw:%.2f",radar_in_base_x_,radar_in_base_y_,radar_in_base_yaw_*180.0/M_PI);
+	}
+	
+	
 
 	state_mutex_.lock();
 	float vehicle_speed = vehicle_speed_;
