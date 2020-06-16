@@ -13,14 +13,14 @@
 		<param name="path_points_file" value="$(arg roadnet_file)"/>
 		<param name="max_speed" value="$(arg max_speed)"/>
 		<param name="odom_topic" value="/ll2utm_odom"/>
+		
 		<!-- path_tracking -->
 		<param name="max_side_accel" value="1.0"/>
 		
 		<!-- car_following -->
-		<param name="radar_in_base_x" value="0.0"/>   <!-- m -->
-		<param name="radar_in_base_y" value="1.0"/>   <!-- m -->
-		<param name="radar_in_base_yaw" value="-0.0"/> <!--deg -->
-		
+		<param name="mm_radar_objects_topic" value="/esr_objects"/>
+		<param name="base_link_frame" value="/base_link"/>
+		<param name="target_repeat_threshold" value="5"/>   <!-- 目标重复出现阈值，超出此阈值开始跟车 -->
 	</node> 
 	
 	<!-- GPS -->

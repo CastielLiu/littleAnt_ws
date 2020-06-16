@@ -6,7 +6,7 @@ AutoDrive::AutoDrive():
     nh_private_("~"),
     avoid_offset_(0.0)
 {
-    diagnostic_msg_.hardware_id = "driverless";
+	diagnostic_msg_.hardware_id = "driverless";
 	vehicle_speed_status_ = false;
 	controlCmd1_.set_driverlessMode = true;
 	controlCmd1_.set_handBrake = false;
@@ -39,9 +39,13 @@ bool AutoDrive::is_gps_data_valid(const gpsMsg_t& point)
 bool AutoDrive::init()
 {
 	//获取参数
-    nh_private_.param<float>("max_speed",max_speed_,10.0);//km/h
-    nh_private_.param<std::string>("path_points_file",path_points_file_,"");
+	nh_private_.param<float>("max_speed",max_speed_,10.0);//km/h
+	nh_private_.param<std::string>("path_points_file",path_points_file_,"");
+	nh_private_.param<bool>("use_car_following",use_car_following_,false);
+	nh_private_.param<bool>("use_avoiding",use_avoiding_,false);
+	
 	std::string odom_topic = nh_private_.param<std::string>("odom_topic","/ll2utm_odom");
+	
 
 	if(path_points_file_.empty())
 	{

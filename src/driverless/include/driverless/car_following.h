@@ -75,12 +75,12 @@ private:
 	std::string base_link_frame_;
 	tf::TransformListener tf_listener;
 	tf::StampedTransform transform_;
-	
 	float   radar_in_base_x_;
 	float   radar_in_base_y_;
 	float   radar_in_base_yaw_;
 	
 	float max_target_search_distance_;
+	int   target_repeat_threshold_; //目标重复检测次数阈值
 	diagnostic_msgs::DiagnosticStatus diagnostic_msg_;
 };
 

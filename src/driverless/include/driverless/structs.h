@@ -3,9 +3,15 @@
 
 typedef struct ControlCmd
 {
-    bool validity;
-    float speed;
-    float roadWheelAngle;
+	ControlCmd()
+	{
+		validity = false;
+		speed = 0.0;
+		roadWheelAngle = 0.0;
+	}
+	bool validity;
+	float speed;
+	float roadWheelAngle;
 } controlCmd_t;
 
 

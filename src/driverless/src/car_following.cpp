@@ -20,6 +20,7 @@ bool CarFollowing::init(ros::NodeHandle nh,ros::NodeHandle nh_private)
 	nh_private_ = nh_private;
 	objects_topic_     = nh_private.param<std::string>("mm_radar_objects_topic","/esr_objects");
 	base_link_frame_   = nh_private.param<std::string>("base_link_frame", "base_link");
+	target_repeat_threshold_ = nh_private.param<int>("target_repeat_threshold", 5);
 
 	pub_diagnostic_ = nh.advertise<diagnostic_msgs::DiagnosticStatus>("driverless/diagnostic",1);
 	return true;
@@ -68,10 +69,15 @@ void CarFollowing::stop()
 	sub_objects_.shutdown();
 	update_timer_.stop();
 	is_running_ = false;
+	
+	cmd_mutex_.lock();
+	cmd_.validity = false;
+	cmd_mutex_.unlock();
 }
 
 void CarFollowing::updateTimer_callback(const ros::TimerEvent&)
 {
+	//控制指令长时间未更新,有效位复位
 	if(ros::Time::now().toSec() - cmd_update_time_ > 0.2)
 	{
 		cmd_mutex_.lock();
@@ -109,8 +115,6 @@ void CarFollowing::object_callback(const esr_radar::ObjectArray::ConstPtr& objec
 		radar_in_base_yaw_ = yaw;
 		ROS_INFO("mm_radar in base_link, x:%.2f  y:%.2f  yaw:%.2f",radar_in_base_x_,radar_in_base_y_,radar_in_base_yaw_*180.0/M_PI);
 	}
-	
-	
 
 	state_mutex_.lock();
 	float vehicle_speed = vehicle_speed_;
@@ -122,7 +126,7 @@ void CarFollowing::object_callback(const esr_radar::ObjectArray::ConstPtr& objec
 	follow_distance_ = vehicle_speed*vehicle_speed/(2*2.0)  + 8.0;
 
 	std::vector<esr_radar::Object> obstacles;
-	float targetDis2path=1111;;
+	float targetDis2path=1111;
 	for(size_t i=0; i< objects->objects.size(); ++i)
 	{
 		const esr_radar::Object& object = objects->objects[i];
@@ -160,6 +164,30 @@ void CarFollowing::object_callback(const esr_radar::ObjectArray::ConstPtr& objec
 		}
 	}
 	const esr_radar::Object& nearestObstal = obstacles[nearestObstalIndex];
+	
+	static uint8_t lastTargetId = 255; //上一时刻目标id
+	static int     targetRepeatTimes = 0; //目标重复出现次数
+	
+	//当前时刻目标id与上一时刻一致,及目标重复出现,计数器自加
+	//当前时刻目标id与上一时刻不同,则目标为误检目标或者跟踪目标丢失
+	//未处于跟踪状态时,目标重复出现N次则开始跟踪
+	//处于跟踪状态时,若当前id与上次id不同,即便是误检测,也归零计数器
+	//等待下次满足条件时继续跟踪
+	if(nearestObstal.id == lastTargetId)
+	{
+		//目标重复出现计数器自加,应防止溢出
+		if(++targetRepeatTimes > 0xffff)
+			targetRepeatTimes = 0xffff;
+	}
+	else
+	{
+		lastTargetId = nearestObstal.id;
+		targetRepeatTimes = 0;
+	}
+	
+	if(targetRepeatTimes < target_repeat_threshold_)
+		return;
+	
 	//distanceErr>0    acceleration
 	//distanceErr<0    deceleration
 	float distanceErr = nearestObstal.distance -follow_distance_;

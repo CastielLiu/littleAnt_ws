@@ -33,6 +33,8 @@ private:
 
     float max_speed_;
     float max_roadwheelAngle_;
+    bool  use_avoiding_;
+    bool  use_car_following_;
 
     bool vehicle_speed_status_;
 	float vehicle_speed_;
