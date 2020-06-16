@@ -3,21 +3,28 @@
 
 	<arg name="roadnet_file" />
 	<arg name="max_speed" default="10.0" />
-
+	
+	<!-- 底层控制 -->
 	<include file="$(find ant_driver)/launch/ant_driver.launch" />
 	
+	<!-- 上层控制 -->
 	<node name="driverless_node" pkg="driverless" type="driverless_node" output="screen" required="true">
-		<!-- -->
+		<!-- main -->
 		<param name="path_points_file" value="$(arg roadnet_file)"/>
 		<param name="max_speed" value="$(arg max_speed)"/>
 		<param name="odom_topic" value="/ll2utm_odom"/>
 		<!-- path_tracking -->
 		<param name="max_side_accel" value="1.0"/>
 		
+		<!-- car_following -->
+		<param name="radar_in_base_x" value="0.0"/>   <!-- m -->
+		<param name="radar_in_base_y" value="2.0"/>   <!-- m -->
+		<param name="radar_in_base_yaw" value="0.0"/> <!--deg -->
+		
 	</node> 
 	
+	<!-- GPS -->
 	<node name="novatel_node" pkg="novatel" type="novatel_node">
-
 		<param name="port" value="/dev/ttyS1" />
 		<param name="baudrate" value="115200" />
 		<param name="log_commands" value="inspvaxb ontime 0.05; corrimudatasb ontime 0.01" />
@@ -27,6 +34,7 @@
 		<param name="corr_imu_topic" value="/corr_imu"/>
 	</node>
 	
+	<!-- 毫米波雷达 -->
 	<include file="$(find esr_radar)/launch/esr_radar.launch" />
 	
 

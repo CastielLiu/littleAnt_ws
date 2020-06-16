@@ -5,6 +5,8 @@
 #include <esr_radar/Object.h>
 #include <esr_radar/ObjectArray.h>
 #include <diagnostic_msgs/DiagnosticStatus.h>
+#include <pcl_ros/point_cloud.h>
+#include <tf/transform_listener.h>
 #include <ant_math/ant_math.h>
 #include <std_msgs/UInt8.h>
 #include <vector>
@@ -61,6 +63,11 @@ private:
 
 	uint8_t targetId_;
 	double  cmd_update_time_;
+	
+	//雷达在基坐标系的位置
+	float   radar_in_base_x_;
+	float   radar_in_base_y_;
+	float   radar_in_base_yaw_;
 	
 	float max_target_search_distance_;
 	diagnostic_msgs::DiagnosticStatus diagnostic_msg_;

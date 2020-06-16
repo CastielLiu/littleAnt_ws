@@ -16,7 +16,11 @@ bool CarFollowing::init(ros::NodeHandle nh,ros::NodeHandle nh_private)
 {
 	nh_ = nh;
 	nh_private_ = nh_private;
-	objects_topic_ = nh_private.param<std::string>("mm_radar_objects_topic","/esr_objects");
+	objects_topic_     = nh_private.param<std::string>("mm_radar_objects_topic","/esr_objects");
+	radar_in_base_x_   = nh_private.param<float>("radar_in_base_x",  0.0);
+	radar_in_base_y_   = nh_private.param<float>("radar_in_base_y",  2.0);
+	radar_in_base_yaw_ = nh_private.param<float>("radar_in_base_yaw",0.0);//deg
+
 	//nh_private.param<float>("max_following_speed",max_following_speed_,15.0);
 
 	pub_diagnostic_ = nh.advertise<diagnostic_msgs::DiagnosticStatus>("driverless/diagnostic",1);
@@ -100,9 +104,13 @@ void CarFollowing::object_callback(const esr_radar::ObjectArray::ConstPtr& objec
 	{
 		const esr_radar::Object& object = objects->objects[i];
 		
+		//目标雷达坐标转向GPS坐标
+		std::pair<float, float> base_pose = 
+			coordinationConvert(radar_in_base_x_,radar_in_base_y_,radar_in_base_yaw_, object.x,object.y);
+		
 		//目标局部坐标转换到大地全局坐标
 		std::pair<float, float> object_global_pos =  
-			coordinationConvert(vehicle_pose.x,vehicle_pose.y,vehicle_pose.yaw, object.x,object.y);
+			coordinationConvert(vehicle_pose.x,vehicle_pose.y,vehicle_pose.yaw, base_pose.first,base_pose.second);
 		
 		//计算目标到全局路径的距离
 		float dis2path = calculateDis2path(object_global_pos.first, object_global_pos.second,path_points_,pose_index);
