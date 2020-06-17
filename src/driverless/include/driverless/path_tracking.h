@@ -77,6 +77,7 @@ private:
 	float foreSightDis_speedCoefficient_;
 	float foreSightDis_latErrCoefficient_;
 	float min_foresight_distance_;
+	float max_target_yaw_err_; //车辆沿圆弧到达预瞄点时的航向与预瞄点航向的偏差最大值
 	float disThreshold_;
 	float max_side_accel_;
 };

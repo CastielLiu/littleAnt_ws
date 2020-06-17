@@ -16,6 +16,7 @@
 		
 		<!-- path_tracking -->
 		<param name="max_side_accel" value="1.0"/>
+		<param name="max_target_yaw_err" value="50.0"/>
 		
 		<!-- car_following -->
 		<param name="mm_radar_objects_topic" value="/esr_objects"/>

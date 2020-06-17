@@ -114,7 +114,7 @@ size_t findNearestPoint(const std::vector<gpsMsg_t>& path_points, const gpsMsg_t
 	return index;
 }
 
-/*@brief 计算目标点到达路径的距离
+/*@brief 计算目标点到达路径的距离,点在路径左侧为负,右侧为正
  *@param x,y         目标点坐标
  *@param path_points 路径点集
  *@param ref_point_index 参考点索引，以此参考点展开搜索，加速计算

@@ -54,6 +54,8 @@ bool PathTracking::init(ros::NodeHandle nh,ros::NodeHandle nh_private)
 	nh_private.param<float>("min_foresight_distance",min_foresight_distance_,4.0);
 	nh_private.param<float>("max_side_accel",max_side_accel_,1.0);
 	nh_private.param<int>  ("dst_index",dst_index_,0);
+	
+	max_target_yaw_err_ = nh_private.param<float>  ("max_target_yaw_err",50.0)*M_PI/180.0;
 
 	pub_diagnostic_ = nh.advertise<diagnostic_msgs::DiagnosticStatus>("driverless/diagnostic",1);
 	pub_tracking_state_ = nh.advertise<driverless::TrackingState>(tracking_info_topic,1);
@@ -158,34 +160,62 @@ void PathTracking::trackingThread()
 		state_mutex_.unlock();
 		
 		nearest_point_index_mutex_.lock();
+		//横向偏差,左偏为负,右偏为正
 		lateral_err_ = calculateDis2path(now_point.x, now_point.y,path_points_,nearest_point_index_,&nearest_point_index_);
 		nearest_point_index_mutex_.unlock();
+		//航向偏差,左偏为正,右偏为负
+		yaw_err_ = path_points_[nearest_point_index_].yaw - now_point.yaw;
 		
 		disThreshold_ = foreSightDis_speedCoefficient_ * vehicle_speed + foreSightDis_latErrCoefficient_ * fabs(lateral_err_);
 	
 		if(disThreshold_ < min_foresight_distance_) 
 			disThreshold_  = min_foresight_distance_;
-									 
+		
+		//获取当前点到目标点的距离和航向
 		std::pair<float, float> dis_yaw = get_dis_yaw(target_point, now_point);
 
 		//循环查找满足disThreshold_的目标点
-		while( dis_yaw.first < disThreshold_)
+//		while( dis_yaw.first < disThreshold_)
+//		{
+//			target_point = path_points_[++target_index];
+//			dis_yaw = get_dis_yaw(target_point, now_point);
+//		}
+//		float theta = dis_yaw.second - now_point.yaw;
+		
+		while(dis_yaw.first < disThreshold_)
 		{
 			target_point = path_points_[++target_index];
 			dis_yaw = get_dis_yaw(target_point, now_point);
 		}
 		
-		yaw_err_ = dis_yaw.second - now_point.yaw;
+		//预瞄航向与车辆航向夹角
+		//预瞄点在右侧时,theta为正,反之为负
+		float theta;
+		size_t temp_target_index = target_index;
+		for( ; ; )
+		{
+			theta = dis_yaw.second - now_point.yaw;
+			//车辆沿圆弧到达预瞄点时的航向与预瞄点航向的偏差
+			float target_yaw_err = now_point.yaw+2*theta-target_point.yaw;
+			if(fabs(target_yaw_err) < max_target_yaw_err_)
+				break;
+			
+			target_point = path_points_[++temp_target_index];
+			dis_yaw = get_dis_yaw(target_point, now_point);
+			
+			ROS_INFO("target_yaw_err:%.2f",target_yaw_err*180.0/M_PI);
+		}
+		ROS_INFO("raw_target_index:%d  temp_target_index:%d");
 		
-		if(yaw_err_==0.0) continue;
+		if(theta==0.0) continue;
 		
-		float turning_radius = (-0.5 * dis_yaw.first)/sin(yaw_err_);
+		float turning_radius = (-0.5 * dis_yaw.first)/sin(theta);
 
 		float t_roadWheelAngle = generateRoadwheelAngleByRadius(turning_radius);
 		
 		t_roadWheelAngle = limitRoadwheelAngleBySpeed(t_roadWheelAngle,vehicle_speed);
 		
-		float curvature_search_distance = disThreshold_ + 13; //曲率搜索距离 
+		float curvature_search_distance = disThreshold_ + 13; //曲率搜索距离
 
 		float max_curvature = maxCurvatureInRange(path_points_,nearest_point_index_,curvature_search_distance);
 
