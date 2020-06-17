@@ -2,7 +2,6 @@
 #define __NODE__ "path_tracking"
 
 PathTracking::PathTracking():
-	target_point_index_(0),
 	nearest_point_index_(0),
 	expect_speed_(5.0), //defult expect speed
 	is_ready_(false)
@@ -132,18 +131,15 @@ void PathTracking::trackingThread()
 
 	state_mutex_.lock();
 	nearest_point_index_ = findNearestPoint(path_points_,current_point_); 
-	size_t target_index = nearest_point_index_;//跟踪目标点索引
 	state_mutex_.unlock();
 
-	if(target_index > path_points_.size() - 10)
+	if(nearest_point_index_ > path_points_.size() - 10)
 	{
-		ROS_ERROR("target index:%d\t, No target point was found !!!",target_index);
+		ROS_ERROR("Remaind target path is too short! nearest_point_index:%d",nearest_point_index_);
 		publishDiagnostics(diagnostic_msgs::DiagnosticStatus::ERROR,"Remaind target path is too short!");
 		is_running_ = false;
 		return ;
 	}
-	
-	gpsMsg_t target_point = path_points_[target_index];
 
 	size_t i =0;
 	ros::Rate loop_rate(30);
@@ -165,28 +161,41 @@ void PathTracking::trackingThread()
 		nearest_point_index_mutex_.unlock();
 		//航向偏差,左偏为正,右偏为负
 		yaw_err_ = path_points_[nearest_point_index_].yaw - now_point.yaw;
+		if(yaw_err_ > M_PI)
+			yaw_err_ -= 2*M_PI;
+		else if(yaw_err_ < -M_PI)
+			yaw_err_ += 2*M_PI;
 		
 		disThreshold_ = foreSightDis_speedCoefficient_ * vehicle_speed + foreSightDis_latErrCoefficient_ * fabs(lateral_err_);
 	
 		if(disThreshold_ < min_foresight_distance_) 
 			disThreshold_  = min_foresight_distance_;
+		size_t target_index = nearest_point_index_+1;//跟踪目标点索引
 		
+		gpsMsg_t target_point = path_points_[target_index];
 		//获取当前点到目标点的距离和航向
 		std::pair<float, float> dis_yaw = get_dis_yaw(target_point, now_point);
-
+	#if 1
 		//循环查找满足disThreshold_的目标点
-//		while( dis_yaw.first < disThreshold_)
-//		{
-//			target_point = path_points_[++target_index];
-//			dis_yaw = get_dis_yaw(target_point, now_point);
-//		}
-//		float theta = dis_yaw.second - now_point.yaw;
-		
 		while(dis_yaw.first < disThreshold_)
 		{
 			target_point = path_points_[++target_index];
 			dis_yaw = get_dis_yaw(target_point, now_point);
 		}
+		ROS_INFO("target_index:%d  dis:%.2f",target_index,dis_yaw.first);
+		float theta = dis_yaw.second - now_point.yaw;
+		if(theta > M_PI)
+			theta -= 2*M_PI;
+		else if(theta < -M_PI)
+			theta += 2*M_PI;
+	#else	
+		while(dis_yaw.first < disThreshold_)
+		{
+			target_point = path_points_[++target_index];
+			dis_yaw = get_dis_yaw(target_point, now_point);
+		}
+		
+		ROS_INFO("target_index:%d  dis:%.2f",target_index,dis_yaw.first);
 		
 		//预瞄航向与车辆航向夹角
 		//预瞄点在右侧时,theta为正,反之为负
@@ -195,19 +204,32 @@ void PathTracking::trackingThread()
 		for( ; ; )
 		{
 			theta = dis_yaw.second - now_point.yaw;
+			if(theta > M_PI)
+				theta -= 2*M_PI;
+			else if(theta < -M_PI)
+				theta += 2*M_PI;
+			
 			//车辆沿圆弧到达预瞄点时的航向与预瞄点航向的偏差
 			float target_yaw_err = now_point.yaw+2*theta-target_point.yaw;
-			if(fabs(target_yaw_err) < max_target_yaw_err_)
-				break;
+			if(target_yaw_err > M_PI)
+				target_yaw_err -= 2*M_PI;
+			else if(target_yaw_err < -M_PI)
+				target_yaw_err += 2*M_PI;
 			
+//			ROS_INFO("theta:%.2f\ttarget_yaw_err:%.2f",theta/M_PI*180.0,fabs(target_yaw_err)/M_PI*180.0);
+			if(fabs(target_yaw_err) < max_target_yaw_err_ ||
+			   (yaw_err_*theta > 0) && (fabs(yaw_err_) > 15.0/180.0*M_PI)) //hangxiang suoxiao
+				break;
+		
 			target_point = path_points_[++temp_target_index];
 			dis_yaw = get_dis_yaw(target_point, now_point);
 			
-			ROS_INFO("target_yaw_err:%.2f",target_yaw_err*180.0/M_PI);
+//			ROS_INFO("target_yaw_err:%.2f",target_yaw_err*180.0/M_PI);
 		}
-		ROS_INFO("raw_target_index:%d  temp_target_index:%d");
-		
-		if(theta==0.0) continue;
+		ROS_INFO("raw_target_index:%d  temp_target_index:%d",target_index,temp_target_index);
+	#endif
+	
+		if(theta==0.0 || theta==M_PI) continue;
 		
 		float turning_radius = (-0.5 * dis_yaw.first)/sin(theta);
 

@@ -95,7 +95,13 @@ size_t findNearestPoint(const std::vector<gpsMsg_t>& path_points, const gpsMsg_t
 	
 	for(size_t i=0; i<path_points.size(); ++i)
 	{
-		if(fabs(path_points[i].yaw-current_point.yaw) > M_PI/2)
+		float yawErr = path_points[i].yaw-current_point.yaw;
+		if(yawErr > M_PI)
+			yawErr -= 2*M_PI;
+		else if(yawErr < -M_PI)
+			yawErr += 2*M_PI;
+				
+		if(fabs(yawErr) > M_PI/2)
 			continue;
 		float dis2 = dis2Points(path_points[i],current_point,false);
 		if(dis2 < min_dis2)
