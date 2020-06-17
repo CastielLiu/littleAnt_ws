@@ -8,7 +8,7 @@ CarFollowing::CarFollowing()
 {
 	targetId_ = 0xff; //no target
 	cmd_update_time_ = 0.0;
-	safety_side_dis_ = 0.0+1.5+0.5;
+	safety_side_dis_ = 0.0+1.5+0.0;
 	cmd_.validity = false;
 	is_running_ = false;
 	is_ready_ = false;
@@ -123,7 +123,7 @@ void CarFollowing::object_callback(const esr_radar::ObjectArray::ConstPtr& objec
 	state_mutex_.unlock();
 
 	//跟车距离，x = v*v/(2*a) + C常
-	follow_distance_ = vehicle_speed*vehicle_speed/(2*2.0)  + 8.0;
+	follow_distance_ = vehicle_speed*vehicle_speed/(2*4.0)  + 8.0;
 
 	std::vector<esr_radar::Object> obstacles;
 	float targetDis2path=1111;
@@ -188,6 +188,8 @@ void CarFollowing::object_callback(const esr_radar::ObjectArray::ConstPtr& objec
 	if(targetRepeatTimes < target_repeat_threshold_)
 		return;
 	
+	
+	
 	//distanceErr>0    acceleration
 	//distanceErr<0    deceleration
 	float distanceErr = nearestObstal.distance -follow_distance_;
@@ -202,6 +204,8 @@ void CarFollowing::object_callback(const esr_radar::ObjectArray::ConstPtr& objec
 			
 	ROS_INFO("target dis:%.2f  speed:%.2f  dis2path:%.2f  vehicle speed:%.2f  t_speed:%.2f  t_dis:%.2f   dis:%f",minDis,vehicle_speed + nearestObstal.speed,targetDis2path, vehicle_speed,t_speed,follow_distance_,nearestObstal.distance);
 	ROS_INFO("target x:%.2f  y:%.2f  id:%2d",nearestObstal.x,nearestObstal.y,nearestObstal.id);
+	if(t_speed < 1.0)
+		t_speed = 0.0;
 	
 	cmd_update_time_ = ros::Time::now().toSec();
 	cmd_mutex_.lock();
