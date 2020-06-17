@@ -37,14 +37,15 @@ public:
 
 private:
 	void  trackingThread();
-	float limitSpeedByDestination(const float& speed,const float& acc=5);
 	void  publishDiagnostics(uint8_t level,const std::string& msg);
 	gpsMsg_t pointOffset(const gpsMsg_t& point,float offset);
-	bool extendGlobalPath(float extendDis);
-	void publishPathTrackingState();
-	float disToEnd();
-private:
+	bool  extendGlobalPath(float extendDis);
+	void  publishPathTrackingState();
+	bool  loadParkingPoints(size_t vehicle_pose_index);
+	float disToParkingPoint(const parkingPoint_t& parkingPoint);
+	float limitSpeedByParkingPoint(const float& speed,const float& acc=5);
 	
+private:
 	ros::Timer timer_;
 	ros::Publisher pub_diagnostic_;
 	ros::Publisher pub_tracking_state_;
@@ -54,6 +55,7 @@ private:
 	
 	std::vector<gpsMsg_t> path_points_;
 	float path_points_resolution_;
+	std::vector<parkingPoint_t> parking_points_;
 
 	std::mutex cmd_mutex_;
 	controlCmd_t cmd_;
