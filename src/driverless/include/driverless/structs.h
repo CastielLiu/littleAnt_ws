@@ -8,10 +8,13 @@ typedef struct ControlCmd
 		validity = false;
 		speed = 0.0;
 		roadWheelAngle = 0.0;
+		turnLight = 0;
 	}
-	bool validity;
+	bool  validity;
 	float speed;
 	float roadWheelAngle;
+	uint8_t turnLight; // 0 关灯,1左转,2右转
+	
 } controlCmd_t;
 
 /*@brief 停车点信息

@@ -43,6 +43,7 @@ bool AutoDrive::init()
 	nh_private_.param<std::string>("path_points_file",path_points_file_,"");
 	nh_private_.param<bool>("use_car_following",use_car_following_,false);
 	nh_private_.param<bool>("use_avoiding",use_avoiding_,false);
+	nh_private_.param<bool>("is_offline_debug",is_offline_debug_,false);
 	
 	std::string odom_topic = nh_private_.param<std::string>("odom_topic","/ll2utm_odom");
 	
@@ -74,7 +75,11 @@ bool AutoDrive::init()
 	//定时器
 	cmd1_timer_ = nh_.createTimer(ros::Duration(0.02), &AutoDrive::sendCmd1_callback,this);
 	cmd2_timer_ = nh_.createTimer(ros::Duration(0.01), &AutoDrive::sendCmd2_callback,this);
-
+	
+	//离线调试,无需系统检查
+	if(is_offline_debug_) 
+		return true;
+		
 	// 系统状态检查，等待初始化
 	while(ros::ok() && !is_gps_data_valid(vehicle_pose_))
 	{
@@ -101,17 +106,20 @@ void AutoDrive::run()
 		publishDiagnostics(diagnostic_msgs::DiagnosticStatus::ERROR,"Init path tracker failed!");
 		return;
 	}
-
+	tracker_.start();//路径跟踪控制器
+	
+	//配置跟车控制器
 	car_follower_.setGlobalPath(path_points_);
 	if(!car_follower_.init(nh_, nh_private_))
 	{
 		publishDiagnostics(diagnostic_msgs::DiagnosticStatus::ERROR,"Init car follower failed!");
 		return;
 	}
-
-	//启动子功能
-	tracker_.start();//路径跟踪控制器
 	car_follower_.start(); //跟车控制器
+	
+	//配置外部控制器
+	extern_controler_.init(nh_, nh_private_);
+	extern_controler_.start();
 
 	ros::Rate loop_rate(20);
 	
@@ -120,27 +128,46 @@ void AutoDrive::run()
 		tracker_.updateStatus(vehicle_pose_, vehicle_speed_, roadwheel_angle_);
 		size_t nearest_point_index = tracker_.getNearestPointIndex();
 		car_follower_.updateStatus(vehicle_pose_,vehicle_speed_,nearest_point_index);
+		extern_controler_.updateStatus(vehicle_pose_,vehicle_speed_);
 
-        tracker_cmd_ = tracker_.getControlCmd();
+		tracker_cmd_ = tracker_.getControlCmd();
 		follower_cmd_= car_follower_.getControlCmd();
+		extern_cmd_ = extern_controler_.getControlCmd();
 		
 		decisionMaking();
 		loop_rate.sleep();
 	}
 	
 	ROS_INFO("driverless completed..."); 
+	tracker_.stop();
+	car_follower_.stop();
+	extern_controler_.stop();
 	
 }
 
 void AutoDrive::decisionMaking()
 {
 	std::lock_guard<std::mutex> lock(command_mutex_);
-
-	if(follower_cmd_.validity && follower_cmd_.speed < tracker_cmd_.speed)
+	
+	if(extern_cmd_.validity && extern_cmd_.speed < tracker_cmd_.speed)
+		controlCmd2_.set_speed = extern_cmd_.speed;
+	else if(follower_cmd_.validity && follower_cmd_.speed < tracker_cmd_.speed)
 		controlCmd2_.set_speed = follower_cmd_.speed;
 	else
 		controlCmd2_.set_speed = tracker_cmd_.speed;
+	
 	controlCmd2_.set_roadWheelAngle = tracker_cmd_.roadWheelAngle;
+	
+	//转向灯
+	if(extern_cmd_.turnLight == 1)
+		controlCmd1_.set_turnLight_L = true;
+	else if(extern_cmd_.turnLight == 2)
+		controlCmd1_.set_turnLight_R = true;
+	else if(extern_cmd_.turnLight == 0)
+	{
+		controlCmd1_.set_turnLight_R = false;
+		controlCmd1_.set_turnLight_L = false;
+	}
 }
 
 void AutoDrive::sendCmd1_callback(const ros::TimerEvent&)

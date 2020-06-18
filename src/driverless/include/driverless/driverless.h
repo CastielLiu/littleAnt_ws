@@ -2,6 +2,7 @@
 #include "ros/ros.h"
 #include "path_tracking.h"
 #include "car_following.h"
+#include "extern_control.h"
 
 #include<little_ant_msgs/ControlCmd1.h>
 #include<little_ant_msgs/ControlCmd2.h>
@@ -35,6 +36,7 @@ private:
     float max_roadwheelAngle_;
     bool  use_avoiding_;
     bool  use_car_following_;
+    bool  is_offline_debug_;
 
     bool vehicle_speed_status_;
 	float vehicle_speed_;
@@ -63,4 +65,7 @@ private:
 
     CarFollowing car_follower_;
     controlCmd_t follower_cmd_;
+    
+    ExternControl extern_controler_;
+    controlCmd_t  extern_cmd_;
 };
