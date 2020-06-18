@@ -8,7 +8,7 @@ CarFollowing::CarFollowing()
 {
 	targetId_ = 0xff; //no target
 	cmd_update_time_ = 0.0;
-	safety_side_dis_ = 0.0+1.5+0.0;
+	safety_side_dis_ = 0.0+1.0+0.0;
 	cmd_.validity = false;
 	is_running_ = false;
 	is_ready_ = false;

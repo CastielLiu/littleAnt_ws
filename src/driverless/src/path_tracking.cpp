@@ -51,7 +51,7 @@ bool PathTracking::init(ros::NodeHandle nh,ros::NodeHandle nh_private)
 {
 	std::string tracking_info_topic = 
 	nh_private.param<std::string>("tracking_info_topic","/tracking_state");
-	nh_private.param<float>("foreSightDis_speedCoefficient", foreSightDis_speedCoefficient_,0.8);
+	nh_private.param<float>("foreSightDis_speedCoefficient", foreSightDis_speedCoefficient_,1.0);
 	nh_private.param<float>("foreSightDis_latErrCoefficient", foreSightDis_latErrCoefficient_,-3.0);
 	nh_private.param<float>("min_foresight_distance",min_foresight_distance_,4.0);
 	nh_private.param<float>("max_side_accel",max_side_accel_,1.0);
@@ -230,8 +230,8 @@ void PathTracking::trackingThread()
 		
 		t_roadWheelAngle = limitRoadwheelAngleBySpeed(t_roadWheelAngle,vehicle_speed);
 		
-		float curvature_search_distance = disThreshold_ + 13; //曲率搜索距离
-
+		//float curvature_search_distance = disThreshold_ + 13; //曲率搜索距离
+		float curvature_search_distance = vehicle_speed_ * vehicle_speed_/(2 * 1);
 		float max_curvature = maxCurvatureInRange(path_points_,nearest_point_index_,curvature_search_distance);
 
 		float max_speed = generateMaxTolarateSpeedByCurvature(max_curvature, max_side_accel_);
@@ -331,10 +331,10 @@ bool PathTracking::loadParkingPoints(size_t vehicle_pose_index)
 		ROS_ERROR("please loadPathPoints first!");
 		return false;
 	}
-	parking_points_.push_back(parkingPoint_t(250,3));//中途停车
-	parking_points_.push_back(parkingPoint_t(1000,3));//中途停车
-	parking_points_.push_back(parkingPoint_t(3600,10));//中途停车
-	parking_points_.push_back(parkingPoint_t(1000,3));//中途停车
+	parking_points_.push_back(parkingPoint_t(9131,40));//中途停车
+	parking_points_.push_back(parkingPoint_t(13205,30000000));//中途停车
+//	parking_points_.push_back(parkingPoint_t(3600,10));//中途停车
+//	parking_points_.push_back(parkingPoint_t(1000,3));//中途停车
 	parking_points_.push_back(parkingPoint_t(dst_index_,0));//终点索引,永久停留
 	
 	//移除车辆位置之后的点!
