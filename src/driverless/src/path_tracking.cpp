@@ -51,10 +51,12 @@ bool PathTracking::init(ros::NodeHandle nh,ros::NodeHandle nh_private)
 {
 	std::string tracking_info_topic = 
 	nh_private.param<std::string>("tracking_info_topic","/tracking_state");
+	nh_private.param<std::string>("parking_points_file",parking_points_file_,"");
 	nh_private.param<float>("foreSightDis_speedCoefficient", foreSightDis_speedCoefficient_,1.0);
 	nh_private.param<float>("foreSightDis_latErrCoefficient", foreSightDis_latErrCoefficient_,-3.0);
 	nh_private.param<float>("min_foresight_distance",min_foresight_distance_,4.0);
 	nh_private.param<float>("max_side_accel",max_side_accel_,1.0);
+	
 	
 	max_target_yaw_err_ = nh_private.param<float>  ("max_target_yaw_err",50.0)*M_PI/180.0;
 
@@ -331,8 +333,24 @@ bool PathTracking::loadParkingPoints(size_t vehicle_pose_index)
 		ROS_ERROR("please loadPathPoints first!");
 		return false;
 	}
-	parking_points_.push_back(parkingPoint_t(9131,40));//中途停车
-	parking_points_.push_back(parkingPoint_t(13205,30000000));//中途停车
+	
+	
+	if(!parking_points_file_.empty())
+	{
+		FILE *fp = fopen(parking_points_file_.c_str(),"r");
+		if(fp != NULL)
+		{
+			int index;
+			float duration;
+			while(!feof(fp))
+			{
+				fscanf(fp,"%d\t%f\n",&index,&duration);
+				parking_points_.push_back(parkingPoint_t(index,duration));
+			}
+		}
+		fclose(fp);
+	}
+//手动添加停车点
 //	parking_points_.push_back(parkingPoint_t(3600,10));//中途停车
 //	parking_points_.push_back(parkingPoint_t(1000,3));//中途停车
 	parking_points_.push_back(parkingPoint_t(dst_index_,0));//终点索引,永久停留

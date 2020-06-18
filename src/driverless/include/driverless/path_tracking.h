@@ -4,6 +4,7 @@
 #include<std_msgs/Float32.h>
 #include<std_msgs/UInt32.h>
 #include<std_msgs/UInt8.h>
+#include<fstream>
 #include<vector>
 
 #include<nav_msgs/Odometry.h>
@@ -82,4 +83,5 @@ private:
 	float max_target_yaw_err_; //车辆沿圆弧到达预瞄点时的航向与预瞄点航向的偏差最大值
 	float disThreshold_;
 	float max_side_accel_;
+	std::string parking_points_file_;
 };

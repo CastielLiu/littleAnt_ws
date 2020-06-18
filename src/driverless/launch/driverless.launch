@@ -17,6 +17,7 @@
 		<!-- path_tracking -->
 		<param name="max_side_accel" value="1.0"/>
 		<param name="max_target_yaw_err" value="25.0"/>
+		<param name="parking_points_file" value="$(find driverless)/config/parking_points.txt"/>
 		
 		<!-- car_following -->
 		<param name="mm_radar_objects_topic" value="/esr_objects"/>
