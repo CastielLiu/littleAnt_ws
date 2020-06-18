@@ -344,6 +344,7 @@ bool PathTracking::loadParkingPoints(size_t vehicle_pose_index)
 	std::sort(parking_points_.begin(),parking_points_.end(),
 		[](const parkingPoint_t&point1,const parkingPoint_t&point2)
 		{return point1.index < point2.index;});
+	ROS_INFO("loadParkingPoints ok.");
 	return true;
 }
 

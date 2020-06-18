@@ -115,7 +115,7 @@ void CarFollowing::object_callback(const esr_radar::ObjectArray::ConstPtr& objec
 		radar_in_base_yaw_ = yaw;
 		ROS_INFO("mm_radar in base_link, x:%.2f  y:%.2f  yaw:%.2f",radar_in_base_x_,radar_in_base_y_,radar_in_base_yaw_*180.0/M_PI);
 	}
-
+	
 	state_mutex_.lock();
 	float vehicle_speed = vehicle_speed_;
 	gpsMsg_t vehicle_pose = vehicle_pose_;
@@ -148,7 +148,6 @@ void CarFollowing::object_callback(const esr_radar::ObjectArray::ConstPtr& objec
 			targetDis2path = dis2path;
 			obstacles.push_back(object);
 		}
-			
 	}
 	if(obstacles.size() == 0) return;
 

@@ -106,7 +106,7 @@ void AutoDrive::run()
 		publishDiagnostics(diagnostic_msgs::DiagnosticStatus::ERROR,"Init path tracker failed!");
 		return;
 	}
-	tracker_.start();//路径跟踪控制器
+	//tracker_.start();//路径跟踪控制器
 	
 	//配置跟车控制器
 	car_follower_.setGlobalPath(path_points_);
