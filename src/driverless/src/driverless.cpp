@@ -106,7 +106,7 @@ void AutoDrive::run()
 		publishDiagnostics(diagnostic_msgs::DiagnosticStatus::ERROR,"Init path tracker failed!");
 		return;
 	}
-	//tracker_.start();//路径跟踪控制器
+	tracker_.start();//路径跟踪控制器
 	
 	//配置跟车控制器
 	car_follower_.setGlobalPath(path_points_);
@@ -145,9 +145,18 @@ void AutoDrive::run()
 	
 }
 
+void showCmd(const controlCmd_t& cmd,std::string name)
+{
+	std::cout << name << "\t" << cmd.validity << "\t" << cmd.speed <<
+			  "\t" << cmd.roadWheelAngle << std::endl; 
+}
+
 void AutoDrive::decisionMaking()
 {
 	std::lock_guard<std::mutex> lock(command_mutex_);
+//	showCmd(extern_cmd_,"extern_cmd");
+//	showCmd(follower_cmd_,"follower_cmd");
+//	showCmd(tracker_cmd_,"tracker_cmd");
 	
 	if(extern_cmd_.validity && extern_cmd_.speed < tracker_cmd_.speed)
 		controlCmd2_.set_speed = extern_cmd_.speed;

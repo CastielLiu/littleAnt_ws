@@ -182,8 +182,18 @@ float calculateDis2path(const double& x,const double& y,
 
 	if(nearest_point_index_ptr != NULL)
 		*nearest_point_index_ptr = ref_point_index;
-
-	return (x-anchor_x)*cos(anchor_yaw) - (y-anchor_y) * sin(anchor_yaw);
+	//float dis2anchor = sqrt((x-anchor_x)*(x-anchor_x)+(y-anchor_y)*(y-anchor_y));
+	
+	if(ref_point_index >= path_points.size()-1)
+	{
+		float dy = (x-anchor_x)*sin(anchor_yaw) + (y-anchor_y) * cos(anchor_yaw);
+		if(dy > 1.0)
+			return FLT_MAX;
+	}
+	
+	//printf("dx:%.2f\tdy:%.2f\tref_point_index:%d\n",dx,dy,ref_point_index);
+	float dx = (x-anchor_x)*cos(anchor_yaw) - (y-anchor_y) * sin(anchor_yaw);
+	return dx;
 }
 
 

@@ -220,6 +220,8 @@ void CarFollowing::publishLocalPath()
     path.header.frame_id="base_link";
 	size_t startIndex = nearest_point_index_;
 	size_t endIndex   = std::min(startIndex+200,path_points_.size()-1);
+	if(endIndex <= startIndex)
+		return;
 	gpsMsg_t origin_point = vehicle_pose_;
 	path.poses.reserve(endIndex-startIndex+1);
 	

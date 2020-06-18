@@ -27,6 +27,7 @@ bool PathTracking::setGlobalPath(const std::vector<gpsMsg_t>& path)
 	if(path_points_.size()!=0)
 		return false;
 	path_points_ = path;
+	dst_index_ = path_points_.size()-1;
 	if(!extendGlobalPath(20.0))
 		return false;
 	return true;
@@ -89,8 +90,6 @@ void PathTracking::stop()
  */
 bool PathTracking::extendGlobalPath(float extendDis)
 {
-	if(dst_index_ == 0) //终点索引为默认0
-		dst_index_ = path_points_.size()-1;
 	float remaindDis = 0.0; //期望终点与路径终点的路程
 	
 	//计算剩余路程
@@ -114,6 +113,7 @@ bool PathTracking::extendGlobalPath(float extendDis)
 	{
 		point.x = path_points_[endIndex].x + dx*i;
 		point.y = path_points_[endIndex].y + dy*i;
+		point.curvature = 0.0;
 		path_points_.push_back(point);
 		remaindDis += ds;
 		if(remaindDis > extendDis)
@@ -179,6 +179,7 @@ void PathTracking::trackingThread()
 		{
 			target_point = path_points_[++target_index];
 			dis_yaw = get_dis_yaw(target_point, now_point);
+			//ROS_INFO("path_points_:%d\t target_index:%d",path_points_.size(),target_index);
 		}
 		float theta = dis_yaw.second - now_point.yaw;
 		if(theta > M_PI) theta -= 2*M_PI;
@@ -244,12 +245,12 @@ void PathTracking::trackingThread()
 		
 		publishPathTrackingState();
 
-		if((i++)%20==0)
+		if((i++)%50==0)
 		{
 			ROS_INFO("min_r:%.3f\t max_speed:%.1f",1.0/max_curvature, max_speed);
 			ROS_INFO("set_speed:%f\t speed:%f",cmd_.speed ,vehicle_speed_*3.6);
 			ROS_INFO("dis2target:%.2f\t yaw_err:%.2f\t lat_err:%.2f",dis_yaw.first,yaw_err_*180.0/M_PI,lateral_err_);
-			ROS_INFO("disThreshold:%f\t expect roadwheel angle:%.2f",disThreshold_,t_roadWheelAngle);
+//			ROS_INFO("disThreshold:%f\t expect roadwheel angle:%.2f",disThreshold_,t_roadWheelAngle);
 			ROS_INFO("nearest_point_index:%d",nearest_point_index_);
 			publishDiagnostics(diagnostic_msgs::DiagnosticStatus::OK,"Running");
 		}
@@ -330,7 +331,10 @@ bool PathTracking::loadParkingPoints(size_t vehicle_pose_index)
 		ROS_ERROR("please loadPathPoints first!");
 		return false;
 	}
-	parking_points_.push_back(parkingPoint_t(500,15));//中途停车
+	parking_points_.push_back(parkingPoint_t(250,3));//中途停车
+	parking_points_.push_back(parkingPoint_t(1000,3));//中途停车
+	parking_points_.push_back(parkingPoint_t(3600,10));//中途停车
+	parking_points_.push_back(parkingPoint_t(1000,3));//中途停车
 	parking_points_.push_back(parkingPoint_t(dst_index_,0));//终点索引,永久停留
 	
 	//移除车辆位置之后的点!
@@ -344,6 +348,12 @@ bool PathTracking::loadParkingPoints(size_t vehicle_pose_index)
 	std::sort(parking_points_.begin(),parking_points_.end(),
 		[](const parkingPoint_t&point1,const parkingPoint_t&point2)
 		{return point1.index < point2.index;});
+		
+	for(auto &point:parking_points_)
+	{
+		std::cout << "stop index:" << point.index << "\t" << point.parkingDuration << std::endl;
+	}
+	
 	ROS_INFO("loadParkingPoints ok.");
 	return true;
 }
@@ -357,26 +367,29 @@ float PathTracking::limitSpeedByParkingPoint(const float& speed,const float& acc
 	//程序初始化时,应将停车点由近及远排序,并将位于当前位置之后的停车点移除
 	if(parking_points_.size() == 0)
 		return speed;
-	parkingPoint_t& parking_point = parking_points_[0];
 	
-	if(parking_point.isParking) //正在停车中
+	if(parking_points_[0].isParking) //正在停车中
 	{
+		if(parking_points_[0].parkingDuration == 0.0)
+			return 0.0;
 		//停车超时,移除当前停车点,下次利用下一停车点限速
-		if(ros::Time::now().toSec()-parking_point.parkingTime >= parking_point.parkingDuration)
+		if(ros::Time::now().toSec()-parking_points_[0].parkingTime >= parking_points_[0].parkingDuration)
 		{
+			ROS_INFO("parking overtime. parking point :%d",parking_points_[0].index);
 			parking_points_.erase(parking_points_.begin());
 			return speed;
 		}
 		return 0;
 	}
 	
-	float dis2ParkingPoint = disToParkingPoint(parking_point);
+	float dis2ParkingPoint = disToParkingPoint(parking_points_[0]);
 	float maxSpeed = sqrt(2*acc*dis2ParkingPoint);
 	//ROS_INFO("dis2end:%.2f\tmaxSpeed:%.2f",dis2end,maxSpeed);
 	if(dis2ParkingPoint < 0.5)//到达停车点附近,速度置0,,防止抖动
 	{
-		parking_point.parkingTime = ros::Time::now().toSec();
-		parking_point.isParking = true;
+		parking_points_[0].parkingTime = ros::Time::now().toSec();
+		parking_points_[0].isParking = true;
+		ROS_INFO("start parking. point:%d",parking_points_[0].index);
 		return 0;
 	}
 	return speed > maxSpeed ? maxSpeed : speed;
