@@ -26,6 +26,7 @@ public:
 	~CarFollowing(){};
 	
 	bool setGlobalPath(const std::vector<gpsMsg_t>& path);
+	bool getDstIndex(void);
 	bool updateStatus(const gpsMsg_t& pose,const float& speed, const size_t& nearest_point_index);
 	bool init(ros::NodeHandle nh,ros::NodeHandle nh_private);
 	bool start();
@@ -52,6 +53,8 @@ private:
 
 	std::vector<gpsMsg_t> path_points_;
 	float path_points_resolution_;
+	std::string parking_points_file_;
+	int    dst_index_; //终点索引
 
 	std::mutex cmd_mutex_;
 	controlCmd_t cmd_;

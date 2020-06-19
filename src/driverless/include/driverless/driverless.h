@@ -44,6 +44,7 @@ private:
 	float roadwheel_angle_;
     
     std::string path_points_file_;
+    int  dst_index_; //终点索引
 
 	ros::NodeHandle nh_, nh_private_;
 	ros::Timer cmd1_timer_, cmd2_timer_;

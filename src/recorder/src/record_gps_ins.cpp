@@ -1,6 +1,7 @@
 #include<iostream>
 #include<cstdio>
 #include<ros/ros.h>
+#include<std_msgs/UInt32.h>
 #include<sensor_msgs/Imu.h>
 #include<gps_msgs/Inspvax.h>
 
@@ -11,6 +12,7 @@ class Recorder
 private:
 	void imu_callback(const sensor_msgs::Imu::ConstPtr& imu);
 	void gps_callback(const gps_msgs::Inspvax::ConstPtr& gps);
+	void index_callback(const std_msgs::UInt32::ConstPtr& index);
 	void timer_callback(const ros::TimerEvent&);
 	std::string getDate();
 	
@@ -18,11 +20,13 @@ private:
 	FILE *fp_;
 	
 	bool imu_ok_,gps_ok_;
+	size_t index_;
 	sensor_msgs::Imu::ConstPtr imu_msg_;
 	gps_msgs::Inspvax::ConstPtr gps_msg_;
 	
 	ros::Subscriber sub_gps_;
 	ros::Subscriber sub_ins_;
+	ros::Subscriber sub_index_;
 	ros::Timer      timer_;
 	
 public:
@@ -35,12 +39,19 @@ Recorder::Recorder()
 {
 	imu_ok_ = false;
 	gps_ok_ = false;
+	index_  = 0;
 }
 
 Recorder::~Recorder()
 {
 	if(fp_ != NULL)
 		fclose(fp_);
+}
+
+
+void Recorder::index_callback(const std_msgs::UInt32::ConstPtr& index)
+{
+	index_ = index->data;
 }
 
 void Recorder::imu_callback(const sensor_msgs::Imu::ConstPtr& imu)
@@ -71,9 +82,11 @@ bool Recorder::init()
 	
 	std::string gps_topic = private_nh.param<std::string>("gps_topic","/gps");
 	std::string ins_topic = private_nh.param<std::string>("ins_topic","/imu");
+	std::string index_topic=private_nh.param<std::string>("index_topic","/index");
 	
 	sub_gps_ = nh.subscribe(gps_topic ,1,&Recorder::gps_callback,this);
 	sub_ins_ = nh.subscribe(ins_topic ,1,&Recorder::imu_callback,this);
+	sub_index_=nh.subscribe(index_topic,1,&Recorder::index_callback,this);
 	timer_   = nh.createTimer(ros::Duration(0.1), &Recorder::timer_callback, this);
 
 	fp_ = fopen(file_path_.c_str(),"w");
@@ -113,7 +126,7 @@ void Recorder::timer_callback(const ros::TimerEvent&)
 	
 	float x_speed = gps_msg_->north_velocity * cos(gps_msg_->azimuth) + gps_msg_->east_velocity * sin(gps_msg_->azimuth) *3.6;
 	
-	fprintf(fp_,"%s\t%.7f\t%.7f\t%.3f\t%.2f\t%.3f\t%.3f\t%.2f\t%.2f\t%.2f\r\n",getDate().c_str(), gps_msg_->longitude, gps_msg_->latitude, gps_msg_->height,x_speed,
+	fprintf(fp_,"%d\t%s\t%.7f\t%.7f\t%.3f\t%.2f\t%.3f\t%.3f\t%.2f\t%.2f\t%.2f\r\n",index_,getDate().c_str(), gps_msg_->longitude, gps_msg_->latitude, gps_msg_->height,x_speed,
 			imu_msg_->linear_acceleration.x, imu_msg_->linear_acceleration.y,gps_msg_->azimuth, gps_msg_->roll, gps_msg_->pitch);
 
 	fflush(fp_);

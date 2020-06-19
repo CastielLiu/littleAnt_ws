@@ -33,6 +33,11 @@ bool PathTracking::setGlobalPath(const std::vector<gpsMsg_t>& path)
 	return true;
 }
 
+void PathTracking::setDstIndex(size_t index)
+{
+	dst_index_ = index;
+}
+
 bool PathTracking::setExpectSpeed(float speed)
 {
 	expect_speed_ = speed;
@@ -54,7 +59,7 @@ bool PathTracking::init(ros::NodeHandle nh,ros::NodeHandle nh_private)
 	nh_private.param<std::string>("parking_points_file",parking_points_file_,"");
 	nh_private.param<float>("foreSightDis_speedCoefficient", foreSightDis_speedCoefficient_,1.0);
 	nh_private.param<float>("foreSightDis_latErrCoefficient", foreSightDis_latErrCoefficient_,-3.0);
-	nh_private.param<float>("min_foresight_distance",min_foresight_distance_,4.0);
+	nh_private.param<float>("min_foresight_distance",min_foresight_distance_,5.0);
 	nh_private.param<float>("max_side_accel",max_side_accel_,1.0);
 	
 	
@@ -254,7 +259,7 @@ void PathTracking::trackingThread()
 			ROS_INFO("min_r:%.3f\t max_speed:%.1f",1.0/max_curvature, max_speed);
 			ROS_INFO("set_speed:%f\t speed:%f",cmd_.speed ,vehicle_speed_*3.6);
 			ROS_INFO("dis2target:%.2f\t yaw_err:%.2f\t lat_err:%.2f",dis_yaw.first,yaw_err_*180.0/M_PI,lateral_err_);
-//			ROS_INFO("disThreshold:%f\t expect roadwheel angle:%.2f",disThreshold_,t_roadWheelAngle);
+			ROS_INFO("disThreshold:%f\t expect roadwheel angle:%.2f",disThreshold_,t_roadWheelAngle);
 			ROS_INFO("nearest_point_index:%d",nearest_point_index_);
 			publishDiagnostics(diagnostic_msgs::DiagnosticStatus::OK,"Running");
 		}

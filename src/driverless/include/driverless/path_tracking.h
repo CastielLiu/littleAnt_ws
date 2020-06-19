@@ -29,6 +29,7 @@ public:
 	bool init(ros::NodeHandle nh,ros::NodeHandle nh_private);
 	bool setGlobalPath(const std::vector<gpsMsg_t>& path);
 	bool setExpectSpeed(float speed);
+	void setDstIndex(size_t index);
 	bool start();
 	void stop();
 	bool isRunning();

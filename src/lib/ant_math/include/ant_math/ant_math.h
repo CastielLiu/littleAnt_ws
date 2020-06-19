@@ -126,6 +126,10 @@ float calculateDis2path(const double& x,const double& y,
 						 size_t   ref_point_index, //参考点索引
 						 size_t * const nearest_point_index_ptr=NULL);
 						 
+float calculateDis2path(const double& x,const double& y,
+						 const std::vector<gpsMsg_t>& path_points, 
+						 size_t  ref_point_index, //参考点索引
+						 size_t  max_search_index);
 float maxRoadWheelAngleWhenChangeLane(const float& offset,const float& distance);
 float generateDangerDistanceBySpeed(const float &speed);
 float generateMaxTolarateSpeedByCurvature(const float& curvature, const float& max_accel);

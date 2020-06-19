@@ -6,6 +6,7 @@
 		<param name="file_path" value="$(arg file_path)"/>
 		<param name="gps_topic" value="/gps" />
 		<param name="ins_topic" value="/corr_imu" />
+		<param name="index_topic" value="/driverless/nearest_index"/>
 	</node>
 
 </launch>

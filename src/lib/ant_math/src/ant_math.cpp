@@ -183,19 +183,87 @@ float calculateDis2path(const double& x,const double& y,
 	if(nearest_point_index_ptr != NULL)
 		*nearest_point_index_ptr = ref_point_index;
 	//float dis2anchor = sqrt((x-anchor_x)*(x-anchor_x)+(y-anchor_y)*(y-anchor_y));
-	
-	if(ref_point_index >= path_points.size()-1)
-	{
-		float dy = (x-anchor_x)*sin(anchor_yaw) + (y-anchor_y) * cos(anchor_yaw);
-		if(dy > 1.0)
-			return FLT_MAX;
-	}
-	
-	//printf("dx:%.2f\tdy:%.2f\tref_point_index:%d\n",dx,dy,ref_point_index);
 	float dx = (x-anchor_x)*cos(anchor_yaw) - (y-anchor_y) * sin(anchor_yaw);
 	return dx;
 }
 
+/*@brief 计算目标点到达路径的距离,点在路径左侧为负,右侧为正
+ *@param x,y         目标点坐标
+ *@param path_points 路径点集
+ *@param ref_point_index 参考点索引，以此参考点展开搜索，加速计算
+ *@param max_search_index  
+ */
+float calculateDis2path(const double& x,const double& y,
+						 const std::vector<gpsMsg_t>& path_points, 
+						 size_t  ref_point_index, //参考点索引
+						 size_t  max_search_index)
+{
+	int searchDir; //搜索方向 -1:向后搜索， 1：向前搜索， 0 搜索完毕
+	if(ref_point_index == 0)
+	{
+		ref_point_index = 1;
+		searchDir = 1;
+	}
+	else if(ref_point_index == path_points.size()-1)
+	{
+		ref_point_index = path_points.size()-2;
+		searchDir = -1;
+	}
+	else
+	{
+		float dis2ref  = pow(path_points[ref_point_index].x   - x, 2) + 
+					     pow(path_points[ref_point_index].y   - y, 2);
+		float dis2last = pow(path_points[ref_point_index-1].x - x, 2) + 
+					     pow(path_points[ref_point_index-1].y - y, 2);
+		float dis2next = pow(path_points[ref_point_index+1].x - x, 2) + 
+					     pow(path_points[ref_point_index+1].y - y, 2);
+		if(dis2next > dis2ref && dis2last > dis2ref) 
+			searchDir = 0;
+		else if(dis2next > dis2ref && dis2ref > dis2last)
+			searchDir = -1;
+		else
+			searchDir = 1;
+	}
+	
+	//std::cout  <<  "searchDir:"  << "\t" << searchDir << "\r\n";
+	while(ref_point_index>0 && ref_point_index<path_points.size()-1)
+	{
+		float dis2ref  = pow(path_points[ref_point_index].x   - x, 2) + 
+							pow(path_points[ref_point_index].y   - y, 2);
+		float dis2last = pow(path_points[ref_point_index-1].x - x, 2) + 
+							pow(path_points[ref_point_index-1].y - y, 2);
+		float dis2next = pow(path_points[ref_point_index+1].x - x, 2) + 
+							pow(path_points[ref_point_index+1].y - y, 2);
+	//std::cout  << ref_point_index << "\t" <<  sqrt(dis2last)  << "\t" << sqrt(dis2ref) << "\t" << sqrt(dis2next) << "\r\n";		
+		if((searchDir == 1 && dis2next > dis2ref) ||
+		   (searchDir ==-1 && dis2last > dis2ref) ||
+		   (searchDir == 0))
+			break;
+
+		ref_point_index += searchDir;
+	}
+	float anchor_x,anchor_y, anchor_yaw; //锚点的位置和航向
+	anchor_x = path_points[ref_point_index].x;
+	anchor_y = path_points[ref_point_index].y;
+	anchor_yaw = path_points[ref_point_index].yaw;
+	
+	if(ref_point_index >= max_search_index)
+	{
+		anchor_x = path_points[max_search_index].x;
+		anchor_y = path_points[max_search_index].y;
+		anchor_yaw = path_points[max_search_index].yaw;
+		float dy = (x-anchor_x)*sin(anchor_yaw) + (y-anchor_y) * cos(anchor_yaw);
+		//float dx = (x-anchor_x)*cos(anchor_yaw) - (y-anchor_y) * sin(anchor_yaw);
+	//printf("dx:%.2f\tdy:%.2f\tref_point_index:%d\tmax_search_index:%d\n",dx,dy,ref_point_index,max_search_index);
+		
+		if(dy > 0.5)
+			return FLT_MAX;
+	}
+	
+	//printf("dx:%.2f\tdy:%.2f\tref_point_index:%d\n",dx,dy,ref_point_index);
+	
+	return (x-anchor_x)*cos(anchor_yaw) - (y-anchor_y) * sin(anchor_yaw);
+}
 
 float limitSpeedByPathCurvature(const float& speed,const float& curvature)
 {

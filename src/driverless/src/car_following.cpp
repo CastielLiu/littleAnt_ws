@@ -21,6 +21,8 @@ bool CarFollowing::init(ros::NodeHandle nh,ros::NodeHandle nh_private)
 	objects_topic_     = nh_private.param<std::string>("mm_radar_objects_topic","/esr_objects");
 	base_link_frame_   = nh_private.param<std::string>("base_link_frame", "base_link");
 	target_repeat_threshold_ = nh_private.param<int>("target_repeat_threshold", 5);
+	
+	nh_private_.param<std::string>("parking_points_file",parking_points_file_,"");
 
 	pub_diagnostic_ = nh.advertise<diagnostic_msgs::DiagnosticStatus>("driverless/diagnostic",1);
 	return true;
@@ -31,6 +33,30 @@ bool CarFollowing::setGlobalPath(const std::vector<gpsMsg_t>& path)
 	if(path_points_.size()!=0)
 		return false;
 	path_points_ = path;
+	getDstIndex();
+	return true;
+}
+
+bool CarFollowing::getDstIndex()
+{ 
+	dst_index_ = path_points_.size()-1;
+	
+	if(parking_points_file_.empty())
+		return true;
+	
+	FILE *fp = fopen(parking_points_file_.c_str(),"r");
+	if(fp != NULL)
+	{
+		int index;
+		float duration;
+		while(!feof(fp))
+		{
+			fscanf(fp,"%d\t%f\n",&index,&duration);
+		}
+		dst_index_ = index;
+		ROS_ERROR("dst_index_:%d",dst_index_);
+	}
+	fclose(fp);
 	return true;
 }
 
@@ -130,7 +156,8 @@ void CarFollowing::object_callback(const esr_radar::ObjectArray::ConstPtr& objec
 	for(size_t i=0; i< objects->objects.size(); ++i)
 	{
 		const esr_radar::Object& object = objects->objects[i];
-		
+		if(object.distance > 50)
+			continue;
 		//目标雷达坐标转向GPS坐标
 		std::pair<float, float> base_pose = 
 			local2global(radar_in_base_x_,radar_in_base_y_,radar_in_base_yaw_, object.x,object.y);
@@ -140,7 +167,7 @@ void CarFollowing::object_callback(const esr_radar::ObjectArray::ConstPtr& objec
 			local2global(vehicle_pose.x,vehicle_pose.y,-vehicle_pose.yaw, base_pose.first,base_pose.second);
 		
 		//计算目标到全局路径的距离
-		float dis2path = calculateDis2path(object_global_pos.first, object_global_pos.second,path_points_,pose_index);
+		float dis2path = calculateDis2path(object_global_pos.first, object_global_pos.second,path_points_,pose_index,dst_index_);
 		//std::cout << std::fixed << std::setprecision(2) <<
 		//	object.x <<"  "<<object.y <<"\t" << dis2path << std::endl;
 		if(fabs(dis2path) < safety_side_dis_)

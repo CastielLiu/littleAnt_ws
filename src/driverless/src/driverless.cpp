@@ -101,6 +101,7 @@ void AutoDrive::run()
 	//配置路径跟踪控制器
 	tracker_.setExpectSpeed(max_speed_);
 	tracker_.setGlobalPath(path_points_);
+	
     if(!tracker_.init(nh_, nh_private_))
 	{
 		publishDiagnostics(diagnostic_msgs::DiagnosticStatus::ERROR,"Init path tracker failed!");
@@ -109,12 +110,12 @@ void AutoDrive::run()
 	tracker_.start();//路径跟踪控制器
 	
 	//配置跟车控制器
-	car_follower_.setGlobalPath(path_points_);
 	if(!car_follower_.init(nh_, nh_private_))
 	{
 		publishDiagnostics(diagnostic_msgs::DiagnosticStatus::ERROR,"Init car follower failed!");
 		return;
 	}
+	car_follower_.setGlobalPath(path_points_);
 	car_follower_.start(); //跟车控制器
 	
 	//配置外部控制器
