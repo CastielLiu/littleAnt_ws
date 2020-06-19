@@ -126,8 +126,11 @@ void Recorder::timer_callback(const ros::TimerEvent&)
 	
 	float x_speed = gps_msg_->north_velocity * cos(gps_msg_->azimuth) + gps_msg_->east_velocity * sin(gps_msg_->azimuth) *3.6;
 	
-	fprintf(fp_,"%d\t%s\t%.7f\t%.7f\t%.3f\t%.2f\t%.3f\t%.3f\t%.2f\t%.2f\t%.2f\r\n",index_,getDate().c_str(), gps_msg_->longitude, gps_msg_->latitude, gps_msg_->height,x_speed,
-			imu_msg_->linear_acceleration.x, imu_msg_->linear_acceleration.y,gps_msg_->azimuth, gps_msg_->roll, gps_msg_->pitch);
+	double time = ros::Time::now().toSec();
+	
+	fprintf(fp_,"%d\t%s\t%.2f\t%.7f\t%.7f\t%.3f\t%.2f\t%.3f\t%.3f\t%.2f\t%.2f\t%.2f\r\n",
+		index_,getDate().c_str(), time, gps_msg_->longitude, gps_msg_->latitude, gps_msg_->height,x_speed,
+		imu_msg_->linear_acceleration.x, imu_msg_->linear_acceleration.y,gps_msg_->azimuth, gps_msg_->roll, gps_msg_->pitch);
 
 	fflush(fp_);
 }

@@ -191,7 +191,7 @@ float calculateDis2path(const double& x,const double& y,
  *@param x,y         目标点坐标
  *@param path_points 路径点集
  *@param ref_point_index 参考点索引，以此参考点展开搜索，加速计算
- *@param max_search_index  
+ *@param max_search_index 最大搜索索引,超出此索引的目标物则输出距离为FLT_MAX
  */
 float calculateDis2path(const double& x,const double& y,
 						 const std::vector<gpsMsg_t>& path_points, 
@@ -247,6 +247,7 @@ float calculateDis2path(const double& x,const double& y,
 	anchor_y = path_points[ref_point_index].y;
 	anchor_yaw = path_points[ref_point_index].yaw;
 	
+	//若参考索引大于最大搜索索引,且目标物与车辆纵向距离大于一定阈值,则输出 FLT_MAX
 	if(ref_point_index >= max_search_index)
 	{
 		anchor_x = path_points[max_search_index].x;
@@ -314,7 +315,6 @@ float maxRoadWheelAngleWhenChangeLane(const float& offset,const float& distance)
 	float radius = 0.5*distance/sin(theta);
 	return generateRoadwheelAngleByRadius(radius);
 }
-
 
 //查找与当前点距离为dis的路径点索引
 /*

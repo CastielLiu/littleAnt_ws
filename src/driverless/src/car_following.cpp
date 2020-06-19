@@ -12,6 +12,7 @@ CarFollowing::CarFollowing()
 	cmd_.validity = false;
 	is_running_ = false;
 	is_ready_ = false;
+	is_initialed_ = false;
 }
 
 bool CarFollowing::init(ros::NodeHandle nh,ros::NodeHandle nh_private)
@@ -25,11 +26,17 @@ bool CarFollowing::init(ros::NodeHandle nh,ros::NodeHandle nh_private)
 	nh_private_.param<std::string>("parking_points_file",parking_points_file_,"");
 
 	pub_diagnostic_ = nh.advertise<diagnostic_msgs::DiagnosticStatus>("driverless/diagnostic",1);
+	is_initialed_ = true;
 	return true;
 }
 
 bool CarFollowing::setGlobalPath(const std::vector<gpsMsg_t>& path)
 {
+	if(!is_initialed_)
+	{
+		ROS_ERROR("[%s] please init firstly.",__NAME__);
+		return false;
+	}
 	if(path_points_.size()!=0)
 		return false;
 	path_points_ = path;
@@ -37,6 +44,10 @@ bool CarFollowing::setGlobalPath(const std::vector<gpsMsg_t>& path)
 	return true;
 }
 
+/*@brief 获取终点索引,用于限制障碍物搜索距离,超出终点的目标不予考虑,
+ *@brief 以保证车辆驶入终点,而不被前方障碍干扰
+ *@brief 从停车点文件获取停车时间为0(终点)的点
+ */
 bool CarFollowing::getDstIndex()
 { 
 	dst_index_ = path_points_.size()-1;
@@ -52,9 +63,10 @@ bool CarFollowing::getDstIndex()
 		while(!feof(fp))
 		{
 			fscanf(fp,"%d\t%f\n",&index,&duration);
+			if(0.0 == duration)
+				dst_index_ = index;
 		}
-		dst_index_ = index;
-		ROS_ERROR("dst_index_:%d",dst_index_);
+		//ROS_ERROR("dst_index_:%d",dst_index_);
 	}
 	fclose(fp);
 	return true;
@@ -121,6 +133,7 @@ void CarFollowing::object_callback(const esr_radar::ObjectArray::ConstPtr& objec
 	if(!is_ready_) return;
 	if(objects->objects.size()==0) return;
 	
+	//获取mm_radar与base_link(gps)间的坐标变换
 	static bool transform_ok = false;
 	if(!transform_ok)
 	{
@@ -148,15 +161,16 @@ void CarFollowing::object_callback(const esr_radar::ObjectArray::ConstPtr& objec
 	size_t pose_index = nearest_point_index_;
 	state_mutex_.unlock();
 
-	//跟车距离，x = v*v/(2*a) + C常
+	//跟车距离： x = v*v/(2*a) + C常
 	follow_distance_ = vehicle_speed*vehicle_speed/(2*4.0)  + 8.0;
-
+	
+	//目标分类,障碍物和非障碍物
 	std::vector<esr_radar::Object> obstacles;
-	float targetDis2path=1111;
+	float targetDis2path = FLT_MAX;
 	for(size_t i=0; i< objects->objects.size(); ++i)
 	{
 		const esr_radar::Object& object = objects->objects[i];
-		if(object.distance > 50)
+		if(object.distance > 50) //不考虑远处的目标
 			continue;
 		//目标雷达坐标转向GPS坐标
 		std::pair<float, float> base_pose = 
@@ -179,7 +193,8 @@ void CarFollowing::object_callback(const esr_radar::ObjectArray::ConstPtr& objec
 	if(obstacles.size() == 0) return;
 
 	//std::sort(obstacles.begin(),obstacles.end(),[](const auto& obj1, const auto& obj2){return obj1.distance < obj2.distance});
-	float minDis = 200;
+	//查找最近的障碍物
+	float minDis = FLT_MAX;
 	size_t nearestObstalIndex = 0;
 	for(size_t i=0; i<obstacles.size(); ++i)
 	{
@@ -214,8 +229,6 @@ void CarFollowing::object_callback(const esr_radar::ObjectArray::ConstPtr& objec
 	if(targetRepeatTimes < target_repeat_threshold_)
 		return;
 	
-	
-	
 	//distanceErr>0    acceleration
 	//distanceErr<0    deceleration
 	float distanceErr = nearestObstal.distance -follow_distance_;
@@ -230,6 +243,8 @@ void CarFollowing::object_callback(const esr_radar::ObjectArray::ConstPtr& objec
 			
 	ROS_INFO("target dis:%.2f  speed:%.2f  dis2path:%.2f  vehicle speed:%.2f  t_speed:%.2f  t_dis:%.2f   dis:%f",minDis,vehicle_speed + nearestObstal.speed,targetDis2path, vehicle_speed,t_speed,follow_distance_,nearestObstal.distance);
 	ROS_INFO("target x:%.2f  y:%.2f  id:%2d",nearestObstal.x,nearestObstal.y,nearestObstal.id);
+	
+	//防止速度抖动
 	if(t_speed < 1.0)
 		t_speed = 0.0;
 	
@@ -240,6 +255,9 @@ void CarFollowing::object_callback(const esr_radar::ObjectArray::ConstPtr& objec
 	cmd_mutex_.unlock();
 }
 
+/*@brief 发布局部路径以在RVIZ显示
+ *
+ */
 void CarFollowing::publishLocalPath()
 {
 	nav_msgs::Path path;

@@ -67,6 +67,7 @@ private:
 	float      roadwheel_angle_;
 	bool       is_ready_; //是否准备就绪
 	bool       is_running_;
+	bool       is_initialed_;
 
 	float follow_distance_;
 	float safety_side_dis_;
