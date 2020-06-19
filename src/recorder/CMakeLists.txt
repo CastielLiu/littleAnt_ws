@@ -43,9 +43,9 @@ add_executable(record_vehicle_state_node src/record_vehicle_state.cpp)
 add_dependencies(record_vehicle_state_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 target_link_libraries(record_vehicle_state_node   ${catkin_LIBRARIES})
 
-add_executable(record_IMU_node src/record_imu.cpp)
-add_dependencies(record_IMU_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
-target_link_libraries(record_IMU_node   ${catkin_LIBRARIES})
+add_executable(record_gps_ins_node src/record_gps_ins.cpp)
+add_dependencies(record_gps_ins_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+target_link_libraries(record_gps_ins_node   ${catkin_LIBRARIES})
 
 add_executable(record_drive_status_node src/record_drive_status.cpp)
 add_dependencies(record_drive_status_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})

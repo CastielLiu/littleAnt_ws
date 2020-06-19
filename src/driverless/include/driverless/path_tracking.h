@@ -42,6 +42,7 @@ private:
 	gpsMsg_t pointOffset(const gpsMsg_t& point,float offset);
 	bool  extendGlobalPath(float extendDis);
 	void  publishPathTrackingState();
+	void  publishNearestIndex();
 	bool  loadParkingPoints(size_t vehicle_pose_index);
 	float disToParkingPoint(const parkingPoint_t& parkingPoint);
 	float limitSpeedByParkingPoint(const float& speed,const float& acc=5);
@@ -50,6 +51,7 @@ private:
 	ros::Timer timer_;
 	ros::Publisher pub_diagnostic_;
 	ros::Publisher pub_tracking_state_;
+	ros::Publisher pub_nearest_index_;
 
 	diagnostic_msgs::DiagnosticStatus diagnostic_msg_;
 	driverless::TrackingState tracking_state_;

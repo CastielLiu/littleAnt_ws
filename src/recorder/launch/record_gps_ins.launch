@@ -1,0 +1,11 @@
+<!-- -->
+<launch>
+	<arg name="file_path"/>
+	
+	<node name="record_gps_ins_node" pkg="recorder" type="record_gps_ins_node" output= "screen">
+		<param name="file_path" value="$(arg file_path)"/>
+		<param name="gps_topic" value="/gps" />
+		<param name="ins_topic" value="/corr_imu" />
+	</node>
+
+</launch>

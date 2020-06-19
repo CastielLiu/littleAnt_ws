@@ -3,7 +3,7 @@
 
 PathTracking::PathTracking():
 	nearest_point_index_(0),
-	expect_speed_(5.0), //defult expect speed
+	expect_speed_(10.0), //defult expect speed
 	is_ready_(false)
 {
 	diagnostic_msg_.hardware_id = "path_tracking";
@@ -62,6 +62,7 @@ bool PathTracking::init(ros::NodeHandle nh,ros::NodeHandle nh_private)
 
 	pub_diagnostic_ = nh.advertise<diagnostic_msgs::DiagnosticStatus>("driverless/diagnostic",1);
 	pub_tracking_state_ = nh.advertise<driverless::TrackingState>(tracking_info_topic,1);
+	pub_nearest_index_  = nh.advertise<std_msgs::UInt32>("/driverless/nearest_index",1);
 
 	if(path_points_.size()==0)
 	{
@@ -246,6 +247,7 @@ void PathTracking::trackingThread()
 		//ROS_INFO("speed:%.2f\t max:%.2f\t e:%.2f",cmd_.speed,max_speed,expect_speed_);
 		
 		publishPathTrackingState();
+		publishNearestIndex();
 
 		if((i++)%50==0)
 		{
@@ -290,16 +292,29 @@ bool PathTracking::isRunning()
 
 void PathTracking::publishPathTrackingState()
 {
-	tracking_state_.header.stamp = ros::Time::now();
-	tracking_state_.position_x = current_point_.x;
-	tracking_state_.position_y = current_point_.y;
-	tracking_state_.yaw = current_point_.yaw;
-	tracking_state_.vehicle_speed =  vehicle_speed_;
-	tracking_state_.roadwheel_angle = roadwheel_angle_;
-	tracking_state_.lateral_error = lateral_err_;
-	tracking_state_.yaw_error = yaw_err_;
+	if(pub_tracking_state_.getNumSubscribers())
+	{
+		tracking_state_.header.stamp = ros::Time::now();
+		tracking_state_.position_x = current_point_.x;
+		tracking_state_.position_y = current_point_.y;
+		tracking_state_.yaw = current_point_.yaw;
+		tracking_state_.vehicle_speed =  vehicle_speed_;
+		tracking_state_.roadwheel_angle = roadwheel_angle_;
+		tracking_state_.lateral_error = lateral_err_;
+		tracking_state_.yaw_error = yaw_err_;
 	
-	pub_tracking_state_.publish(tracking_state_);
+		pub_tracking_state_.publish(tracking_state_);
+	}
+}
+
+void PathTracking::publishNearestIndex()
+{
+	static std_msgs::UInt32 msg;
+	if(pub_nearest_index_.getNumSubscribers())
+	{
+		msg.data = nearest_point_index_;
+		pub_nearest_index_.publish(msg);
+	}
 }
 
 gpsMsg_t PathTracking::pointOffset(const gpsMsg_t& point,float offset)
