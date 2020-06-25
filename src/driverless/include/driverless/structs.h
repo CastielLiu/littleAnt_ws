@@ -14,6 +14,7 @@ typedef struct ControlCmd
 	float speed;
 	float roadWheelAngle;
 	uint8_t turnLight; // 0 关灯,1左转,2右转
+	uint8_t stopLight; // 0 关灯,
 	
 } controlCmd_t;
 
