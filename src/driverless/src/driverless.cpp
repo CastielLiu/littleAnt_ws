@@ -104,14 +104,17 @@ void AutoDrive::run()
 	
     if(!tracker_.init(nh_, nh_private_))
 	{
+		ROS_ERROR("path tracker init false!");
 		publishDiagnostics(diagnostic_msgs::DiagnosticStatus::ERROR,"Init path tracker failed!");
 		return;
 	}
 	tracker_.start();//路径跟踪控制器
+	ROS_INFO("path tracker init ok");
 	
 	//配置跟车控制器
 	if(!car_follower_.init(nh_, nh_private_))
 	{
+		ROS_ERROR("car follower init false!");
 		publishDiagnostics(diagnostic_msgs::DiagnosticStatus::ERROR,"Init car follower failed!");
 		return;
 	}

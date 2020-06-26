@@ -52,23 +52,9 @@ bool CarFollowing::getDstIndex()
 { 
 	dst_index_ = path_points_.size()-1;
 	
-	if(parking_points_file_.empty())
-		return true;
+	//push all parking duration is 0 point 
+	//select the min index as the destination index!
 	
-	FILE *fp = fopen(parking_points_file_.c_str(),"r");
-	if(fp != NULL)
-	{
-		int index;
-		float duration;
-		while(!feof(fp))
-		{
-			fscanf(fp,"%d\t%f\n",&index,&duration);
-			if(0.0 == duration)
-				dst_index_ = index;
-		}
-		//ROS_ERROR("dst_index_:%d",dst_index_);
-	}
-	fclose(fp);
 	return true;
 }
 

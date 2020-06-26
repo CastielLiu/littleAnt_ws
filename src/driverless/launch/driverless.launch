@@ -8,7 +8,7 @@
 	<include file="$(find ant_driver)/launch/ant_driver.launch" />
 	
 	<!-- 上层控制 -->
-	<node name="driverless_node" pkg="driverless" type="driverless_node" output="screen" required="true">
+	<node name="driverless_node" pkg="driverless" type="driverless_node" output="screen">
 		<!-- main -->
 		<param name="path_points_file" value="$(arg roadnet_file)"/>
 		<param name="max_speed" value="$(arg max_speed)"/>
@@ -30,7 +30,7 @@
 	</node> 
 	
 	<!-- GPS -->
-	<include file="$(find novatel)/launch/novatel.launch" />
+	<include file="$(find novatel)/launch/novatel.launch"/>
 	
 	<!-- 毫米波雷达 -->
 	<include file="$(find esr_radar)/launch/esr_radar.launch" />

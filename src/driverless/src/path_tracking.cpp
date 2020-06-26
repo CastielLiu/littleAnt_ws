@@ -135,9 +135,9 @@ void PathTracking::trackingThread()
 {
 	while(ros::ok() && !is_ready_) //等待就绪
 		usleep(500000);
-
 	nearest_point_index_ = findNearestPoint(path_points_,current_point_); 
-	loadParkingPoints(nearest_point_index_);//载入停车点,并根据当前位置判断停车点的有效性
+	bool ok = loadParkingPoints(nearest_point_index_);//载入停车点,并根据当前位置判断停车点的有效性
+	if(!ok) ROS_ERROR("load parking points failed");
 
 	if(nearest_point_index_ > path_points_.size() - 10)
 	{
@@ -355,10 +355,11 @@ bool PathTracking::loadParkingPoints(size_t vehicle_pose_index)
 		return false;
 	}
 	
+	parking_points_.push_back(parkingPoint_t(dst_index_,0));//终点索引,永久停留
+	
 	using namespace tinyxml2;
 	XMLDocument Doc;  
 	XMLError res = Doc.LoadFile(parking_points_file_.c_str());
-	
 	if(XML_ERROR_FILE_NOT_FOUND == res)
 	{
 		ROS_ERROR_STREAM("parking points file: "<< parking_points_file_ << "not exist!");
@@ -370,20 +371,23 @@ bool PathTracking::loadParkingPoints(size_t vehicle_pose_index)
 		return false;
 	}
 	tinyxml2::XMLElement *pRoot=Doc.RootElement();//根节点
-	tinyxml2::XMLElement *pPoint=pRoot->FirstChildElement(); //一级子节点
+	if(pRoot == nullptr)
+	{
+		ROS_ERROR_STREAM("parking points file: "<< parking_points_file_ << " parse error!");
+		return false;
+	}
+	tinyxml2::XMLElement *pPoint=pRoot->FirstChildElement("ParkingPoint"); //一级子节点
 	while (pPoint)
 	{
 		uint32_t id = pPoint->Unsigned64Attribute("id");
 		uint32_t index = pPoint->Unsigned64Attribute("index");
 		float duration = pPoint->FloatAttribute("duration");
 		parking_points_.push_back(parkingPoint_t(index,duration));
-		std::cout << id << "\t" << index << "\t" << duration << std::endl;
+		//std::cout << id << "\t" << index << "\t" << duration << std::endl;
 		
 		//转到下一子节点
-		pPoint = pPoint->NextSiblingElement();  
+		pPoint = pPoint->NextSiblingElement("ParkingPoint");  
 	}
-	
-	parking_points_.push_back(parkingPoint_t(dst_index_,0));//终点索引,永久停留
 	
 	//移除车辆位置之后的点!
 	for(size_t i=0; i<parking_points_.size(); ++i)
