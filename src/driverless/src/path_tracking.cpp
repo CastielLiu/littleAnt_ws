@@ -56,14 +56,14 @@ bool PathTracking::init(ros::NodeHandle nh,ros::NodeHandle nh_private)
 {
 	std::string tracking_info_topic = 
 	nh_private.param<std::string>("tracking_info_topic","/tracking_state");
-	nh_private.param<std::string>("parking_points_file",parking_points_file_,"");
 	nh_private.param<float>("foreSightDis_speedCoefficient", foreSightDis_speedCoefficient_,1.0);
 	nh_private.param<float>("foreSightDis_latErrCoefficient", foreSightDis_latErrCoefficient_,-3.0);
 	nh_private.param<float>("min_foresight_distance",min_foresight_distance_,5.0);
 	nh_private.param<float>("max_side_accel",max_side_accel_,1.0);
 	
-	
-	max_target_yaw_err_ = nh_private.param<float>  ("max_target_yaw_err",50.0)*M_PI/180.0;
+	max_target_yaw_err_ = nh_private.param<float>("max_target_yaw_err",50.0)*M_PI/180.0;
+	std::string path_points_file = nh_private.param<std::string>("path_points_file","");
+	parking_points_file_ = path_points_file.substr(0,path_points_file.find_last_of("/")) + "/parking_points.xml";
 
 	pub_diagnostic_ = nh.advertise<diagnostic_msgs::DiagnosticStatus>("driverless/diagnostic",1);
 	pub_tracking_state_ = nh.advertise<driverless::TrackingState>(tracking_info_topic,1);
@@ -346,6 +346,7 @@ float PathTracking::disToParkingPoint(const parkingPoint_t& parkingPoint)
 
 /*@brief 从文件载入停车点
 */
+#include <tinyxml2.h>
 bool PathTracking::loadParkingPoints(size_t vehicle_pose_index)
 {
 	if(path_points_.size() == 0)
@@ -354,25 +355,34 @@ bool PathTracking::loadParkingPoints(size_t vehicle_pose_index)
 		return false;
 	}
 	
+	using namespace tinyxml2;
+	XMLDocument Doc;  
+	XMLError res = Doc.LoadFile(parking_points_file_.c_str());
 	
-	if(!parking_points_file_.empty())
+	if(XML_ERROR_FILE_NOT_FOUND == res)
 	{
-		FILE *fp = fopen(parking_points_file_.c_str(),"r");
-		if(fp != NULL)
-		{
-			int index;
-			float duration;
-			while(!feof(fp))
-			{
-				fscanf(fp,"%d\t%f\n",&index,&duration);
-				parking_points_.push_back(parkingPoint_t(index,duration));
-			}
-		}
-		fclose(fp);
+		ROS_ERROR_STREAM("parking points file: "<< parking_points_file_ << "not exist!");
+		return false;
 	}
-//手动添加停车点
-//	parking_points_.push_back(parkingPoint_t(3600,10));//中途停车
-//	parking_points_.push_back(parkingPoint_t(1000,3));//中途停车
+	else if(XML_SUCCESS != res)
+	{
+		ROS_ERROR_STREAM("parking points file: "<< parking_points_file_ << " parse error!");
+		return false;
+	}
+	tinyxml2::XMLElement *pRoot=Doc.RootElement();//根节点
+	tinyxml2::XMLElement *pPoint=pRoot->FirstChildElement(); //一级子节点
+	while (pPoint)
+	{
+		uint32_t id = pPoint->Unsigned64Attribute("id");
+		uint32_t index = pPoint->Unsigned64Attribute("index");
+		float duration = pPoint->FloatAttribute("duration");
+		parking_points_.push_back(parkingPoint_t(index,duration));
+		std::cout << id << "\t" << index << "\t" << duration << std::endl;
+		
+		//转到下一子节点
+		pPoint = pPoint->NextSiblingElement();  
+	}
+	
 	parking_points_.push_back(parkingPoint_t(dst_index_,0));//终点索引,永久停留
 	
 	//移除车辆位置之后的点!
