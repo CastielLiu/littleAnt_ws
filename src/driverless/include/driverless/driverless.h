@@ -19,6 +19,7 @@ public:
     void run();
 
 private:
+    bool loadPathInfos(const std::string& file);
 	void publishDiagnostics(uint8_t level,const std::string& msg);
 	void publishPathTrackingState();
     bool is_gps_data_valid(const gpsMsg_t& point);
@@ -31,6 +32,7 @@ private:
 
 private: 
     std::vector<gpsMsg_t>  path_points_;
+    std::vector<parkingPoint_t> parking_points_;
 
     float max_speed_;
     float max_roadwheelAngle_;

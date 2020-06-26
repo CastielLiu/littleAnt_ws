@@ -2,6 +2,8 @@
 #include "ros/ros.h"
 #include "driverless/driverless.h"
 
+#define __NAME__ "driverless"
+
 AutoDrive::AutoDrive():
     nh_private_("~"),
     avoid_offset_(0.0)
@@ -58,7 +60,18 @@ bool AutoDrive::init()
 	//载入路网文件
 	if(!loadPathPoints(path_points_file_, path_points_))
 	{
-		publishDiagnostics(diagnostic_msgs::DiagnosticStatus::ERROR,"Path file error!");
+	    ROS_ERROR("Load path file failed!");
+		publishDiagnostics(diagnostic_msgs::DiagnosticStatus::ERROR,"Load path file failed!");
+		return false;
+	}
+
+	//载入路径信息
+	std::string parking_points_file = path_points_file_.substr(0,path_points_file_.find_last_of("/")) + "/parking_points.xml";
+	//载入停车点信息
+	if(!loadPathInfos(parking_points_file))
+	{
+		ROS_ERROR("Load path infomation failed!");
+		publishDiagnostics(diagnostic_msgs::DiagnosticStatus::ERROR,"Load path infomation failed!");
 		return false;
 	}
 
@@ -218,6 +231,61 @@ void AutoDrive::vehicleState4_callback(const little_ant_msgs::State4::ConstPtr& 
 	roadwheel_angle_ = msg->roadwheelAngle;
 }
 
+/*@brief 从文件载入停车点
+*/
+#include <tinyxml2.h>
+bool AutoDrive::loadPathInfos(const std::string& file)
+{
+	if(path_points_.size() == 0)
+	{
+		ROS_ERROR("[%s] please load Path Points first!",__NAME__);
+		return false;
+	}
+	
+	using namespace tinyxml2;
+	XMLDocument Doc;  
+	XMLError res = Doc.LoadFile(file.c_str());
+	
+	if(XML_ERROR_FILE_NOT_FOUND == res)
+	{
+		ROS_ERROR_STREAM("parking points file: "<< file << "not exist!");
+		return false;
+	}
+	else if(XML_SUCCESS != res)
+	{
+		ROS_ERROR_STREAM("parking points file: "<< file << " parse error!");
+		return false;
+	}
+	tinyxml2::XMLElement *pRoot=Doc.RootElement();//根节点
+	if(pRoot == nullptr)
+	{
+		ROS_ERROR_STREAM("parking points file: "<< file << " parse error!");
+		return false;
+	}
+	tinyxml2::XMLElement *pPoint=pRoot->FirstChildElement("ParkingPoint"); //一级子节点
+	while (pPoint)
+	{
+		uint32_t id = pPoint->Unsigned64Attribute("id");
+		uint32_t index = pPoint->Unsigned64Attribute("index");
+		float duration = pPoint->FloatAttribute("duration");
+		parking_points_.push_back(parkingPoint_t(index,duration));
+		//std::cout << id << "\t" << index << "\t" << duration << std::endl;
+		
+		//转到下一子节点
+		pPoint = pPoint->NextSiblingElement("ParkingPoint");  
+	}
+	
+	//停车点排序
+	std::sort(parking_points_.begin(),parking_points_.end(),
+		[](const parkingPoint_t&point1,const parkingPoint_t&point2)
+		{return point1.index < point2.index;});
+		
+	for(auto &point:parking_points_)
+		std::cout << "stop index:" << point.index << "\t" << point.parkingDuration << std::endl;
+	
+	ROS_INFO("[%s] load Parking Points ok.",__NAME__);
+	return true;
+}
 
 
 int main(int argc, char *argv[])
