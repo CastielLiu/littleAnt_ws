@@ -4,15 +4,12 @@
 
 float offset = 0.0/180.0*M_PI;
 
-CarFollowing::CarFollowing()
+CarFollowing::CarFollowing():
+	AutoDriveBase(__NAME__)
 {
 	targetId_ = 0xff; //no target
 	cmd_update_time_ = 0.0;
 	safety_side_dis_ = 0.0+1.0+0.0;
-	cmd_.validity = false;
-	is_running_ = false;
-	is_ready_ = false;
-	is_initialed_ = false;
 }
 
 bool CarFollowing::init(ros::NodeHandle nh,ros::NodeHandle nh_private)
@@ -22,45 +19,10 @@ bool CarFollowing::init(ros::NodeHandle nh,ros::NodeHandle nh_private)
 	objects_topic_     = nh_private.param<std::string>("mm_radar_objects_topic","/esr_objects");
 	base_link_frame_   = nh_private.param<std::string>("base_link_frame", "base_link");
 	target_repeat_threshold_ = nh_private.param<int>("target_repeat_threshold", 5);
-	
-	nh_private_.param<std::string>("parking_points_file",parking_points_file_,"");
 
-	pub_diagnostic_ = nh.advertise<diagnostic_msgs::DiagnosticStatus>("driverless/diagnostic",1);
+	initDiagnosticPublisher(nh_,__NAME__);
 	is_initialed_ = true;
 	return true;
-}
-
-bool CarFollowing::setGlobalPath(const std::vector<gpsMsg_t>& path)
-{
-	if(!is_initialed_)
-	{
-		ROS_ERROR("[%s] please init firstly.",__NAME__);
-		return false;
-	}
-	if(path_points_.size()!=0)
-		return false;
-	path_points_ = path;
-	getDstIndex();
-	return true;
-}
-
-/*@brief 获取终点索引,用于限制障碍物搜索距离,超出终点的目标不予考虑,
- *@brief 以保证车辆驶入终点,而不被前方障碍干扰
- *@brief 从停车点文件获取停车时间为0(终点)的点
- */
-bool CarFollowing::getDstIndex()
-{ 
-	dst_index_ = path_points_.size()-1;
-	
-	//push all parking duration is 0 point 
-	//select the min index as the destination index!
-	
-	return true;
-}
-
-bool CarFollowing::isRunning()
-{
-	return is_running_;
 }
 
 bool CarFollowing::updateStatus(const gpsMsg_t& pose,const float& speed, const size_t& nearest_point_index)
@@ -79,6 +41,21 @@ bool CarFollowing::start()
 	{
 		ROS_ERROR("[%s]: please setGlobalPath before start!", __NAME__);
 		return false;
+	}
+	if(parking_points_.size() == 0)
+	{
+		ROS_ERROR("[%s]: please set parking points before start!", __NAME__);
+		return false;
+	}
+
+	/*@brief 获取终点索引,用于限制障碍物搜索距离,超出终点的目标不予考虑,
+	 *@brief 以保证车辆驶入终点,而不被前方障碍干扰
+	 *@brief 从停车点文件获取停车时间为0(终点)的点
+	 */
+	for(auto& point:parking_points_)
+	{
+		if(point.parkingDuration == 0.0)
+			dst_index_ = point.index;
 	}
 		
 	is_running_ = true;
@@ -277,10 +254,4 @@ void CarFollowing::publishLocalPath()
         path.poses.push_back(this_pose_stamped);
 	}
 	pub_local_path_.publish(path);
-}
-
-controlCmd_t CarFollowing::getControlCmd() 
-{
-	std::lock_guard<std::mutex> lock(cmd_mutex_);
-	return cmd_;
 }

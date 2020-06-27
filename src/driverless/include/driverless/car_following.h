@@ -2,9 +2,9 @@
 #define CAR_FOLLOWING_H_
 
 #include <ros/ros.h>
+#include "auto_drive_base.hpp"
 #include <esr_radar/Object.h>
 #include <esr_radar/ObjectArray.h>
-#include <diagnostic_msgs/DiagnosticStatus.h>
 #include <pcl_ros/point_cloud.h>
 #include <tf/transform_listener.h>
 #include <ant_math/ant_math.h>
@@ -19,20 +19,16 @@
 #include <mutex>
 #include "structs.h"
 
-class CarFollowing
+class CarFollowing : public AutoDriveBase
 {
 public:
 	CarFollowing();
-	~CarFollowing(){};
+	virtual ~CarFollowing(){};
 	
-	bool setGlobalPath(const std::vector<gpsMsg_t>& path);
-	bool getDstIndex(void);
 	bool updateStatus(const gpsMsg_t& pose,const float& speed, const size_t& nearest_point_index);
 	bool init(ros::NodeHandle nh,ros::NodeHandle nh_private);
-	bool start();
-	void stop();
-	bool isRunning();
-	controlCmd_t getControlCmd();
+	virtual bool start();
+	virtual void stop();
 
 private:
 	void publishCarFollowingStats(bool status);
@@ -51,23 +47,11 @@ private:
 	ros::Timer      update_timer_;
 	std::string     objects_topic_;
 
-	std::vector<gpsMsg_t> path_points_;
-	float path_points_resolution_;
-	std::string parking_points_file_;
 	int    dst_index_; //终点索引
-
-	std::mutex cmd_mutex_;
-	controlCmd_t cmd_;
 
 	//state
 	std::mutex state_mutex_;
-	gpsMsg_t   vehicle_pose_;
 	size_t     nearest_point_index_;
-	float      vehicle_speed_;
-	float      roadwheel_angle_;
-	bool       is_ready_; //是否准备就绪
-	bool       is_running_;
-	bool       is_initialed_;
 
 	float follow_distance_;
 	float safety_side_dis_;
@@ -85,7 +69,6 @@ private:
 	
 	float max_target_search_distance_;
 	int   target_repeat_threshold_; //目标重复检测次数阈值
-	diagnostic_msgs::DiagnosticStatus diagnostic_msg_;
 };
 
 

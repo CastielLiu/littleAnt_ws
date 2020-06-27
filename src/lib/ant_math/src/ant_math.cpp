@@ -51,15 +51,15 @@ float limitSpeedByCurrentRoadwheelAngle(float speed,float angle)
 //}
 
 /*@param 从文件载入路径点
- *
+ *@return 路径点分辨率,0表示载入失败
  */
-bool loadPathPoints(std::string file_path,std::vector<gpsMsg_t>& points)
+float loadPathPoints(std::string file_path,std::vector<gpsMsg_t>& points)
 {
 	std::ifstream in_file(file_path.c_str());
 	if(!in_file.is_open())
 	{
 		ROS_ERROR("open %s failed",file_path.c_str());
-		return false;
+		return 0.0;
 	}
 	gpsMsg_t point;
 	std::string line;
@@ -73,7 +73,7 @@ bool loadPathPoints(std::string file_path,std::vector<gpsMsg_t>& points)
 	}
 	
 	in_file.close();
-	return true;
+	return 0.1;
 }
 
 

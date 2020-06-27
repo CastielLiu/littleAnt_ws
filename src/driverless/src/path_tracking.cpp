@@ -1,41 +1,16 @@
 #include "driverless/path_tracking.h"
-#define __NODE__ "path_tracking"
+#define __NAME__ "path_tracking"
 
 PathTracking::PathTracking():
+	AutoDriveBase(__NAME__),
 	nearest_point_index_(0),
-	expect_speed_(10.0), //defult expect speed
-	is_ready_(false)
+	expect_speed_(10.0) //defult expect speed
 {
-	diagnostic_msg_.hardware_id = "path_tracking";
 	path_points_resolution_ = 0.1;
-	cmd_.speed = cmd_.roadWheelAngle = 0.0;
 }
 
 PathTracking::~PathTracking()
 {
-}
-
-void PathTracking::publishDiagnostics(uint8_t level,const std::string& msg)
-{
-	diagnostic_msg_.level = level;
-	diagnostic_msg_.message = msg;
-	pub_diagnostic_.publish(diagnostic_msg_);
-}
-
-bool PathTracking::setGlobalPath(const std::vector<gpsMsg_t>& path)
-{
-	if(path_points_.size()!=0)
-		return false;
-	path_points_ = path;
-	dst_index_ = path_points_.size()-1;
-	if(!extendGlobalPath(20.0))
-		return false;
-	return true;
-}
-
-void PathTracking::setDstIndex(size_t index)
-{
-	dst_index_ = index;
 }
 
 bool PathTracking::setExpectSpeed(float speed)
@@ -47,7 +22,7 @@ bool PathTracking::updateStatus(const gpsMsg_t& pose,const float& speed, const f
 {
 	if(!is_ready_) is_ready_ = true;
 	std::lock_guard<std::mutex> lock(state_mutex_);
-	current_point_ = pose;
+	vehicle_pose_ = pose;
 	vehicle_speed_ = speed;
 	roadwheel_angle_ = roadWheelAngle;
 }
@@ -62,18 +37,11 @@ bool PathTracking::init(ros::NodeHandle nh,ros::NodeHandle nh_private)
 	nh_private.param<float>("max_side_accel",max_side_accel_,1.0);
 	
 	max_target_yaw_err_ = nh_private.param<float>("max_target_yaw_err",50.0)*M_PI/180.0;
-	std::string path_points_file = nh_private.param<std::string>("path_points_file","");
-	parking_points_file_ = path_points_file.substr(0,path_points_file.find_last_of("/")) + "/parking_points.xml";
 
-	pub_diagnostic_ = nh.advertise<diagnostic_msgs::DiagnosticStatus>("driverless/diagnostic",1);
 	pub_tracking_state_ = nh.advertise<driverless::TrackingState>(tracking_info_topic,1);
 	pub_nearest_index_  = nh.advertise<std_msgs::UInt32>("/driverless/nearest_index",1);
 
-	if(path_points_.size()==0)
-	{
-		ROS_ERROR("[%s] please set global path first",__NODE__);
-		return false;
-	}
+	initDiagnosticPublisher(nh,__NAME__);
 		
 	return true;
 }
@@ -81,42 +49,46 @@ bool PathTracking::init(ros::NodeHandle nh,ros::NodeHandle nh_private)
 //启动跟踪线程
 bool PathTracking::start()
 {
+	if(path_points_.size()==0)
+	{
+		ROS_ERROR("[%s] please set global path first",__NAME__);
+		return false;
+	}
+	if(parking_points_.size()==0)
+	{
+		ROS_ERROR("[%s] please set parking points first",__NAME__);
+		return false;
+	}
+	if(!extendGlobalPath(20.0)) 
+		return false;
+
 	is_running_ = true;
 	std::thread t(&PathTracking::trackingThread,this);
 	t.detach();
 	return true;
 }
 
-void PathTracking::stop()
-{
-	is_running_ = false;
-}
-
 /*@brief 拓展全局路径,防止车辆临近终点时无法预瞄
  *@param extendDis 拓展长度，保证实际终点距离虚拟终点大于等于extendDis
- *
  */
 bool PathTracking::extendGlobalPath(float extendDis)
 {
-	float remaindDis = 0.0; //期望终点与路径终点的路程
-	
-	//计算剩余路程
-	for(size_t i=dst_index_; i<path_points_.size()-1; ++i)
-		remaindDis += dis2Points(path_points_[i],path_points_[i+1]);
-	if(remaindDis > extendDis)
-		return true;
-	
 	//取最后一个点与倒数第n个点的连线向后插值
 	//总路径点不足n个,退出
 	int n = 5;
-	size_t endIndex = path_points_.size()-1;
-	if(endIndex < n) return false;
+	int endIndex = path_points_.size()-1;
+	if(endIndex < n) 
+	{
+		ROS_ERROR("[%s] global path points is too few (%d), extend global path failed",endIndex+1, __NAME__);
+		return false;
+	}
 	
 	float dx = (path_points_[endIndex].x - path_points_[endIndex-n].x)/n;
 	float dy = (path_points_[endIndex].y - path_points_[endIndex-n].y)/n;
 	float ds = sqrt(dx*dx+dy*dy);
 
 	gpsMsg_t point;
+	float remaindDis = 0.0;
 	for(size_t i=1;;++i)
 	{
 		point.x = path_points_[endIndex].x + dx*i;
@@ -135,14 +107,12 @@ void PathTracking::trackingThread()
 {
 	while(ros::ok() && !is_ready_) //等待就绪
 		usleep(500000);
-	nearest_point_index_ = findNearestPoint(path_points_,current_point_); 
-	bool ok = loadParkingPoints(nearest_point_index_);//载入停车点,并根据当前位置判断停车点的有效性
-	if(!ok) ROS_ERROR("load parking points failed");
+	nearest_point_index_ = findNearestPoint(path_points_,vehicle_pose_); 
 
 	if(nearest_point_index_ > path_points_.size() - 10)
 	{
 		ROS_ERROR("Remaind target path is too short! nearest_point_index:%d",nearest_point_index_);
-		publishDiagnostics(diagnostic_msgs::DiagnosticStatus::ERROR,"Remaind target path is too short!");
+		publishDiagnosticMsg(diagnostic_msgs::DiagnosticStatus::ERROR,"Remaind target path is too short!");
 		is_running_ = false;
 		return ;
 	}
@@ -158,7 +128,7 @@ void PathTracking::trackingThread()
 		state_mutex_.lock();
 		vehicle_speed = vehicle_speed_;
 		roadwheel_angle = roadwheel_angle_;
-		now_point = current_point_;
+		now_point = vehicle_pose_;
 		state_mutex_.unlock();
 		
 		nearest_point_index_mutex_.lock();
@@ -261,13 +231,13 @@ void PathTracking::trackingThread()
 			ROS_INFO("dis2target:%.2f\t yaw_err:%.2f\t lat_err:%.2f",dis_yaw.first,yaw_err_*180.0/M_PI,lateral_err_);
 			ROS_INFO("disThreshold:%f\t expect roadwheel angle:%.2f",disThreshold_,t_roadWheelAngle);
 			ROS_INFO("nearest_point_index:%d",nearest_point_index_);
-			publishDiagnostics(diagnostic_msgs::DiagnosticStatus::OK,"Running");
+			publishDiagnosticMsg(diagnostic_msgs::DiagnosticStatus::OK,"Running");
 		}
 		
 		loop_rate.sleep();
 	}
 	
-	publishDiagnostics(diagnostic_msgs::DiagnosticStatus::OK,"Arrived at the destination.");
+	publishDiagnosticMsg(diagnostic_msgs::DiagnosticStatus::OK,"Arrived at the destination.");
 	ROS_INFO("driverless completed...");
 	
 	cmd_mutex_.lock();
@@ -284,25 +254,15 @@ size_t PathTracking::getNearestPointIndex()
 	return nearest_point_index_;
 }
 
-controlCmd_t PathTracking::getControlCmd() 
-{
-	std::lock_guard<std::mutex> lock(cmd_mutex_);
-	return cmd_;
-}
-
-bool PathTracking::isRunning()
-{
-	return is_running_;
-}
 
 void PathTracking::publishPathTrackingState()
 {
 	if(pub_tracking_state_.getNumSubscribers())
 	{
 		tracking_state_.header.stamp = ros::Time::now();
-		tracking_state_.position_x = current_point_.x;
-		tracking_state_.position_y = current_point_.y;
-		tracking_state_.yaw = current_point_.yaw;
+		tracking_state_.position_x = vehicle_pose_.x;
+		tracking_state_.position_y = vehicle_pose_.y;
+		tracking_state_.yaw = vehicle_pose_.yaw;
 		tracking_state_.vehicle_speed =  vehicle_speed_;
 		tracking_state_.roadwheel_angle = roadwheel_angle_;
 		tracking_state_.lateral_error = lateral_err_;
@@ -344,69 +304,23 @@ float PathTracking::disToParkingPoint(const parkingPoint_t& parkingPoint)
 	
 }
 
-/*@brief 从文件载入停车点
+/*@brief 重载基类方法，载入停车点
 */
-#include <tinyxml2.h>
-bool PathTracking::loadParkingPoints(size_t vehicle_pose_index)
-{
-	if(path_points_.size() == 0)
-	{
-		ROS_ERROR("please loadPathPoints first!");
-		return false;
-	}
-	
-	parking_points_.push_back(parkingPoint_t(dst_index_,0));//终点索引,永久停留
-	
-	using namespace tinyxml2;
-	XMLDocument Doc;  
-	XMLError res = Doc.LoadFile(parking_points_file_.c_str());
-	if(XML_ERROR_FILE_NOT_FOUND == res)
-	{
-		ROS_ERROR_STREAM("parking points file: "<< parking_points_file_ << "not exist!");
-		return false;
-	}
-	else if(XML_SUCCESS != res)
-	{
-		ROS_ERROR_STREAM("parking points file: "<< parking_points_file_ << " parse error!");
-		return false;
-	}
-	tinyxml2::XMLElement *pRoot=Doc.RootElement();//根节点
-	if(pRoot == nullptr)
-	{
-		ROS_ERROR_STREAM("parking points file: "<< parking_points_file_ << " parse error!");
-		return false;
-	}
-	tinyxml2::XMLElement *pPoint=pRoot->FirstChildElement("ParkingPoint"); //一级子节点
-	while (pPoint)
-	{
-		uint32_t id = pPoint->Unsigned64Attribute("id");
-		uint32_t index = pPoint->Unsigned64Attribute("index");
-		float duration = pPoint->FloatAttribute("duration");
-		parking_points_.push_back(parkingPoint_t(index,duration));
-		//std::cout << id << "\t" << index << "\t" << duration << std::endl;
-		
-		//转到下一子节点
-		pPoint = pPoint->NextSiblingElement("ParkingPoint");  
-	}
-	
-	//移除车辆位置之后的点!
+bool PathTracking::setParkingPoints(const std::vector<parkingPoint_t>& points)
+{	
+	//先调用基类函数载入停车点，然后在进行处理
+	bool ok = AutoDriveBase::setParkingPoints(points);
+	if(!ok) return ok;
+
+	next_parking_index_ = points.size(); //初始化为越界索引
 	for(size_t i=0; i<parking_points_.size(); ++i)
 	{
-		if(parking_points_[i].index <= vehicle_pose_index)
-			parking_points_.erase(parking_points_.begin()+i);
+		if(parking_points_[i].index > nearest_point_index_)
+		{
+			next_parking_index_ = i;
+			break;
+		}
 	}
-	
-	//停车点排序
-	std::sort(parking_points_.begin(),parking_points_.end(),
-		[](const parkingPoint_t&point1,const parkingPoint_t&point2)
-		{return point1.index < point2.index;});
-		
-	for(auto &point:parking_points_)
-	{
-		std::cout << "stop index:" << point.index << "\t" << point.parkingDuration << std::endl;
-	}
-	
-	ROS_INFO("loadParkingPoints ok.");
 	return true;
 }
 
@@ -415,34 +329,46 @@ bool PathTracking::loadParkingPoints(size_t vehicle_pose_index)
 float PathTracking::limitSpeedByParkingPoint(const float& speed,const float& acc)
 {
 	//初始化时parking_points_至少有一个点(终点)
-	//每到达一个停车点并完成停车后,移除该点
-	//程序初始化时,应将停车点由近及远排序,并将位于当前位置之后的停车点移除
+	//每到达一个停车点并完成停车后,更新下一个停车点
+	//程序初始化时,应将停车点由近及远排序,并将位于当前位置之后的停车点复位
 	if(parking_points_.size() == 0)
-		return speed;
-	
-	if(parking_points_[0].isParking) //正在停车中
 	{
-		if(parking_points_[0].parkingDuration == 0.0)
+		ROS_ERROR("[%s] No Parking Points!",__NAME__);
+		return 0.0;
+	}
+
+	//无可用停车点,已经到达终点
+	//此处必须检查是否越界，防止出错
+	if(next_parking_index_ >= parking_points_.size())
+		return 0.0;
+
+	parkingPoint_t& parking_point = parking_points_[next_parking_index_];
+	
+	if(parking_point.isParking) //正在停车中
+	{
+		//停车周期为0,到达终点
+		if(parking_point.parkingDuration == 0.0)
 			return 0.0;
 		//停车超时,移除当前停车点,下次利用下一停车点限速
-		if(ros::Time::now().toSec()-parking_points_[0].parkingTime >= parking_points_[0].parkingDuration)
+		if(ros::Time::now().toSec()-parking_point.parkingTime >= parking_point.parkingDuration)
 		{
-			ROS_INFO("parking overtime. parking point :%d",parking_points_[0].index);
-			parking_points_.erase(parking_points_.begin());
+			ROS_INFO("parking overtime. parking point :%d",parking_point.index);
+			next_parking_index_ ++;
 			return speed;
 		}
-		return 0;
+		//正在停车,时间未到
+		return 0.0;
 	}
 	
-	float dis2ParkingPoint = disToParkingPoint(parking_points_[0]);
+	float dis2ParkingPoint = disToParkingPoint(parking_point);
 	float maxSpeed = sqrt(2*acc*dis2ParkingPoint);
 	//ROS_INFO("dis2end:%.2f\tmaxSpeed:%.2f",dis2end,maxSpeed);
 	if(dis2ParkingPoint < 0.5)//到达停车点附近,速度置0,,防止抖动
 	{
-		parking_points_[0].parkingTime = ros::Time::now().toSec();
-		parking_points_[0].isParking = true;
-		ROS_INFO("start parking. point:%d",parking_points_[0].index);
-		return 0;
+		parking_point.parkingTime = ros::Time::now().toSec();
+		parking_point.isParking = true;
+		ROS_INFO("[%s] start parking. point:%d",__NAME__, parking_point.index);
+		return 0.0;
 	}
 	return speed > maxSpeed ? maxSpeed : speed;
 }

@@ -1,26 +1,25 @@
 
-#include "ros/ros.h"
+#include <ros/ros.h>
 #include "path_tracking.h"
 #include "car_following.h"
 #include "extern_control.h"
 
-#include<little_ant_msgs/ControlCmd1.h>
-#include<little_ant_msgs/ControlCmd2.h>
-#include<little_ant_msgs/State2.h>  //speed
-#include<little_ant_msgs/State4.h>  //steerAngle
-#include<diagnostic_msgs/DiagnosticStatus.h>
+#include <little_ant_msgs/ControlCmd1.h>
+#include <little_ant_msgs/ControlCmd2.h>
+#include <little_ant_msgs/State2.h>  //speed
+#include <little_ant_msgs/State4.h>  //steerAngle
+#include "auto_drive_base.hpp"
 
-class AutoDrive 
+class AutoDrive : public AutoDriveBase
 {
 public:
     AutoDrive();
     ~AutoDrive();
-    bool init();
+    virtual bool init();
     void run();
 
 private:
     bool loadPathInfos(const std::string& file);
-	void publishDiagnostics(uint8_t level,const std::string& msg);
 	void publishPathTrackingState();
     bool is_gps_data_valid(const gpsMsg_t& point);
     void vehicleSpeed_callback(const little_ant_msgs::State2::ConstPtr& msg);
@@ -31,22 +30,11 @@ private:
     void decisionMaking();
 
 private: 
-    std::vector<gpsMsg_t>  path_points_;
-    std::vector<parkingPoint_t> parking_points_;
-
     float max_speed_;
     float max_roadwheelAngle_;
     bool  use_avoiding_;
     bool  use_car_following_;
     bool  is_offline_debug_;
-
-    bool vehicle_speed_status_;
-	float vehicle_speed_;
-    gpsMsg_t vehicle_pose_;
-	float roadwheel_angle_;
-    
-    std::string path_points_file_;
-    int  dst_index_; //终点索引
 
 	ros::NodeHandle nh_, nh_private_;
 	ros::Timer cmd1_timer_, cmd2_timer_;
@@ -54,13 +42,11 @@ private:
 	ros::Subscriber sub_vehicleState2_;
 	ros::Subscriber sub_vehicleState4_;
 
-	ros::Publisher pub_diagnostic_;
     ros::Publisher pub_cmd1_, pub_cmd2_;
     
     std::mutex command_mutex_;
 	little_ant_msgs::ControlCmd1 controlCmd1_;
 	little_ant_msgs::ControlCmd2 controlCmd2_;
-	diagnostic_msgs::DiagnosticStatus diagnostic_msg_;
     
     float avoid_offset_;
     PathTracking tracker_;
