@@ -1,0 +1,32 @@
+<!-- -->
+<launch>
+
+	<arg name="roadnet_file" />
+	<arg name="max_speed" default="10.0" />
+	
+	<!-- 上层控制 -->
+	<node name="driverless_node" pkg="driverless" type="driverless_node" output="screen">
+		<rosparam file="$(find driverless)/config/params.yaml" command="load"/>
+		<!-- main -->
+		<param name="is_offline_debug" value="true"/>
+		<param name="path_points_file" value="$(arg roadnet_file)"/>
+		<param name="max_speed" value="$(arg max_speed)"/>
+		<param name="odom_topic" value="/ll2utm_odom"/>
+		
+		<!-- path_tracking -->
+		<param name="max_side_accel" value="1.0"/>
+		<param name="max_target_yaw_err" value="25.0"/>
+		<param name="parking_points_file" value="$(find driverless)/config/parking_points.txt"/>
+		
+		<!-- car_following -->
+		<param name="mm_radar_objects_topic" value="/esr_objects"/>
+		<param name="base_link_frame" value="/base_link"/>
+		<param name="target_repeat_threshold" value="5"/>   <!-- 目标重复出现阈值，超出此阈值开始跟车 -->
+		
+		<!-- extern_control -->
+		<param name="extern_ip" value=""/>
+		<param name="extern_port" value="5000"/>
+	</node> 
+	
+
+</launch>

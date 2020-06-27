@@ -67,9 +67,8 @@ bool AutoDrive::init()
 	}
 
 	//载入路径信息
-	std::string parking_points_file = path_points_file.substr(0,path_points_file.find_last_of("/")) + "/parking_points.xml";
-	//载入停车点信息
-	if(!loadPathInfos(parking_points_file))
+	std::string path_infos_file = path_points_file.substr(0,path_points_file.find_last_of(".")) + "_info.xml";
+	if(!loadPathInfos(path_infos_file))
 	{
 		ROS_ERROR("[%s] Load path infomation failed!",__NAME__);
 		publishDiagnosticMsg(diagnostic_msgs::DiagnosticStatus::ERROR,"Load path infomation failed!");
@@ -113,40 +112,41 @@ bool AutoDrive::init()
 bool AutoDrive::loadVehicleParams()
 {
 	bool ok = true;
-	vehicle_.max_roadwheel_angle = nh_private_.param<float>("/vehicle/max_roadwheel_angle",0.0);
-	vehicle_.max_speed = nh_private_.param<float>("/vehicle/max_speed",0.0);
-	vehicle_.wheel_base = nh_private_.param<float>("/vehicle/wheel_base",0.0);
-	vehicle_.wheel_track = nh_private_.param<float>("/vehicle/wheel_track",0.0);
-	vehicle_.width = nh_private_.param<float>("/vehicle/width",0.0);
-	vehicle_.length = nh_private_.param<float>("/vehicle/length",0.0);
+	vehicle_.max_roadwheel_angle = nh_private_.param<float>("vehicle/max_roadwheel_angle",0.0);
+	vehicle_.max_speed = nh_private_.param<float>("vehicle/max_speed",0.0);
+	vehicle_.wheel_base = nh_private_.param<float>("vehicle/wheel_base",0.0);
+	vehicle_.wheel_track = nh_private_.param<float>("vehicle/wheel_track",0.0);
+	vehicle_.width = nh_private_.param<float>("vehicle/width",0.0);
+	vehicle_.length = nh_private_.param<float>("vehicle/length",0.0);
+	std::string node = ros::this_node::getName();
 	if(vehicle_.max_roadwheel_angle == 0.0)
 	{
-		ROS_ERROR("[%s] No parameter /vehicle/max_roadwheel_angle.",__NAME__);
+		ROS_ERROR("[%s] No parameter %s/vehicle/max_roadwheel_angle.",__NAME__,node);
 		ok = false;
 	}
 	if(vehicle_.max_speed == 0.0)
 	{
-		ROS_ERROR("[%s] No parameter /vehicle/max_speed.",__NAME__);
+		ROS_ERROR("[%s] No parameter %s/vehicle/max_speed.",__NAME__,node);
 		ok = false;
 	}
 	if(vehicle_.wheel_base == 0.0)
 	{
-		ROS_ERROR("[%s] No parameter /vehicle/wheel_base.",__NAME__);
+		ROS_ERROR("[%s] No parameter %s/vehicle/wheel_base.",__NAME__,node);
 		ok = false;
 	}
 	if(vehicle_.wheel_track == 0.0)
 	{
-		ROS_ERROR("[%s] No parameter /vehicle/wheel_track.",__NAME__);
+		ROS_ERROR("[%s] No parameter %s/vehicle/wheel_track.",__NAME__,node);
 		ok = false;
 	}
 	if(vehicle_.width == 0.0)
 	{
-		ROS_ERROR("[%s] No parameter /vehicle/width.",__NAME__);
+		ROS_ERROR("[%s] No parameter %s/vehicle/width.",__NAME__,node);
 		ok = false;
 	}
 	if(vehicle_.length == 0.0)
 	{
-		ROS_ERROR("[%s] No parameter /vehicle/length.",__NAME__);
+		ROS_ERROR("[%s] No parameter %s/vehicle/length.",__NAME__,node);
 		ok = false;
 	}
 	if(ok) vehicle_.validity = true;
@@ -207,7 +207,6 @@ void AutoDrive::run()
 	tracker_.stop();
 	car_follower_.stop();
 	extern_controler_.stop();
-	
 }
 
 void AutoDrive::decisionMaking()
@@ -275,8 +274,8 @@ void AutoDrive::vehicleState4_callback(const little_ant_msgs::State4::ConstPtr& 
 }
 
 /*@brief 从xml文件载入路径信息
- *@1. 停车点-若文件不包含终点信息，手动添加
- *@2. 转向区间-控制转向灯
+ *@1. 停车点-若文件不包含终点信息，手动添加√
+ *@2. 转向区间-控制转向灯　
  *@3. 
 */
 #include <tinyxml2.h>
@@ -294,50 +293,79 @@ bool AutoDrive::loadPathInfos(const std::string& file)
 	
 	if(XML_ERROR_FILE_NOT_FOUND == res)
 	{
-		ROS_ERROR_STREAM("parking points file: "<< file << "not exist!");
+		ROS_ERROR_STREAM("[" << __NAME__ <<"] " << "path infomation file: "<< file << " not exist!");
 		return false;
 	}
 	else if(XML_SUCCESS != res)
 	{
-		ROS_ERROR_STREAM("parking points file: "<< file << " parse error!");
+		ROS_ERROR_STREAM("[" << __NAME__ <<"] " << "path infomation file: "<< file << " parse error!");
 		return false;
 	}
 	tinyxml2::XMLElement *pRoot=Doc.RootElement();//根节点
 	if(pRoot == nullptr)
 	{
-		ROS_ERROR_STREAM("parking points file: "<< file << " parse error!");
+		ROS_ERROR_STREAM("[" << __NAME__ <<"] " << "path infomation file: "<< file << " no root node!");
 		return false;
 	}
-	tinyxml2::XMLElement *pPoint=pRoot->FirstChildElement("ParkingPoint"); //一级子节点
-	bool has_dst_parking_point = false;//是否有终点
-	while (pPoint)
+	tinyxml2::XMLElement *pParkingPoints = pRoot->FirstChildElement("ParkingPoints"); //一级子节点
+	if(pParkingPoints)
 	{
-		uint32_t id = pPoint->Unsigned64Attribute("id");
-		uint32_t index = pPoint->Unsigned64Attribute("index");
-		float duration = pPoint->FloatAttribute("duration");
-		parking_points_.push_back(parkingPoint_t(index,duration));
-		//std::cout << id << "\t" << index << "\t" << duration << std::endl;
-		if(duration == 0)
-			has_dst_parking_point = true;
-		//转到下一子节点
-		pPoint = pPoint->NextSiblingElement("ParkingPoint");  
-	}
+		bool has_dst_parking_point = false;//是否有终点
+		tinyxml2::XMLElement *pParkingPoint = pParkingPoints->FirstChildElement("ParkingPoint"); //二级子节点
+		while (pParkingPoint)
+		{
+			uint32_t id    = pParkingPoint->Unsigned64Attribute("id");
+			uint32_t index = pParkingPoint->Unsigned64Attribute("index");
+			float duration = pParkingPoint->FloatAttribute("duration");
+			parking_points_.push_back(parkingPoint_t(index,duration));
+			//std::cout << id << "\t" << index << "\t" << duration << std::endl;
+			if(duration == 0)
+				has_dst_parking_point = true;
+			//转到下一子节点
+			pParkingPoint = pParkingPoint->NextSiblingElement("ParkingPoint");  
+		}
 
-	//如果路径信息中不包含终点停车点，手动添加路径终点为停车点
-	if(!has_dst_parking_point)
-		parking_points_.push_back(parkingPoint_t(path_points_.size()-1,0.0)); 
-	
-	//停车点从小到达排序
-	std::sort(parking_points_.begin(),parking_points_.end(),
-		[](const parkingPoint_t&point1,const parkingPoint_t&point2)
-		{return point1.index < point2.index;});
+		//如果路径信息中不包含终点停车点，手动添加路径终点为停车点
+		if(!has_dst_parking_point)
+			parking_points_.push_back(parkingPoint_t(path_points_.size()-1,0.0)); 
 		
-	for(auto &point:parking_points_)
-	{
-		ROS_INFO("[%s] parking point index: %d  duration: %.1f",__NAME__,point.index,point.parkingDuration);
+		//停车点从小到达排序
+		std::sort(parking_points_.begin(),parking_points_.end(),
+			[](const parkingPoint_t&point1,const parkingPoint_t&point2)
+			{return point1.index < point2.index;});
+			
+		for(auto &point:parking_points_)
+			ROS_INFO("[%s] parking point index: %d  duration: %.1f",__NAME__,point.index,point.parkingDuration);
+		
+		ROS_INFO("[%s] load Parking Points ok.",__NAME__);
 	}
-	
-	ROS_INFO("[%s] load Parking Points ok.",__NAME__);
+	else
+		ROS_INFO("[%s] No Parking Points in path info file!",__NAME__);
+
+	tinyxml2::XMLElement *pTurnRanges = pRoot->FirstChildElement("TurnRanges"); //一级子节点
+	if(pTurnRanges)
+	{
+		tinyxml2::XMLElement *pTurnRange = pTurnRanges->FirstChildElement("TurnRange"); //二级子节点
+		while (pTurnRange)
+		{
+			int    type  = pTurnRange->IntAttribute("type");
+			size_t start = pParkingPoint->Unsigned64Attribute("start");
+			size_t end   = pParkingPoint->Unsigned64Attribute("end");
+			turn_ranges_.push_back(turnRange_t(type,start,end));
+			//std::cout << type << "\t" << start << "\t" << end << std::endl;
+			
+			//转到下一子节点
+			pTurnRange = pTurnRange->NextSiblingElement("TurnRange"); 
+		}
+		for(auto &range : turn_ranges_)
+			ROS_INFO("[%s] turn range: type:%d  start:%d  end:%d",__NAME__,range.type,range.start,range.end);
+		
+		ROS_INFO("[%s] load turn ranges ok.",__NAME__);
+	}
+	else
+		ROS_INFO("[%s] No tutn ranges in path info file!",__NAME__);
+
+
 	return true;
 }
 
@@ -351,6 +379,6 @@ int main(int argc, char *argv[])
     AutoDrive auto_drive;
     if(auto_drive.init())
 		auto_drive.run();
-    ros::waitForShutdown();
+    //ros::waitForShutdown();
     return 0;
 }  

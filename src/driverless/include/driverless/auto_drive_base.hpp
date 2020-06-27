@@ -19,6 +19,8 @@ protected://子类可访问,实例不可访问
 	size_t next_parking_index_; //下一个停车点索引
 	float path_points_resolution_;
 
+	std::vector<turnRange_t> turn_ranges_; //转向区间
+
 	ros::Publisher pub_diagnostic_;
 	diagnostic_msgs::DiagnosticStatus diagnostic_msg_;
 	bool is_ready_;
@@ -43,7 +45,7 @@ public:
 	AutoDriveBase() = delete;
 	AutoDriveBase(const AutoDriveBase& ) = delete;
 
-	explicit AutoDriveBase(const std::string child_name)
+	explicit AutoDriveBase(const std::string& child_name)
 	{
 		is_ready_ = false;
 		is_initialed_ = false;
@@ -61,9 +63,9 @@ public:
 
 	virtual bool setVehicleParams(const vehicleParams_t& params)
 	{
-		if(false == vehicle_.validity)
+		if(false == params.validity)
 		{
-			ROS_ERROR("[%s] Vehicle parameters is invalid, please load them correctly.",child_name_);
+			ROS_ERROR("[%s] Vehicle parameters is invalid, please load them correctly.",child_name_.c_str());
 			return false;
 		}
 		vehicle_ = params;
@@ -76,7 +78,7 @@ public:
 	{
 		if(path_points_.size()!=0)
 		{
-			ROS_ERROR("[%s] global path points is not empty, set new points failed!",child_name_);
+			ROS_ERROR("[%s] global path points is not empty, set new points failed!",child_name_.c_str());
 			return false;
 		}
 			
@@ -91,10 +93,22 @@ public:
 	{
 		if(parking_points_.size()!=0)
 		{
-			ROS_ERROR("[%s] parking points is not empty, set new points failed!",child_name_);
+			ROS_ERROR("[%s] parking points is not empty, set new points failed!",child_name_.c_str());
 			return false;
 		}
 		parking_points_ = points;
+	}
+
+	/*@brief 设置转向区间信息
+	*/
+	virtual bool setTurnRanges(const std::vector<turnRange_t>& ranges)
+	{
+		if(turn_ranges_.size()!=0)
+		{
+			ROS_ERROR("[%s] turn ranges is not empty, set new ranges failed!",child_name_.c_str());
+			return false;
+		}
+		turn_ranges_ = ranges;
 	}
 
 	/*@brief 获取控制指令
@@ -132,7 +146,7 @@ protected:
 	{
 		if(!diagnostic_inited_)
 		{
-			ROS_ERROR("[%s] please initial diagnostic publisher before use it!",child_name_);
+			ROS_ERROR("[%s] please initial diagnostic publisher before use it!",child_name_.c_str());
 			return;
 		}
 		diagnostic_msg_.level = level;

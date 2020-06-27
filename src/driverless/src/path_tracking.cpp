@@ -62,7 +62,7 @@ bool PathTracking::start()
 	}
 	if(!extendGlobalPath(20.0)) 
 		return false;
-		
+
 	if(vehicle_.validity == false)
 	{
 		ROS_ERROR("[%s] Vehicle parameters is invalid, please set them firstly.",__NAME__);
@@ -83,12 +83,13 @@ bool PathTracking::extendGlobalPath(float extendDis)
 	//取最后一个点与倒数第n个点的连线向后插值
 	//总路径点不足n个,退出
 	int n = 5;
-	int endIndex = path_points_.size()-1;
-	if(endIndex < n) 
+	//std::cout << "extendGlobalPath: " << path_points_.size() << "\t" << path_points_.size()-1 << std::endl;
+	if(path_points_.size()-1 < n)
 	{
-		ROS_ERROR("[%s] global path points is too few (%d), extend global path failed",endIndex+1, __NAME__);
+		ROS_ERROR("[%s] global path points is too few (%d), extend global path failed",path_points_.size()-1, __NAME__);
 		return false;
 	}
+	int endIndex = path_points_.size()-1;
 	
 	float dx = (path_points_[endIndex].x - path_points_[endIndex-n].x)/n;
 	float dy = (path_points_[endIndex].y - path_points_[endIndex-n].y)/n;

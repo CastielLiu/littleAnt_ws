@@ -41,9 +41,32 @@ typedef struct ParkingPoint
 	bool   isParking;       //正在停车
 } parkingPoint_t;
 
+/*@brief 路径转向信息
+ */
+typedef struct TurnRange
+{
+	enum TurnType
+	{
+		TurnType_Left = -1,
+		TurnType_None = 0,
+		TurnType_Right = 1,
+	};
+
+	int type;
+	size_t start_index;
+	size_t end_index;
+
+	TurnRange(int _type, size_t _start_index, size_t _end_index)
+	{
+		type = _type;
+		start_index = _start_index;
+		end_index = _end_index;
+	}
+
+} turnRange_t;
+
 /*@brief 车辆参数
 */
-
 typedef struct VehicleParams
 {
 	float max_roadwheel_angle;
