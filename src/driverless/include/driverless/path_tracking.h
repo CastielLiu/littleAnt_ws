@@ -36,6 +36,15 @@ private:
 	void  publishNearestIndex();
 	float disToParkingPoint(const parkingPoint_t& parkingPoint);
 	float limitSpeedByParkingPoint(const float& speed,const float& acc=5);
+	std::pair<float, float> getDisAndYaw(const gpsMsg_t &point1, const gpsMsg_t &point2);
+	inline float generateRoadwheelAngleByRadius(const float& radius);
+	float limitRoadwheelAngleBySpeed(const float& angle, const float& speed);
+	float generateMaxTolarateSpeedByCurvature(const std::vector<gpsMsg_t>& path_points,
+											const size_t& start_search_index,
+											const size_t& end_search_index,
+											float max_side_accel);
+	float generateMaxTolarateSpeedByCurvature(const float& curvature, const float& max_accel);
+	float limitSpeedByCurrentRoadwheelAngle(float speed,float angle);
 	
 private:
 	ros::Timer timer_;
@@ -60,4 +69,5 @@ private:
 	float max_target_yaw_err_; //车辆沿圆弧到达预瞄点时的航向与预瞄点航向的偏差最大值
 	float disThreshold_;
 	float max_side_accel_;
+
 };

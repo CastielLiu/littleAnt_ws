@@ -30,6 +30,8 @@ protected://子类可访问,实例不可访问
     gpsMsg_t vehicle_pose_;
 	float roadwheel_angle_;
 
+	vehicleParams_t vehicle_;
+
 	std::mutex cmd_mutex_;
 	controlCmd_t cmd_;
 
@@ -55,6 +57,17 @@ public:
 	virtual ~AutoDriveBase()
 	{
 
+	}
+
+	virtual bool setVehicleParams(const vehicleParams_t& params)
+	{
+		if(false == vehicle_.validity)
+		{
+			ROS_ERROR("[%s] Vehicle parameters is invalid, please load them correctly.",child_name_);
+			return false;
+		}
+		vehicle_ = params;
+		return true;
 	}
 
 	/*@brief 设置全局路径

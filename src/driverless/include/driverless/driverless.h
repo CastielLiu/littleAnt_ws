@@ -19,6 +19,7 @@ public:
     void run();
 
 private:
+    bool loadVehicleParams();
     bool loadPathInfos(const std::string& file);
 	void publishPathTrackingState();
     bool is_gps_data_valid(const gpsMsg_t& point);

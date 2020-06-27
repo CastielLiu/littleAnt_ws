@@ -43,6 +43,13 @@ bool AutoDrive::init()
 	
 	initDiagnosticPublisher(nh_,__NAME__);
 
+	if(!loadVehicleParams())
+	{
+		ROS_ERROR("[%s] Load vehicle parameters failed!", __NAME__);
+		publishDiagnosticMsg(diagnostic_msgs::DiagnosticStatus::ERROR,"Load vehicle parameters failed!");
+		return false;
+	}
+
 	if(path_points_file.empty())
 	{
 		ROS_ERROR("no input path points file !!");
@@ -103,6 +110,49 @@ bool AutoDrive::init()
 	return true;
 }
 
+bool AutoDrive::loadVehicleParams()
+{
+	bool ok = true;
+	vehicle_.max_roadwheel_angle = nh_private_.param<float>("/vehicle/max_roadwheel_angle",0.0);
+	vehicle_.max_speed = nh_private_.param<float>("/vehicle/max_speed",0.0);
+	vehicle_.wheel_base = nh_private_.param<float>("/vehicle/wheel_base",0.0);
+	vehicle_.wheel_track = nh_private_.param<float>("/vehicle/wheel_track",0.0);
+	vehicle_.width = nh_private_.param<float>("/vehicle/width",0.0);
+	vehicle_.length = nh_private_.param<float>("/vehicle/length",0.0);
+	if(vehicle_.max_roadwheel_angle == 0.0)
+	{
+		ROS_ERROR("[%s] No parameter /vehicle/max_roadwheel_angle.",__NAME__);
+		ok = false;
+	}
+	if(vehicle_.max_speed == 0.0)
+	{
+		ROS_ERROR("[%s] No parameter /vehicle/max_speed.",__NAME__);
+		ok = false;
+	}
+	if(vehicle_.wheel_base == 0.0)
+	{
+		ROS_ERROR("[%s] No parameter /vehicle/wheel_base.",__NAME__);
+		ok = false;
+	}
+	if(vehicle_.wheel_track == 0.0)
+	{
+		ROS_ERROR("[%s] No parameter /vehicle/wheel_track.",__NAME__);
+		ok = false;
+	}
+	if(vehicle_.width == 0.0)
+	{
+		ROS_ERROR("[%s] No parameter /vehicle/width.",__NAME__);
+		ok = false;
+	}
+	if(vehicle_.length == 0.0)
+	{
+		ROS_ERROR("[%s] No parameter /vehicle/length.",__NAME__);
+		ok = false;
+	}
+	if(ok) vehicle_.validity = true;
+	return ok;
+}
+
 void AutoDrive::run()
 {
 	//配置路径跟踪控制器
@@ -112,6 +162,7 @@ void AutoDrive::run()
 		publishDiagnosticMsg(diagnostic_msgs::DiagnosticStatus::ERROR,"Init path tracker failed!");
 		return;
 	}
+	if(!tracker_.setVehicleParams(vehicle_)) return;
 	tracker_.setExpectSpeed(max_speed_);
 	tracker_.setGlobalPath(path_points_,path_points_resolution_);
 	tracker_.setParkingPoints(parking_points_);
@@ -125,6 +176,7 @@ void AutoDrive::run()
 		publishDiagnosticMsg(diagnostic_msgs::DiagnosticStatus::ERROR,"Init car follower failed!");
 		return;
 	}
+	if(!car_follower_.setVehicleParams(vehicle_)) return;
 	car_follower_.setGlobalPath(path_points_,path_points_resolution_);
 	car_follower_.setParkingPoints(parking_points_);
 	car_follower_.start(); //跟车控制器
@@ -222,8 +274,10 @@ void AutoDrive::vehicleState4_callback(const little_ant_msgs::State4::ConstPtr& 
 	roadwheel_angle_ = msg->roadwheelAngle;
 }
 
-/*@brief 从文件载入停车点
- *@brief 若文件不包含终点信息，手动添加
+/*@brief 从xml文件载入路径信息
+ *@1. 停车点-若文件不包含终点信息，手动添加
+ *@2. 转向区间-控制转向灯
+ *@3. 
 */
 #include <tinyxml2.h>
 bool AutoDrive::loadPathInfos(const std::string& file)

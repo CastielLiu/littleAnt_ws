@@ -1,6 +1,9 @@
-1. 项目依赖tinyxml2
-```
-	git clone https://github.com/leethomason/tinyxml2.git
-	cd tinyxml2 && sudo make install
+
+## dependencies
+- tinyxml2 xml解析器
+
+```bash
+git clone https://github.com/leethomason/tinyxml2.git
+cd tinyxml2 && sudo make install
 ```
 

@@ -9,6 +9,7 @@
 	
 	<!-- 上层控制 -->
 	<node name="driverless_node" pkg="driverless" type="driverless_node" output="screen">
+		<rosparam file="$(find driverless)/config/params.yaml" command="load"/>
 		<!-- main -->
 		<param name="path_points_file" value="$(arg roadnet_file)"/>
 		<param name="max_speed" value="$(arg max_speed)"/>

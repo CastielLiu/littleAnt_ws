@@ -49,6 +49,7 @@ bool PathTracking::init(ros::NodeHandle nh,ros::NodeHandle nh_private)
 //启动跟踪线程
 bool PathTracking::start()
 {
+	is_running_ = false;
 	if(path_points_.size()==0)
 	{
 		ROS_ERROR("[%s] please set global path first",__NAME__);
@@ -61,6 +62,12 @@ bool PathTracking::start()
 	}
 	if(!extendGlobalPath(20.0)) 
 		return false;
+		
+	if(vehicle_.validity == false)
+	{
+		ROS_ERROR("[%s] Vehicle parameters is invalid, please set them firstly.",__NAME__);
+		return false;
+	}
 
 	is_running_ = true;
 	std::thread t(&PathTracking::trackingThread,this);
@@ -150,13 +157,13 @@ void PathTracking::trackingThread()
 		
 		gpsMsg_t target_point = path_points_[target_index];
 		//获取当前点到目标点的距离和航向
-		std::pair<float, float> dis_yaw = get_dis_yaw(target_point, now_point);
+		std::pair<float, float> dis_yaw = getDisAndYaw(target_point, now_point);
 	#if 1
 		//循环查找满足disThreshold_的目标点
 		while(dis_yaw.first < disThreshold_)
 		{
 			target_point = path_points_[++target_index];
-			dis_yaw = get_dis_yaw(target_point, now_point);
+			dis_yaw = getDisAndYaw(target_point, now_point);
 			//ROS_INFO("path_points_:%d\t target_index:%d",path_points_.size(),target_index);
 		}
 		float theta = dis_yaw.second - now_point.yaw;
@@ -166,7 +173,7 @@ void PathTracking::trackingThread()
 		while(dis_yaw.first < disThreshold_)
 		{
 			target_point = path_points_[++target_index];
-			dis_yaw = get_dis_yaw(target_point, now_point);
+			dis_yaw = getDisAndYaw(target_point, now_point);
 		}
 		
 		ROS_INFO("target_index:%d  dis:%.2f",target_index,dis_yaw.first);
@@ -194,7 +201,7 @@ void PathTracking::trackingThread()
 				break;
 		
 			target_point = path_points_[++temp_target_index];
-			dis_yaw = get_dis_yaw(target_point, now_point);
+			dis_yaw = getDisAndYaw(target_point, now_point);
 //			ROS_INFO("target_yaw_err:%.2f",target_yaw_err*180.0/M_PI);
 		}
 		ROS_INFO("raw_target_index:%d  temp_target_index:%d",target_index,temp_target_index);
@@ -371,4 +378,101 @@ float PathTracking::limitSpeedByParkingPoint(const float& speed,const float& acc
 		return 0.0;
 	}
 	return speed > maxSpeed ? maxSpeed : speed;
+}
+
+/*@brief 利用转弯半径计算前轮转角
+ *@param radius 转弯半径
+ *@return 前轮转角
+ */
+inline float PathTracking::generateRoadwheelAngleByRadius(const float& radius)
+{
+	assert(radius!=0);
+	//return asin(vehicle_.wheelbase /radius)*180/M_PI;  //the angle larger
+	return atan(vehicle_.wheel_base/radius)*180/M_PI;    //correct algorithm 
+}
+
+/*@brief 获取两点间的距离以及航向
+ *@param point1 终点
+ *@param point2 起点
+ */
+std::pair<float, float> PathTracking::getDisAndYaw(const gpsMsg_t &point1, const gpsMsg_t &point2)
+{
+	float x = point1.x - point2.x;
+	float y = point1.y - point2.y;
+	
+	std::pair<float, float> dis_yaw;
+	dis_yaw.first = sqrt(x * x + y * y);
+	dis_yaw.second = atan2(x,y);
+	
+	if(dis_yaw.second <0)
+		dis_yaw.second += 2*M_PI;
+	return dis_yaw;
+}
+
+/*@brief 根据当前车速限制车辆前轮转角
+ *@brief 算法已经根据路径曲率对车速进行了限制，
+ *@brief 但可能出现转弯半径小于路径转弯半径,而导致侧向加速度超限的情况
+ *@param angle 期望转角
+ *@param speed 车速
+ *@return 限制后的转角
+ */
+float PathTracking::limitRoadwheelAngleBySpeed(const float& angle, const float& speed)
+{
+	float min_steering_radius = speed*speed/max_side_accel_;
+	
+	float max_angle = fabs(generateRoadwheelAngleByRadius(min_steering_radius));
+	if(max_angle > vehicle_.max_roadwheel_angle)
+	   max_angle = vehicle_.max_roadwheel_angle;
+	//ROS_INFO("max_angle:%f\t angle:%f",max_angle,angle);
+	return saturationEqual(angle,max_angle);
+}
+
+/*@brief 利用路径曲率限制最大车速
+ *@brief 保证车辆侧向加速度在一定范围
+ *@param curvature 路径曲率
+ *@param max_accel 最大允许侧向加速度
+ *
+ *@return 最大车速 km/h
+ */
+float PathTracking::generateMaxTolarateSpeedByCurvature(const float& curvature, const float& max_accel)
+{
+	return sqrt(1.0/fabs(curvature)*max_accel) *3.6;
+}
+
+/*@brief 利用路径曲率限制最大车速
+ *@brief 保证车辆侧向加速度在一定范围
+ *@param path_points        路径点
+ *@param start_search_index 搜索起点
+ *@param end_search_index   搜索终点
+ *
+ *@return 最大车速 km/h
+ */
+float PathTracking::generateMaxTolarateSpeedByCurvature(const std::vector<gpsMsg_t>& path_points,
+											const size_t& start_search_index,
+											const size_t& end_search_index,
+											float max_side_accel)
+{
+	float max_cuvature = 0.0;
+		
+	for(size_t i=start_search_index; i < end_search_index; ++i)
+	{
+		if(fabs(path_points[i].curvature) > max_cuvature)
+			max_cuvature = fabs(path_points[i].curvature);
+	}
+	return sqrt(1.0/max_cuvature*max_side_accel) *3.6;
+}
+
+/*@brief 利用当前前轮转角限制车速
+ *@brief 保证车辆侧向加速度在一定范围
+ *@param speed			期望车速
+ *@param angle 			当前转角
+ *
+ *@return 最大车速 km/h
+ */
+float PathTracking::limitSpeedByCurrentRoadwheelAngle(float speed,float angle)
+{
+	float steering_radius = fabs(vehicle_.wheel_base/tan(angle*M_PI/180.0));
+	float max_speed =  sqrt(steering_radius*max_side_accel_);
+	
+	return (speed>max_speed? max_speed: speed)*3.6;
 }

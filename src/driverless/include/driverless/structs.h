@@ -41,5 +41,24 @@ typedef struct ParkingPoint
 	bool   isParking;       //正在停车
 } parkingPoint_t;
 
+/*@brief 车辆参数
+*/
+
+typedef struct VehicleParams
+{
+	float max_roadwheel_angle;
+	float max_speed;
+	float wheel_base;
+	float wheel_track;
+	float width;
+	float length;
+
+	bool validity;
+	VehicleParams()
+	{
+		validity = false;
+	}
+}vehicleParams_t;
+
 
 #endif

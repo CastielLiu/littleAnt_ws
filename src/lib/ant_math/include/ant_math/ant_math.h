@@ -12,19 +12,13 @@
 #include<exception>
 #include<fstream>
 
-#define IS_POLAR_COORDINATE_GPS 0
-
-#define WHEEL_DISTANCE  1.2
-#define AXIS_DISTANCE  1.5
-#define MAX_SPEED 30.0
-
 enum
 {
 	TrafficSign_None = 0,
 	TrafficSign_TrafficLight =1,
 	TrafficSign_Avoid = 2,
 	TrafficSign_TurnLeft = 3,
-	TrafficSign_CarFollow = 4,//?
+	TrafficSign_CarFollow = 4,
 	TrafficSign_LaneNarrow = 5,
 	TrafficSign_IllegalPedestrian = 6,
 	TrafficSign_NoTrafficLight = 7,
@@ -56,12 +50,6 @@ typedef struct
 	double x;
 	double y;
 	float curvature;
-	
-	float maxOffset_left;
-	float maxOffset_right;
-	uint8_t traffic_sign;
-	uint8_t other_info;
-	
 }gpsMsg_t;
 
 typedef struct
@@ -69,17 +57,6 @@ typedef struct
 	double x,y;
 }point_t;
 
-extern const float g_vehicle_width;
-extern const float g_vehicle_length;
-extern const float g_max_deceleration;
-
-
-inline float generateRoadwheelAngleByRadius(const float& radius)
-{
-	assert(radius!=0);
-	//return asin(AXIS_DISTANCE /radius)*180/M_PI;  //the angle larger
-	return atan(AXIS_DISTANCE/radius)*180/M_PI;    //correct algorithm 
-}
 
 inline double sinDeg(const double& deg)
 {
@@ -107,9 +84,9 @@ inline float deg2rad(float deg)
 	return  (deg/180.0)*M_PI;
 }
 
-inline float generateDangerDistanceBySpeed(const float &speed)
+inline float generateDangerDistanceBySpeed(const float &speed, float max_decel)
 {
-	return 0.5* speed * speed /g_max_deceleration  + 3.0; 
+	return 0.5* speed * speed /max_decel  + 3.0; 
 }
 
 inline float generateSafetyDisByDangerDis(const float &danger_dis)
@@ -117,9 +94,6 @@ inline float generateSafetyDisByDangerDis(const float &danger_dis)
 	return danger_dis *3 + 5.0;
 }
 
-float limitRoadwheelAngleBySpeed(const float& angle, const float& speed);
-float limitSpeedByPathCurvature(const float& speed,const float& curvature);
-float limitSpeedByCurrentRoadwheelAngle(float speed,float angle);
 float loadPathPoints(std::string file_path,std::vector<gpsMsg_t>& points);
 float calculateDis2path(const double& x,const double& y,
 						 const std::vector<gpsMsg_t>& path_points, 
@@ -130,12 +104,7 @@ float calculateDis2path(const double& x,const double& y,
 						 const std::vector<gpsMsg_t>& path_points, 
 						 size_t  ref_point_index, //参考点索引
 						 size_t  max_search_index);
-float maxRoadWheelAngleWhenChangeLane(const float& offset,const float& distance);
 float generateDangerDistanceBySpeed(const float &speed);
-float generateMaxTolarateSpeedByCurvature(const float& curvature, const float& max_accel);
-float generateMaxTolarateSpeedByCurvature(const std::vector<gpsMsg_t>& path_points,
-											const size_t& nearest_point_index,
-											const size_t& target_point_index);
 
 float disBetweenPoints(const gpsMsg_t& point1, const gpsMsg_t& point2);
 size_t findIndexForGivenDis(const std::vector<gpsMsg_t>& path_points, size_t startIndex,float dis);
@@ -148,7 +117,6 @@ std::pair<float, float> global2local(float origin_x,float origin_y,float theta,f
 
 float dis2Points(const gpsMsg_t& point1, const gpsMsg_t& point2,bool is_sqrt=true);
 size_t findNearestPoint(const std::vector<gpsMsg_t>& path_points, const gpsMsg_t& current_point);
-std::pair<float, float> get_dis_yaw(gpsMsg_t &point1,gpsMsg_t &point2);
 
 
 
