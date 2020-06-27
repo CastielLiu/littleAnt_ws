@@ -349,8 +349,8 @@ bool AutoDrive::loadPathInfos(const std::string& file)
 		while (pTurnRange)
 		{
 			int    type  = pTurnRange->IntAttribute("type");
-			size_t start = pParkingPoint->Unsigned64Attribute("start");
-			size_t end   = pParkingPoint->Unsigned64Attribute("end");
+			size_t start = pTurnRange->Unsigned64Attribute("start");
+			size_t end   = pTurnRange->Unsigned64Attribute("end");
 			turn_ranges_.push_back(turnRange_t(type,start,end));
 			//std::cout << type << "\t" << start << "\t" << end << std::endl;
 			
@@ -358,7 +358,7 @@ bool AutoDrive::loadPathInfos(const std::string& file)
 			pTurnRange = pTurnRange->NextSiblingElement("TurnRange"); 
 		}
 		for(auto &range : turn_ranges_)
-			ROS_INFO("[%s] turn range: type:%d  start:%d  end:%d",__NAME__,range.type,range.start,range.end);
+			ROS_INFO("[%s] turn range: type:%d  start:%d  end:%d",__NAME__,range.type,range.start_index,range.end_index);
 		
 		ROS_INFO("[%s] load turn ranges ok.",__NAME__);
 	}
