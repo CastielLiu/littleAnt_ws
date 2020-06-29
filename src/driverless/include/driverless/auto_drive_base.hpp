@@ -97,6 +97,7 @@ public:
 			return false;
 		}
 		parking_points_ = points;
+		return true;
 	}
 
 	/*@brief 设置转向区间信息

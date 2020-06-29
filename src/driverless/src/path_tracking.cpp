@@ -318,11 +318,15 @@ bool PathTracking::setParkingPoints(const std::vector<parkingPoint_t>& points)
 {	
 	//先调用基类函数载入停车点，然后在进行处理
 	bool ok = AutoDriveBase::setParkingPoints(points);
-	if(!ok) return ok;
+	if(!ok) 
+	{
+		return false;
+	}
 
 	next_parking_index_ = points.size(); //初始化为越界索引
 	for(size_t i=0; i<parking_points_.size(); ++i)
 	{
+		ROS_INFO("parking_points_,%d, index:%d",i,parking_points_[i].index);
 		if(parking_points_[i].index > nearest_point_index_)
 		{
 			next_parking_index_ = i;
@@ -344,12 +348,15 @@ float PathTracking::limitSpeedByParkingPoint(const float& speed,const float& acc
 		ROS_ERROR("[%s] No Parking Points!",__NAME__);
 		return 0.0;
 	}
-
+	
 	//无可用停车点,已经到达终点
 	//此处必须检查是否越界，防止出错
 	if(next_parking_index_ >= parking_points_.size())
+	{
+		ROS_ERROR("[%s] No Next Parking Point!",__NAME__);
 		return 0.0;
-
+	}
+		
 	parkingPoint_t& parking_point = parking_points_[next_parking_index_];
 	
 	if(parking_point.isParking) //正在停车中
@@ -420,6 +427,9 @@ std::pair<float, float> PathTracking::getDisAndYaw(const gpsMsg_t &point1, const
 float PathTracking::limitRoadwheelAngleBySpeed(const float& angle, const float& speed)
 {
 	float min_steering_radius = speed*speed/max_side_accel_;
+	
+	if(min_steering_radius < 1.0)
+		return angle;
 	
 	float max_angle = fabs(generateRoadwheelAngleByRadius(min_steering_radius));
 	if(max_angle > vehicle_.max_roadwheel_angle)
