@@ -323,15 +323,21 @@ bool PathTracking::setParkingPoints(const std::vector<parkingPoint_t>& points)
 		return false;
 	}
 
+	//查找下一个停车点
 	next_parking_index_ = points.size(); //初始化为越界索引
 	for(size_t i=0; i<parking_points_.size(); ++i)
 	{
-		ROS_INFO("parking_points_,%d, index:%d",i,parking_points_[i].index);
+		//ROS_INFO("parking_points_,%d, index:%d",i,parking_points_[i].index);
 		if(parking_points_[i].index > nearest_point_index_)
 		{
 			next_parking_index_ = i;
 			break;
 		}
+	}
+	if(next_parking_index_ == points.size())
+	{
+		ROS_ERROR("[%s] The vehicle position is beyond all parking points!",__NAME__);
+		return false;
 	}
 	return true;
 }
