@@ -1,6 +1,6 @@
 #include <little_ant_msgs/State4.h>  //steeringAngle  hz 35
 #include <little_ant_msgs/State2.h>  //vehicle_speed  hz 19
-#include <path_tracking/State.h>
+#include <driverless/TrackingState.h>
 #include <nav_msgs/Odometry.h>
 #include <sensor_msgs/Imu.h>
 #include <ros/ros.h>
@@ -71,7 +71,7 @@ public:
 		odom_msg_ = *msg;
 	}
 	
-	void state_callback(const path_tracking::State::ConstPtr& state)
+	void state_callback(const driverless::TrackingState::ConstPtr& state)
 	{
 		state_msg_ = *state;
 	}
@@ -131,7 +131,7 @@ private:
 	float speed_;
 	sensor_msgs::Imu imu_msg_;
 	nav_msgs::Odometry odom_msg_;
-	path_tracking::State state_msg_;
+	driverless::TrackingState state_msg_;
 };
 
 int main(int argc,char**argv)
