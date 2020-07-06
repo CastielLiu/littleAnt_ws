@@ -90,6 +90,7 @@ size_t findNearestPoint(const std::vector<gpsMsg_t>& path_points, const gpsMsg_t
 }
 
 /*@brief 计算目标点到达路径的距离,点在路径左侧为负,右侧为正
+ *@brief 该函数主要用于计算主体车辆到路径的距离(横向偏差),并更新最近点索引
  *@param x,y         目标点坐标
  *@param path_points 路径点集
  *@param ref_point_index 参考点索引，以此参考点展开搜索，加速计算
@@ -157,6 +158,7 @@ float calculateDis2path(const double& x,const double& y,
 }
 
 /*@brief 计算目标点到达路径的距离,点在路径左侧为负,右侧为正
+ *@brief 该函数主要用于计算目标到路径的距离,并考虑路径终点问题
  *@param x,y         目标点坐标
  *@param path_points 路径点集
  *@param ref_point_index 参考点索引，以此参考点展开搜索，加速计算
