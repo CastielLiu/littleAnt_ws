@@ -55,6 +55,7 @@ public:
 		child_name_ = child_name;
 		cmd_.speed = cmd_.roadWheelAngle = 0.0;
 		cmd_.validity = false;
+                next_parking_index_ = 0;
 	}
 	virtual ~AutoDriveBase()
 	{

@@ -323,22 +323,6 @@ bool PathTracking::setParkingPoints(const std::vector<parkingPoint_t>& points)
 		return false;
 	}
 
-	//查找下一个停车点
-	next_parking_index_ = points.size(); //初始化为越界索引
-	for(size_t i=0; i<parking_points_.size(); ++i)
-	{
-		//ROS_INFO("parking_points_,%d, index:%d",i,parking_points_[i].index);
-		if(parking_points_[i].index > nearest_point_index_)
-		{
-			next_parking_index_ = i;
-			break;
-		}
-	}
-	if(next_parking_index_ == points.size())
-	{
-		ROS_ERROR("[%s] The vehicle position is beyond all parking points!",__NAME__);
-		return false;
-	}
 	return true;
 }
 
@@ -362,6 +346,13 @@ float PathTracking::limitSpeedByParkingPoint(const float& speed,const float& acc
 		ROS_ERROR("[%s] No Next Parking Point!",__NAME__);
 		return 0.0;
 	}
+	
+	while(parking_points_[next_parking_index_].index < nearest_point_index_)
+	{
+		++ next_parking_index_;
+		if(next_parking_index_ >= parking_points_.size())
+			return 0.0;
+	}
 		
 	parkingPoint_t& parking_point = parking_points_[next_parking_index_];
 	
@@ -374,7 +365,6 @@ float PathTracking::limitSpeedByParkingPoint(const float& speed,const float& acc
 		if(ros::Time::now().toSec()-parking_point.parkingTime >= parking_point.parkingDuration)
 		{
 			ROS_INFO("parking overtime. parking point :%d",parking_point.index);
-			next_parking_index_ ++;
 			return speed;
 		}
 		//正在停车,时间未到
@@ -383,7 +373,8 @@ float PathTracking::limitSpeedByParkingPoint(const float& speed,const float& acc
 	
 	float dis2ParkingPoint = disToParkingPoint(parking_point);
 	float maxSpeed = sqrt(2*acc*dis2ParkingPoint);
-	//ROS_INFO("dis2end:%.2f\tmaxSpeed:%.2f",dis2end,maxSpeed);
+	//ROS_ERROR("parking_point :%d" , parking_point.index);
+	//ROS_INFO("dis2ParkingPoint:%.2f\tmaxSpeed:%.2f",dis2ParkingPoint,maxSpeed);
 	if(dis2ParkingPoint < 0.5)//到达停车点附近,速度置0,,防止抖动
 	{
 		parking_point.parkingTime = ros::Time::now().toSec();

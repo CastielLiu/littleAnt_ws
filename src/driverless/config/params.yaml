@@ -1,7 +1,7 @@
 
 vehicle:
    max_roadwheel_angle: 25.0
-   max_speed:   30.0
+   max_speed:   60.0
    wheel_base:  1.5
    wheel_track: 1.2
    width:       1.5
