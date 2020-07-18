@@ -1,6 +1,11 @@
-#VCU_8  0x151
+#VCU_8 0x151
 
 std_msgs/Header header
+
+uint8 GEAR_DRIVE   = 1
+uint8 GEAR_REVERSE = 9
+uint8 GEAR_NEUTRAL = 10
+uint8 GEAR_PARKING = 11
 
 uint8 act_gear
 float32 accel_pedal_position

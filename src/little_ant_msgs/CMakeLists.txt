@@ -11,27 +11,16 @@ find_package(catkin REQUIRED COMPONENTS
   std_msgs
 )
 
-
-
 ## Generate messages in the 'msg' folder
 add_message_files(
    FILES
    ControlCmd1.msg
    ControlCmd2.msg
-   ControlCmd.msg
    State1.msg
    State2.msg
    State3.msg
    State4.msg
-   Lane.msg
-   ChangLane.msg
-   PathInfo.msg
-   
-   DetectedObject.msg
-   DetectedObjectArray.msg
  )
-
-
 
 
 ## Generate added messages and services with any dependencies listed here

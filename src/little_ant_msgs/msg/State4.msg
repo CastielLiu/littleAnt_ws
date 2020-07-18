@@ -3,7 +3,7 @@
 std_msgs/Header header
 
 bool driverless_mode
-float32 steeringAngle
+float32 steeringAngle        #CCW(-), CW(+)
 float32 roadwheelAngle
 bool steeringAngle_valid
 float32 steeringAngle_speed
