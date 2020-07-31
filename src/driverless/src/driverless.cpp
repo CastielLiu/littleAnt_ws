@@ -11,7 +11,7 @@ AutoDrive::AutoDrive():
 {
 	controlCmd1_.set_driverlessMode = true;
 	controlCmd1_.set_handBrake = false;
-	controlCmd2_.set_gear = 1;
+	controlCmd2_.set_gear = controlCmd2_.GEAR_DRIVE;
 	controlCmd2_.set_speed = 0.0;
 	controlCmd2_.set_brake = 0.0;
 	controlCmd2_.set_roadWheelAngle = 0.0;

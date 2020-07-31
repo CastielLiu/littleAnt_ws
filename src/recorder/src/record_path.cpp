@@ -4,7 +4,6 @@
 #include<cmath>
 #include<nav_msgs/Odometry.h> 
 #include<ant_math/ant_math.h>
-#include<little_ant_msgs/PathInfo.h>
 
 class Record
 {

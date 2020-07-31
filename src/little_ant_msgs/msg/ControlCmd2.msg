@@ -1,8 +1,9 @@
 #IDM_2  0x1C5
 
-uint8 GEAR_DRIVE   = 11
-uint8 GEAR_NEUTRAL = 12
-uint8 GEAR_REVERSE = 13
+uint8 GEAR_DRIVE   = 1
+uint8 GEAR_REVERSE = 9
+uint8 GEAR_NEUTRAL = 10
+uint8 GEAR_PARKING = 11
 
 uint8 set_gear
 float32 set_speed
