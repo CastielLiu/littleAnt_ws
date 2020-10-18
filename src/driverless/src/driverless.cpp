@@ -81,8 +81,8 @@ bool AutoDrive::init()
 	sub_vehicleState4_ = nh_.subscribe("/vehicleState4",1,&AutoDrive::vehicleState4_callback,this);
 
 	//发布
-	pub_cmd1_ = nh_.advertise<little_ant_msgs::ControlCmd1>("/controlCmd1",1);
-	pub_cmd2_ = nh_.advertise<little_ant_msgs::ControlCmd2>("/controlCmd2",1);
+	pub_cmd1_ = nh_.advertise<ant_msgs::ControlCmd1>("/controlCmd1",1);
+	pub_cmd2_ = nh_.advertise<ant_msgs::ControlCmd2>("/controlCmd2",1);
 	pub_diagnostic_ = nh_.advertise<diagnostic_msgs::DiagnosticStatus>("driverless/diagnostic",1);
 
 	//定时器
@@ -259,7 +259,7 @@ void AutoDrive::odom_callback(const nav_msgs::Odometry::ConstPtr& msg)
 	//vehicle_pose_.latitude = msg->pose.covariance[2];
 }
 
-void AutoDrive::vehicleSpeed_callback(const little_ant_msgs::State2::ConstPtr& msg)
+void AutoDrive::vehicleSpeed_callback(const ant_msgs::State2::ConstPtr& msg)
 {
 	if(vehicle_speed_ >20.0)
 		return;
@@ -268,7 +268,7 @@ void AutoDrive::vehicleSpeed_callback(const little_ant_msgs::State2::ConstPtr& m
 	vehicle_speed_ = msg->vehicle_speed; //  m/s
 }
 
-void AutoDrive::vehicleState4_callback(const little_ant_msgs::State4::ConstPtr& msg)
+void AutoDrive::vehicleState4_callback(const ant_msgs::State4::ConstPtr& msg)
 {
 	roadwheel_angle_ = msg->roadwheelAngle;
 }

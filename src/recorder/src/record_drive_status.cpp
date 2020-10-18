@@ -1,5 +1,5 @@
-#include <little_ant_msgs/State4.h>  //steeringAngle  hz 35
-#include <little_ant_msgs/State2.h>  //vehicle_speed  hz 19
+#include <ant_msgs/State4.h>  //steeringAngle  hz 35
+#include <ant_msgs/State2.h>  //vehicle_speed  hz 19
 #include <driverless/TrackingState.h>
 #include <nav_msgs/Odometry.h>
 #include <sensor_msgs/Imu.h>
@@ -51,12 +51,12 @@ public:
 		return true;
 	}
 	
-	void state2_callback(const little_ant_msgs::State2::ConstPtr& state2)
+	void state2_callback(const ant_msgs::State2::ConstPtr& state2)
 	{
 		speed_ = state2->vehicle_speed;
 	}
 	
-	void state4_callback(const little_ant_msgs::State4::ConstPtr& state4)
+	void state4_callback(const ant_msgs::State4::ConstPtr& state4)
 	{
 		roadwheel_angle_ = state4->roadwheelAngle;
 	}

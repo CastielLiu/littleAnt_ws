@@ -7,7 +7,7 @@ find_package(catkin REQUIRED COMPONENTS
 	roscpp
 	rospy
 	std_msgs
-	little_ant_msgs
+	ant_msgs
 )
 
 catkin_package(

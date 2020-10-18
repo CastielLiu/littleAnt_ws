@@ -6,7 +6,7 @@ add_compile_options(-std=c++11)
 
 
 find_package(catkin REQUIRED COMPONENTS
-  little_ant_msgs
+  ant_msgs
   roscpp
   rospy
   std_msgs
@@ -20,7 +20,7 @@ find_package(catkin REQUIRED COMPONENTS
 catkin_package(
 #  INCLUDE_DIRS include
 #  LIBRARIES record_gps_data
-#  CATKIN_DEPENDS little_ant_msgs roscpp rospy std_msgs
+#  CATKIN_DEPENDS ant_msgs roscpp rospy std_msgs
 #  DEPENDS system_lib
 )
 

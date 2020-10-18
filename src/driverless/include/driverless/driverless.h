@@ -4,10 +4,10 @@
 #include "car_following.h"
 #include "extern_control.h"
 
-#include <little_ant_msgs/ControlCmd1.h>
-#include <little_ant_msgs/ControlCmd2.h>
-#include <little_ant_msgs/State2.h>  //speed
-#include <little_ant_msgs/State4.h>  //steerAngle
+#include <ant_msgs/ControlCmd1.h>
+#include <ant_msgs/ControlCmd2.h>
+#include <ant_msgs/State2.h>  //speed
+#include <ant_msgs/State4.h>  //steerAngle
 #include "auto_drive_base.hpp"
 
 class AutoDrive : public AutoDriveBase
@@ -23,8 +23,8 @@ private:
     bool loadPathInfos(const std::string& file);
 	void publishPathTrackingState();
     bool is_gps_data_valid(const gpsMsg_t& point);
-    void vehicleSpeed_callback(const little_ant_msgs::State2::ConstPtr& msg);
-    void vehicleState4_callback(const little_ant_msgs::State4::ConstPtr& msg);
+    void vehicleSpeed_callback(const ant_msgs::State2::ConstPtr& msg);
+    void vehicleState4_callback(const ant_msgs::State4::ConstPtr& msg);
     void odom_callback(const nav_msgs::Odometry::ConstPtr& msg);
     void sendCmd1_callback(const ros::TimerEvent&);
 	void sendCmd2_callback(const ros::TimerEvent&);
@@ -46,8 +46,8 @@ private:
     ros::Publisher pub_cmd1_, pub_cmd2_;
     
     std::mutex command_mutex_;
-	little_ant_msgs::ControlCmd1 controlCmd1_;
-	little_ant_msgs::ControlCmd2 controlCmd2_;
+	ant_msgs::ControlCmd1 controlCmd1_;
+	ant_msgs::ControlCmd2 controlCmd2_;
     
     float avoid_offset_;
     PathTracking tracker_;

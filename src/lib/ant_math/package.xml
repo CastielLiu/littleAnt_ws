@@ -27,9 +27,9 @@
   <exec_depend>roscpp</exec_depend>
   <exec_depend>rospy</exec_depend>
  
-   <build_depend>little_ant_msgs</build_depend>
-  <build_depend>little_ant_msgs</build_depend>
-  <build_export_depend>little_ant_msgs</build_export_depend>
+   <build_depend>ant_msgs</build_depend>
+  <build_depend>ant_msgs</build_depend>
+  <build_export_depend>ant_msgs</build_export_depend>
   
   <build_export_depend>std_msgs</build_export_depend>
   <exec_depend>std_msgs</exec_depend>

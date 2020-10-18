@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 2.8.3)
-project(little_ant_msgs)
+project(ant_msgs)
 
 # add_compile_options(-std=c++11)
 
@@ -33,7 +33,7 @@ generate_messages(
 
 catkin_package(
 #  INCLUDE_DIRS include
-#  LIBRARIES little_ant_msgs
+#  LIBRARIES ant_msgs
   CATKIN_DEPENDS message_runtime roscpp rospy sensor_msgs std_msgs
 #  DEPENDS system_lib
 )
