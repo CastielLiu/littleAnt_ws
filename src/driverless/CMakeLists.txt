@@ -8,7 +8,6 @@ add_compile_options(-std=c++11)
 ## if COMPONENTS list like find_package(catkin REQUIRED COMPONENTS xyz)
 ## is used, also find other catkin packages
 find_package(catkin REQUIRED COMPONENTS
-  ant_math
   diagnostic_msgs
   gps_msgs
   jsk_recognition_msgs
@@ -51,6 +50,6 @@ include_directories(
   ${catkin_INCLUDE_DIRS}
 )
 
-add_executable(${PROJECT_NAME}_node src/driverless.cpp src/path_tracking.cpp src/car_following.cpp src/extern_control.cpp)
+add_executable(${PROJECT_NAME}_node src/driverless_node.cpp src/path_tracking.cpp src/car_following.cpp src/extern_control.cpp)
 add_dependencies(${PROJECT_NAME}_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 target_link_libraries(${PROJECT_NAME}_node ${catkin_LIBRARIES} /usr/local/lib/libtinyxml2.a)

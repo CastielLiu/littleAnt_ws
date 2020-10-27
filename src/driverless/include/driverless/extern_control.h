@@ -2,13 +2,13 @@
 #define EXTERN_CONTROL_H_
 
 #include <ros/ros.h>
-#include <ant_math/ant_math.h>
 #include <std_msgs/UInt8.h>
 #include <diagnostic_msgs/DiagnosticStatus.h>
 #include <vector>
 #include <thread>
 #include <mutex>
 #include "structs.h"
+#include "utils.hpp"
 
 #include <sys/socket.h>
 #include <netinet/in.h>

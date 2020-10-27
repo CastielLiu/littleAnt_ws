@@ -50,6 +50,8 @@
   <buildtool_depend>catkin</buildtool_depend>
   <build_depend>ant_msgs</build_depend>
   <build_depend>gps_msgs</build_depend>
+  <build_depend>driverless</build_depend>
+  
   
   <build_depend>roscpp</build_depend>
   <build_depend>rospy</build_depend>
@@ -62,6 +64,7 @@
   <build_export_depend>std_msgs</build_export_depend>
   <exec_depend>ant_msgs</exec_depend>
   <exec_depend>gps_msgs</exec_depend>
+  <exec_depend>driverless</exec_depend>
   
   <exec_depend>roscpp</exec_depend>
   <exec_depend>rospy</exec_depend>

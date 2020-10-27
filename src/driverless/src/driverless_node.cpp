@@ -1,6 +1,6 @@
 
 #include "ros/ros.h"
-#include "driverless/driverless.h"
+#include "driverless/driverless_node.h"
 
 #define __NAME__ "driverless"
 
@@ -52,7 +52,7 @@ bool AutoDrive::init()
 
 	if(path_points_file.empty())
 	{
-		ROS_ERROR("no input path points file !!");
+		ROS_ERROR("[%s] No input path points file !!", __NAME__);
 		publishDiagnosticMsg(diagnostic_msgs::DiagnosticStatus::ERROR,"No input path file!");
 		return false;
 	}
@@ -364,8 +364,6 @@ bool AutoDrive::loadPathInfos(const std::string& file)
 	}
 	else
 		ROS_INFO("[%s] No tutn ranges in path info file!",__NAME__);
-
-
 	return true;
 }
 

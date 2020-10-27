@@ -1,27 +1,22 @@
-#include "ant_math/ant_math.h"
+#ifndef UTILS_H_
+#define UTILS_H_
 
-//bool loadPathPoints(std::string file_path,std::vector<gpsMsg_t>& points)
-//{
-//	FILE *fp = fopen(file_path.c_str(),"r");
-//	if(fp==NULL)
-//	{
-//		ROS_ERROR("open %s failed",file_path.c_str());
-//		return false;
-//	}
-//	gpsMsg_t point;
-//	while(!feof(fp))
-//	{
-//		fscanf(fp,"%lf\t%lf\t%lf\t%f\n",&point.x,&point.y,&point.yaw,&point.curvature);
-//		points.push_back(point);
-//	}
-//	fclose(fp);
-//	return true;
-//}
+#include "structs.h"
+#include<cstring>
+#include<cmath>
+#include<assert.h>
+#include<string>
+#include<vector>
+#include<cstdio>
+#include<ros/ros.h>
+#include<limits.h>
+#include<exception>
+#include<fstream>
 
 /*@param 从文件载入路径点
  *@return 路径点分辨率,0表示载入失败
  */
-float loadPathPoints(std::string file_path,std::vector<gpsMsg_t>& points)
+static float loadPathPoints(std::string file_path,std::vector<gpsMsg_t>& points)
 {
 	std::ifstream in_file(file_path.c_str());
 	if(!in_file.is_open())
@@ -45,8 +40,15 @@ float loadPathPoints(std::string file_path,std::vector<gpsMsg_t>& points)
 	return reslution;
 }
 
+static float saturationEqual(float value,float limit)
+{
+	assert(limit>=0);
+	if(value > limit) value = limit;
+	else if(value < -limit) value = -limit;
+	return value;
+}
 
-float dis2Points(const gpsMsg_t& point1, const gpsMsg_t& point2,bool is_sqrt)
+static float dis2Points(const gpsMsg_t& point1, const gpsMsg_t& point2,bool is_sqrt)
 {
 	float x = point1.x - point2.x;
 	float y = point1.y - point2.y;
@@ -56,8 +58,7 @@ float dis2Points(const gpsMsg_t& point1, const gpsMsg_t& point2,bool is_sqrt)
 	return x*x+y*y;
 }
 
-
-size_t findNearestPoint(const std::vector<gpsMsg_t>& path_points, const gpsMsg_t& current_point)
+static size_t findNearestPoint(const std::vector<gpsMsg_t>& path_points, const gpsMsg_t& current_point)
 {
 	size_t index = 0;
 	float min_dis2 = FLT_MAX;
@@ -96,7 +97,7 @@ size_t findNearestPoint(const std::vector<gpsMsg_t>& path_points, const gpsMsg_t
  *@param ref_point_index 参考点索引，以此参考点展开搜索，加速计算
  *@param nearest_point_index_ptr 输出与目标点最近的路径点索引(可选参数)
  */
-float calculateDis2path(const double& x,const double& y,
+static float calculateDis2path(const double& x,const double& y,
 						 const std::vector<gpsMsg_t>& path_points, 
 						 size_t   ref_point_index, //参考点索引
 						 size_t * const nearest_point_index_ptr)
@@ -164,7 +165,7 @@ float calculateDis2path(const double& x,const double& y,
  *@param ref_point_index 参考点索引，以此参考点展开搜索，加速计算
  *@param max_search_index 最大搜索索引,超出此索引的目标物则输出距离为FLT_MAX
  */
-float calculateDis2path(const double& x,const double& y,
+static float calculateDis2path(const double& x,const double& y,
 						 const std::vector<gpsMsg_t>& path_points, 
 						 size_t  ref_point_index, //参考点索引
 						 size_t  max_search_index)
@@ -237,9 +238,17 @@ float calculateDis2path(const double& x,const double& y,
 	return (x-anchor_x)*cos(anchor_yaw) - (y-anchor_y) * sin(anchor_yaw);
 }
 
-float limitSpeedByLateralAndYawErr(float speed,float latErr,float yawErr)
+static float limitSpeedByLateralAndYawErr(float speed,float latErr,float yawErr)
 {
-	///??
+	//
+}
+
+static float disBetweenPoints(const gpsMsg_t& point1, const gpsMsg_t& point2)
+{
+	float x = point1.x - point2.x;
+	float y = point1.y - point2.y;
+	
+	return sqrt(x*x+y*y);
 }
 
 //查找与当前点距离为dis的路径点索引
@@ -248,7 +257,7 @@ float limitSpeedByLateralAndYawErr(float speed,float latErr,float yawErr)
  *@param startIndex  搜索起点索引
  *@param dis         期望距离
 */
-size_t findIndexForGivenDis(const std::vector<gpsMsg_t>& path_points, 
+static size_t findIndexForGivenDis(const std::vector<gpsMsg_t>& path_points, 
 							size_t startIndex,float dis)
 {
 	float sum_dis = 0.0;
@@ -261,15 +270,7 @@ size_t findIndexForGivenDis(const std::vector<gpsMsg_t>& path_points,
 	return path_points.size(); //搜索到终点扔未找到合适距离点
 }
 
-float disBetweenPoints(const gpsMsg_t& point1, const gpsMsg_t& point2)
-{
-	float x = point1.x - point2.x;
-	float y = point1.y - point2.y;
-	
-	return sqrt(x*x+y*y);
-}
-
-float minCurvatureInRange(const std::vector<gpsMsg_t>& path_points, size_t startIndex,size_t endIndex)
+static float minCurvatureInRange(const std::vector<gpsMsg_t>& path_points, size_t startIndex,size_t endIndex)
 {
 	float min = FLT_MAX;
 	for(size_t i=startIndex; i<endIndex; i++)
@@ -282,7 +283,7 @@ float minCurvatureInRange(const std::vector<gpsMsg_t>& path_points, size_t start
 /*@brief 搜索从startIndex开始到dis距离区间的最大曲率
  *@brief剩余距离小于期望距离时输出剩余部分的最大曲率
 */
-float maxCurvatureInRange(const std::vector<gpsMsg_t>& path_points, size_t startIndex,float dis)
+static float maxCurvatureInRange(const std::vector<gpsMsg_t>& path_points, size_t startIndex,float dis)
 {
 	float sum_dis = 0.0;
 	float max_cuvature = 0.0;
@@ -299,7 +300,7 @@ float maxCurvatureInRange(const std::vector<gpsMsg_t>& path_points, size_t start
 	return max_cuvature;
 }
 
-float maxCurvatureInRange(const std::vector<gpsMsg_t>& path_points, size_t startIndex,size_t endIndex)
+static float maxCurvatureInRange(const std::vector<gpsMsg_t>& path_points, size_t startIndex,size_t endIndex)
 {
 	float max = 0.0;
 	for(size_t i=startIndex; i<endIndex; i++)
@@ -317,7 +318,7 @@ float maxCurvatureInRange(const std::vector<gpsMsg_t>& path_points, size_t start
  *@param local_x,local_y   点在局部坐标系下的坐标
  *@return      点在全局坐标系下的坐标
  */
-std::pair<float, float> 
+static std::pair<float, float> 
 local2global(float origin_x,float origin_y,float theta, float local_x,float local_y)
 {
 	std::pair<float, float> global;
@@ -332,7 +333,7 @@ local2global(float origin_x,float origin_y,float theta, float local_x,float loca
  *@param local_x,local_y   点在局部坐标系下的坐标
  *@return      点在全局坐标系下的坐标
  */
-std::pair<float, float> 
+static std::pair<float, float> 
 global2local(float origin_x,float origin_y,float theta, float global_x,float global_y)
 {
 	std::pair<float, float> local;
@@ -347,7 +348,7 @@ global2local(float origin_x,float origin_y,float theta, float global_x,float glo
  *@param local   点在局部坐标系下的位置
  *@return        点在全局坐标系下的位置
  */
-point_t coordinationConvert(point_t origin,float theta, point_t local)
+static point_t coordinationConvert(point_t origin,float theta, point_t local)
 {
 	point_t global;
 	global.x = local.x*cos(theta) - local.y*sin(theta) + origin.x;
@@ -356,3 +357,5 @@ point_t coordinationConvert(point_t origin,float theta, point_t local)
 }
 
 
+
+#endif

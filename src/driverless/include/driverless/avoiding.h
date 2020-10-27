@@ -11,10 +11,10 @@
 #include <diagnostic_msgs/DiagnosticStatus.h>
 #include <iostream>
 #include <std_msgs/Float32.h>
-#include <ant_math/ant_math.h>
 #include <vector>
 #include <assert.h>
 #include <structs.h>
+#include "utils.hpp"
 
 typedef enum
 {

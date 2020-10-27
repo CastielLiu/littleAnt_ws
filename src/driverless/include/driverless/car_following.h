@@ -7,7 +7,6 @@
 #include <esr_radar/ObjectArray.h>
 #include <pcl_ros/point_cloud.h>
 #include <tf/transform_listener.h>
-#include <ant_math/ant_math.h>
 #include <nav_msgs/Path.h>
 #include <geometry_msgs/Quaternion.h>
 #include <geometry_msgs/PoseStamped.h>
@@ -18,6 +17,7 @@
 #include <thread>
 #include <mutex>
 #include "structs.h"
+#include "utils.hpp"
 
 class CarFollowing : public AutoDriveBase
 {

@@ -1,6 +1,26 @@
 #ifndef STRUCTS_H_
 #define STRUCTS_H_
 
+/*@brief 路径点信息
+*/
+typedef struct
+{
+	double longitude;
+	double latitude;
+	double yaw;
+	double x;
+	double y;
+	float curvature;
+}gpsMsg_t;
+
+typedef struct
+{
+	double x,y;
+}point_t;
+
+
+/*@brief 车辆控制信息
+*/
 typedef struct ControlCmd
 {
 	ControlCmd()
@@ -82,6 +102,14 @@ typedef struct VehicleParams
 		validity = false;
 	}
 }vehicleParams_t;
+
+/*@brief 车辆状态
+*/
+typedef struct VehicleState
+{
+	float speed;
+
+} vehicleState_t;
 
 
 #endif

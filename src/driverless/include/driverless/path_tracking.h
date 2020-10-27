@@ -10,8 +10,7 @@
 #include <nav_msgs/Odometry.h>
 #include <geometry_msgs/Quaternion.h>
 #include <tf/transform_datatypes.h>
-
-#include <ant_math/ant_math.h>
+#include "utils.hpp"
 #include <driverless/TrackingState.h>
 
 

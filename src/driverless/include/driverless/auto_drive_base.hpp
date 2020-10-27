@@ -5,9 +5,8 @@
 #include <mutex>
 #include <ros/ros.h>
 #include "structs.h"
-#include <ant_math/ant_math.h>
+#include "utils.hpp"
 #include <diagnostic_msgs/DiagnosticStatus.h>
-
 
 /*@brief 自动驾驶子模块基类
  */
