@@ -22,7 +22,7 @@ private:
     bool loadVehicleParams();
     bool loadPathInfos(const std::string& file);
 	void publishPathTrackingState();
-    bool is_gps_data_valid(const gpsMsg_t& point);
+    bool is_gps_data_valid(const GpsPoint& point);
     void vehicleSpeed_callback(const ant_msgs::State2::ConstPtr& msg);
     void vehicleState4_callback(const ant_msgs::State4::ConstPtr& msg);
     void odom_callback(const nav_msgs::Odometry::ConstPtr& msg);

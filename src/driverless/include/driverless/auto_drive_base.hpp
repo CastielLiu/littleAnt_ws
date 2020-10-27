@@ -8,17 +8,28 @@
 #include "utils.hpp"
 #include <diagnostic_msgs/DiagnosticStatus.h>
 
+
 /*@brief 自动驾驶子模块基类
  */
 class AutoDriveBase
 {
+/*params*/
 protected://子类可访问,实例不可访问
-	std::vector<gpsMsg_t>  path_points_;//路径点
-    std::vector<parkingPoint_t> parking_points_;//停车点索引
-	size_t next_parking_index_; //下一个停车点索引
-	float path_points_resolution_;
+	static Path global_path_ ;            //全局路径
+	static Path local_path_;              //局部路径
+    static ParkingPoints parking_points_; //停车点索引
+	static TurnRanges turn_ranges_;       //转向区间
+	static VehicleState vehicle_state_;   //汽车状态
 
-	std::vector<turnRange_t> turn_ranges_; //转向区间
+	bool vehicle_speed_status_;
+	float vehicle_speed_;
+    GpsPoint vehicle_pose_;
+	float roadwheel_angle_;
+
+	VehicleParams vehicle_params_;
+
+	std::mutex cmd_mutex_;
+	controlCmd_t cmd_;
 
 	ros::Publisher pub_diagnostic_;
 	diagnostic_msgs::DiagnosticStatus diagnostic_msg_;
@@ -26,20 +37,11 @@ protected://子类可访问,实例不可访问
 	bool is_running_;
 	bool is_initialed_;
 
-	bool vehicle_speed_status_;
-	float vehicle_speed_;
-    gpsMsg_t vehicle_pose_;
-	float roadwheel_angle_;
-
-	vehicleParams_t vehicle_;
-
-	std::mutex cmd_mutex_;
-	controlCmd_t cmd_;
-
 private:
 	bool diagnostic_inited_;
 	std::string child_name_;
 
+/*methods*/
 public:
 	AutoDriveBase() = delete;
 	AutoDriveBase(const AutoDriveBase& ) = delete;
@@ -50,31 +52,29 @@ public:
 		is_initialed_ = false;
 		is_running_ = false;
 		diagnostic_inited_ = false;
-		vehicle_speed_status_ = false;
 		child_name_ = child_name;
 		cmd_.speed = cmd_.roadWheelAngle = 0.0;
 		cmd_.validity = false;
-                next_parking_index_ = 0;
 	}
 	virtual ~AutoDriveBase()
 	{
 
 	}
 
-	virtual bool setVehicleParams(const vehicleParams_t& params)
+	virtual bool setVehicleParams(const VehicleParams& params)
 	{
 		if(false == params.validity)
 		{
 			ROS_ERROR("[%s] Vehicle parameters is invalid, please load them correctly.",child_name_.c_str());
 			return false;
 		}
-		vehicle_ = params;
+		vehicle_params_ = params;
 		return true;
 	}
 
 	/*@brief 设置全局路径
 	*/
-	virtual bool setGlobalPath(const std::vector<gpsMsg_t>& path, float resolution)
+	virtual bool setGlobalPath(const std::vector<GpsPoint>& path, float resolution)
 	{
 		if(path_points_.size()!=0)
 		{
@@ -89,7 +89,7 @@ public:
 
 	/*@brief 设置停车点
 	*/
-	virtual bool setParkingPoints(const std::vector<parkingPoint_t>& points)
+	virtual bool setParkingPoints(const std::vector<ParkingPoint>& points)
 	{
 		if(parking_points_.size()!=0)
 		{
@@ -102,7 +102,7 @@ public:
 
 	/*@brief 设置转向区间信息
 	*/
-	virtual bool setTurnRanges(const std::vector<turnRange_t>& ranges)
+	virtual bool setTurnRanges(const std::vector<TurnRange>& ranges)
 	{
 		if(turn_ranges_.size()!=0)
 		{

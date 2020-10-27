@@ -24,7 +24,7 @@ void Avoiding::publishDiagnostics(uint8_t level,const std::string& msg)
 	pub_diagnostic_.publish(diagnostic_msg_);
 }
 
-bool PathTracking::setGlobalPath(const std::vector<gpsMsg_t>& path)
+bool PathTracking::setGlobalPath(const std::vector<GpsPoint>& path)
 {
 	if(path_points_.size()!=0)
 		return false;
@@ -37,7 +37,7 @@ void Avoiding::start()
 	sub_objects_ = nh.subscribe(objects_topic_,1,&Avoiding::objects_callback,this);
 }
 
-void Avoiding::updateStatus(const gpsMsg_t& pose,const float& speed, size_t nearest_index)
+void Avoiding::updateStatus(const GpsPoint& pose,const float& speed, size_t nearest_index)
 {
 
 	danger_distance_front_ = generateDangerDistanceBySpeed(speed);  

@@ -20,7 +20,7 @@ bool ExternControl::init(ros::NodeHandle nh,ros::NodeHandle nh_private)
 	return initSocket();
 }
 
-bool ExternControl::setGlobalPath(const std::vector<gpsMsg_t>& path)
+bool ExternControl::setGlobalPath(const std::vector<GpsPoint>& path)
 {
 	if(path_points_.size()!=0)
 		return false;
@@ -33,7 +33,7 @@ bool ExternControl::isRunning()
 	return is_running_;
 }
 
-bool ExternControl::updateStatus(const gpsMsg_t& pose,const float& speed)
+bool ExternControl::updateStatus(const GpsPoint& pose,const float& speed)
 {
 	if(!is_ready_) is_ready_ = true;
 	std::lock_guard<std::mutex> lock(state_mutex_);

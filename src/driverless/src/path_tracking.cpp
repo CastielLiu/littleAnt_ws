@@ -18,7 +18,7 @@ bool PathTracking::setExpectSpeed(float speed)
 	expect_speed_ = speed;
 }
 
-bool PathTracking::updateStatus(const gpsMsg_t& pose,const float& speed, const float& roadWheelAngle)
+bool PathTracking::updateStatus(const GpsPoint& pose,const float& speed, const float& roadWheelAngle)
 {
 	if(!is_ready_) is_ready_ = true;
 	std::lock_guard<std::mutex> lock(state_mutex_);
@@ -95,7 +95,7 @@ bool PathTracking::extendGlobalPath(float extendDis)
 	float dy = (path_points_[endIndex].y - path_points_[endIndex-n].y)/n;
 	float ds = sqrt(dx*dx+dy*dy);
 
-	gpsMsg_t point;
+	GpsPoint point;
 	float remaindDis = 0.0;
 	for(size_t i=1;;++i)
 	{
@@ -129,7 +129,7 @@ void PathTracking::trackingThread()
 	ros::Rate loop_rate(30);
 
 	float vehicle_speed,roadwheel_angle;
-	gpsMsg_t now_point;
+	GpsPoint now_point;
 	while(ros::ok() && is_running_)
 	{
 		//加锁，状态数据拷贝
@@ -156,7 +156,7 @@ void PathTracking::trackingThread()
 			disThreshold_  = min_foresight_distance_;
 		size_t target_index = nearest_point_index_+1;//跟踪目标点索引
 		
-		gpsMsg_t target_point = path_points_[target_index];
+		GpsPoint target_point = path_points_[target_index];
 		//获取当前点到目标点的距离和航向
 		std::pair<float, float> dis_yaw = getDisAndYaw(target_point, now_point);
 	#if 1
@@ -290,9 +290,9 @@ void PathTracking::publishNearestIndex()
 	}
 }
 
-gpsMsg_t PathTracking::pointOffset(const gpsMsg_t& point,float offset)
+GpsPoint PathTracking::pointOffset(const GpsPoint& point,float offset)
 {
-	gpsMsg_t result = point;
+	GpsPoint result = point;
 	result.x =  offset * cos(point.yaw) + point.x;
 	result.y = -offset * sin(point.yaw) + point.y;
 	return result;
@@ -300,13 +300,13 @@ gpsMsg_t PathTracking::pointOffset(const gpsMsg_t& point,float offset)
 
 /*@brief 当前位置到停车点的距离
 */
-float PathTracking::disToParkingPoint(const parkingPoint_t& parkingPoint)
+float PathTracking::disToParkingPoint(const ParkingPoint& ParkingPoint)
 {
-	if(nearest_point_index_ >=  parkingPoint.index) //当前位置已经超过停车点
+	if(nearest_point_index_ >=  ParkingPoint.index) //当前位置已经超过停车点
 		return 0;
 	
-	float dis1 = path_points_resolution_ * (parkingPoint.index-nearest_point_index_); //估计路程
-	float dis2 = disBetweenPoints(path_points_[parkingPoint.index],path_points_[nearest_point_index_]);//直线距离
+	float dis1 = path_points_resolution_ * (ParkingPoint.index-nearest_point_index_); //估计路程
+	float dis2 = disBetweenPoints(path_points_[ParkingPoint.index],path_points_[nearest_point_index_]);//直线距离
 	float dis2end = dis1 > dis2 ? dis1 : dis2;
 	return dis2end;
 	
@@ -314,7 +314,7 @@ float PathTracking::disToParkingPoint(const parkingPoint_t& parkingPoint)
 
 /*@brief 重载基类方法，载入停车点
 */
-bool PathTracking::setParkingPoints(const std::vector<parkingPoint_t>& points)
+bool PathTracking::setParkingPoints(const std::vector<ParkingPoint>& points)
 {	
 	//先调用基类函数载入停车点，然后在进行处理
 	bool ok = AutoDriveBase::setParkingPoints(points);
@@ -340,21 +340,20 @@ float PathTracking::limitSpeedByParkingPoint(const float& speed,const float& acc
 	}
 	
 	//无可用停车点,已经到达终点
-	//此处必须检查是否越界，防止出错
-	if(next_parking_index_ >= parking_points_.size())
+	if(!parking_points_.available())
 	{
 		ROS_ERROR("[%s] No Next Parking Point!",__NAME__);
 		return 0.0;
 	}
 	
-	while(parking_points_[next_parking_index_].index < nearest_point_index_)
+	while(parking_points_.next().index < nearest_point_index_)
 	{
-		++ next_parking_index_;
-		if(next_parking_index_ >= parking_points_.size())
+		++ parking_points_.next_index;
+		if(!parking_points_.available())
 			return 0.0;
 	}
 		
-	parkingPoint_t& parking_point = parking_points_[next_parking_index_];
+	ParkingPoint& parking_point = parking_points_.next();
 	
 	if(parking_point.isParking) //正在停车中
 	{
@@ -400,7 +399,7 @@ inline float PathTracking::generateRoadwheelAngleByRadius(const float& radius)
  *@param point1 终点
  *@param point2 起点
  */
-std::pair<float, float> PathTracking::getDisAndYaw(const gpsMsg_t &point1, const gpsMsg_t &point2)
+std::pair<float, float> PathTracking::getDisAndYaw(const GpsPoint &point1, const GpsPoint &point2)
 {
 	float x = point1.x - point2.x;
 	float y = point1.y - point2.y;
@@ -455,7 +454,7 @@ float PathTracking::generateMaxTolarateSpeedByCurvature(const float& curvature, 
  *
  *@return 最大车速 km/h
  */
-float PathTracking::generateMaxTolarateSpeedByCurvature(const std::vector<gpsMsg_t>& path_points,
+float PathTracking::generateMaxTolarateSpeedByCurvature(const std::vector<GpsPoint>& path_points,
 											const size_t& start_search_index,
 											const size_t& end_search_index,
 											float max_side_accel)

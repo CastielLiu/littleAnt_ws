@@ -22,7 +22,7 @@ AutoDrive::~AutoDrive()
 
 }
 
-bool AutoDrive::is_gps_data_valid(const gpsMsg_t& point)
+bool AutoDrive::is_gps_data_valid(const GpsPoint& point)
 {
 	//std::cout << point.x  << "\t"  <<point.y << std::endl;
 	if(fabs(point.x) > 100 && fabs(point.y) > 100)
@@ -93,18 +93,18 @@ bool AutoDrive::init()
 	if(is_offline_debug_)
 		return true;
 		
-	// 系统状态检查，等待初始化
-	while(ros::ok() && !is_gps_data_valid(vehicle_pose_))
+	// 车辆状态检查，等待初始化
+	while(ros::ok())
 	{
-		ROS_INFO("gps data is invalid, please check the gps topic or waiting...");
-		publishDiagnosticMsg(diagnostic_msgs::DiagnosticStatus::WARN,"gps data is invalid");
-		sleep(1);
-	}
-	while(!vehicle_speed_status_ && ros::ok())
-	{
-		ROS_INFO("waiting for vehicle speed data ok ...");
-		publishDiagnosticMsg(diagnostic_msgs::DiagnosticStatus::WARN,"Vehicle speed is invalid");
-		usleep(500000);
+		std::string info;
+		if(!vehicle_state_.validity(info))
+		{	
+			ROS_INFO("[%s] %s",__NAME__, info.c_str());
+			publishDiagnosticMsg(diagnostic_msgs::DiagnosticStatus::WARN, info);
+			ros::Duration(0.5).sleep();
+		}
+		else
+			break;
 	}
 	return true;
 }
@@ -248,29 +248,29 @@ void AutoDrive::sendCmd2_callback(const ros::TimerEvent&)
 	pub_cmd2_.publish(controlCmd2_);
 }
 
-
 void AutoDrive::odom_callback(const nav_msgs::Odometry::ConstPtr& msg)
 {
-	vehicle_pose_.x = msg->pose.pose.position.x;
-	vehicle_pose_.y = msg->pose.pose.position.y;
-	vehicle_pose_.yaw = msg->pose.covariance[0];
+	Pose pose;
+	pose.x =  msg->pose.pose.position.x;
+	pose.y =  msg->pose.pose.position.y;
+	pose.yaw = msg->pose.covariance[0];
 	
-	//vehicle_pose_.longitude = msg->pose.covariance[1];
-	//vehicle_pose_.latitude = msg->pose.covariance[2];
+	vehicle_state_.setPose(pose);
 }
 
 void AutoDrive::vehicleSpeed_callback(const ant_msgs::State2::ConstPtr& msg)
 {
 	if(vehicle_speed_ >20.0)
 		return;
-	if(!vehicle_speed_status_)
-		vehicle_speed_status_ = true;
-	vehicle_speed_ = msg->vehicle_speed; //  m/s
+
+	vehicle_state_.setSpeed(msg->vehicle_speed); //  m/s
+	vehicle_state_.speed_validity = true;
 }
 
 void AutoDrive::vehicleState4_callback(const ant_msgs::State4::ConstPtr& msg)
 {
-	roadwheel_angle_ = msg->roadwheelAngle;
+	vehicle_state_.setSteerAngle(msg->roadwheelAngle);
+	vehicle_state_.steer_validity = true;
 }
 
 /*@brief 从xml文件载入路径信息
@@ -317,7 +317,7 @@ bool AutoDrive::loadPathInfos(const std::string& file)
 			uint32_t id    = pParkingPoint->Unsigned64Attribute("id");
 			uint32_t index = pParkingPoint->Unsigned64Attribute("index");
 			float duration = pParkingPoint->FloatAttribute("duration");
-			parking_points_.push_back(parkingPoint_t(index,duration));
+			parking_points_.push_back(ParkingPoint(index,duration));
 			//std::cout << id << "\t" << index << "\t" << duration << std::endl;
 			if(duration == 0)
 				has_dst_parking_point = true;
@@ -327,16 +327,11 @@ bool AutoDrive::loadPathInfos(const std::string& file)
 
 		//如果路径信息中不包含终点停车点，手动添加路径终点为停车点
 		if(!has_dst_parking_point)
-			parking_points_.push_back(parkingPoint_t(path_points_.size()-1,0.0)); 
+			parking_points_.push_back(ParkingPoint(path_points_.size()-1,0.0)); 
 		
-		//停车点从小到达排序
-		std::sort(parking_points_.begin(),parking_points_.end(),
-			[](const parkingPoint_t&point1,const parkingPoint_t&point2)
-			{return point1.index < point2.index;});
+		parking_points_.sort();  //停车点小到大排序
+		parking_points_.print(__NAME__); //打印到终端显示
 			
-		for(auto &point:parking_points_)
-			ROS_INFO("[%s] parking point index: %d  duration: %.1f",__NAME__,point.index,point.parkingDuration);
-		
 		ROS_INFO("[%s] load Parking Points ok.",__NAME__);
 	}
 	else
@@ -351,7 +346,7 @@ bool AutoDrive::loadPathInfos(const std::string& file)
 			int    type  = pTurnRange->IntAttribute("type");
 			size_t start = pTurnRange->Unsigned64Attribute("start");
 			size_t end   = pTurnRange->Unsigned64Attribute("end");
-			turn_ranges_.push_back(turnRange_t(type,start,end));
+			turn_ranges_.push_back(TurnRange(type,start,end));
 			//std::cout << type << "\t" << start << "\t" << end << std::endl;
 			
 			//转到下一子节点

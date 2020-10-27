@@ -46,8 +46,8 @@ public:
 	ExternControl();
 	~ExternControl(){};
 	
-	bool setGlobalPath(const std::vector<gpsMsg_t>& path);
-	bool updateStatus(const gpsMsg_t& pose,const float& speed);
+	bool setGlobalPath(const std::vector<GpsPoint>& path);
+	bool updateStatus(const GpsPoint& pose,const float& speed);
 	bool init(ros::NodeHandle nh,ros::NodeHandle nh_private);
 	bool start();
 	void stop();
@@ -65,7 +65,7 @@ private:
 
 	ros::Timer      update_timer_;
 
-	std::vector<gpsMsg_t> path_points_;
+	std::vector<GpsPoint> path_points_;
 	float path_points_resolution_;
 
 	std::mutex cmd_mutex_;

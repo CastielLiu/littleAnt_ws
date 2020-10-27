@@ -31,12 +31,12 @@ public:
 	~Avoiding(){}
 	
 	bool init(ros::NodeHandle nh,ros::NodeHandle nh_private);
-	bool setGlobalPath(const std::vector<gpsMsg_t>& path);
+	bool setGlobalPath(const std::vector<GpsPoint>& path);
 	void start();
 	void stop();
 	bool isRunning();
 	controlCmd_t getControlCmd();
-	bool updateStatus(const gpsMsg_t& pose,const float& speed, const float& roadWheelAngle);
+	bool updateStatus(const GpsPoint& pose,const float& speed, const float& roadWheelAngle);
 private:
 	void  avoidingThread();
 	void  publishDiagnostics(uint8_t level,const std::string& msg);
@@ -84,7 +84,7 @@ private:
 	diagnostic_msgs::DiagnosticStatus diagnostic_msg_;
 	
 	std::string objects_topic_;
-	std::vector<gpsMsg_t> path_points_;
+	std::vector<GpsPoint> path_points_;
 	float path_points_resolution_;
 
 	std::mutex cmd_mutex_;
@@ -104,7 +104,7 @@ private:
 	size_t target_point_index_;
 	size_t nearest_point_index_;
 	
-	gpsMsg_t current_point_,target_point_;
+	GpsPoint current_point_,target_point_;
 	
 	float avoiding_offest_;
 	

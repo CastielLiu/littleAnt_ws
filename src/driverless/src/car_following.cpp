@@ -25,7 +25,7 @@ bool CarFollowing::init(ros::NodeHandle nh,ros::NodeHandle nh_private)
 	return true;
 }
 
-bool CarFollowing::updateStatus(const gpsMsg_t& pose,const float& speed, const size_t& nearest_point_index)
+bool CarFollowing::updateStatus(const GpsPoint& pose,const float& speed, const size_t& nearest_point_index)
 {
 	if(!is_ready_) is_ready_ = true;
 	std::lock_guard<std::mutex> lock(state_mutex_);
@@ -120,7 +120,7 @@ void CarFollowing::object_callback(const esr_radar::ObjectArray::ConstPtr& objec
 	
 	state_mutex_.lock();
 	float vehicle_speed = vehicle_speed_;
-	gpsMsg_t vehicle_pose = vehicle_pose_;
+	GpsPoint vehicle_pose = vehicle_pose_;
 	size_t pose_index = nearest_point_index_;
 	state_mutex_.unlock();
 
@@ -230,7 +230,7 @@ void CarFollowing::publishLocalPath()
 	size_t endIndex   = std::min(startIndex+200,path_points_.size()-1);
 	if(endIndex <= startIndex)
 		return;
-	gpsMsg_t origin_point = vehicle_pose_;
+	GpsPoint origin_point = vehicle_pose_;
 	path.poses.reserve(endIndex-startIndex+1);
 	
 	for(size_t i=startIndex; i<endIndex; ++i)

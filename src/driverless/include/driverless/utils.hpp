@@ -16,7 +16,7 @@
 /*@param 从文件载入路径点
  *@return 路径点分辨率,0表示载入失败
  */
-static float loadPathPoints(std::string file_path,std::vector<gpsMsg_t>& points)
+static float loadPathPoints(std::string file_path,std::vector<GpsPoint>& points)
 {
 	std::ifstream in_file(file_path.c_str());
 	if(!in_file.is_open())
@@ -24,7 +24,7 @@ static float loadPathPoints(std::string file_path,std::vector<gpsMsg_t>& points)
 		ROS_ERROR("open %s failed",file_path.c_str());
 		return 0.0;
 	}
-	gpsMsg_t point;
+	GpsPoint point;
 	std::string line;
 	
 	while(in_file.good())
@@ -48,7 +48,7 @@ static float saturationEqual(float value,float limit)
 	return value;
 }
 
-static float dis2Points(const gpsMsg_t& point1, const gpsMsg_t& point2,bool is_sqrt)
+static float dis2Points(const GpsPoint& point1, const GpsPoint& point2,bool is_sqrt)
 {
 	float x = point1.x - point2.x;
 	float y = point1.y - point2.y;
@@ -58,7 +58,7 @@ static float dis2Points(const gpsMsg_t& point1, const gpsMsg_t& point2,bool is_s
 	return x*x+y*y;
 }
 
-static size_t findNearestPoint(const std::vector<gpsMsg_t>& path_points, const gpsMsg_t& current_point)
+static size_t findNearestPoint(const std::vector<GpsPoint>& path_points, const GpsPoint& current_point)
 {
 	size_t index = 0;
 	float min_dis2 = FLT_MAX;
@@ -98,7 +98,7 @@ static size_t findNearestPoint(const std::vector<gpsMsg_t>& path_points, const g
  *@param nearest_point_index_ptr 输出与目标点最近的路径点索引(可选参数)
  */
 static float calculateDis2path(const double& x,const double& y,
-						 const std::vector<gpsMsg_t>& path_points, 
+						 const std::vector<GpsPoint>& path_points, 
 						 size_t   ref_point_index, //参考点索引
 						 size_t * const nearest_point_index_ptr)
 {
@@ -166,7 +166,7 @@ static float calculateDis2path(const double& x,const double& y,
  *@param max_search_index 最大搜索索引,超出此索引的目标物则输出距离为FLT_MAX
  */
 static float calculateDis2path(const double& x,const double& y,
-						 const std::vector<gpsMsg_t>& path_points, 
+						 const std::vector<GpsPoint>& path_points, 
 						 size_t  ref_point_index, //参考点索引
 						 size_t  max_search_index)
 {
@@ -243,7 +243,7 @@ static float limitSpeedByLateralAndYawErr(float speed,float latErr,float yawErr)
 	//
 }
 
-static float disBetweenPoints(const gpsMsg_t& point1, const gpsMsg_t& point2)
+static float disBetweenPoints(const GpsPoint& point1, const GpsPoint& point2)
 {
 	float x = point1.x - point2.x;
 	float y = point1.y - point2.y;
@@ -257,7 +257,7 @@ static float disBetweenPoints(const gpsMsg_t& point1, const gpsMsg_t& point2)
  *@param startIndex  搜索起点索引
  *@param dis         期望距离
 */
-static size_t findIndexForGivenDis(const std::vector<gpsMsg_t>& path_points, 
+static size_t findIndexForGivenDis(const std::vector<GpsPoint>& path_points, 
 							size_t startIndex,float dis)
 {
 	float sum_dis = 0.0;
@@ -270,7 +270,7 @@ static size_t findIndexForGivenDis(const std::vector<gpsMsg_t>& path_points,
 	return path_points.size(); //搜索到终点扔未找到合适距离点
 }
 
-static float minCurvatureInRange(const std::vector<gpsMsg_t>& path_points, size_t startIndex,size_t endIndex)
+static float minCurvatureInRange(const std::vector<GpsPoint>& path_points, size_t startIndex,size_t endIndex)
 {
 	float min = FLT_MAX;
 	for(size_t i=startIndex; i<endIndex; i++)
@@ -283,7 +283,7 @@ static float minCurvatureInRange(const std::vector<gpsMsg_t>& path_points, size_
 /*@brief 搜索从startIndex开始到dis距离区间的最大曲率
  *@brief剩余距离小于期望距离时输出剩余部分的最大曲率
 */
-static float maxCurvatureInRange(const std::vector<gpsMsg_t>& path_points, size_t startIndex,float dis)
+static float maxCurvatureInRange(const std::vector<GpsPoint>& path_points, size_t startIndex,float dis)
 {
 	float sum_dis = 0.0;
 	float max_cuvature = 0.0;
@@ -300,7 +300,7 @@ static float maxCurvatureInRange(const std::vector<gpsMsg_t>& path_points, size_
 	return max_cuvature;
 }
 
-static float maxCurvatureInRange(const std::vector<gpsMsg_t>& path_points, size_t startIndex,size_t endIndex)
+static float maxCurvatureInRange(const std::vector<GpsPoint>& path_points, size_t startIndex,size_t endIndex)
 {
 	float max = 0.0;
 	for(size_t i=startIndex; i<endIndex; i++)

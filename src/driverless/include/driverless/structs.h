@@ -1,17 +1,43 @@
 #ifndef STRUCTS_H_
 #define STRUCTS_H_
 
-/*@brief 路径点信息
-*/
-typedef struct
+#include <boost/thread/locks.hpp>    
+#include <boost/thread/shared_mutex.hpp>    
+
+typedef boost::shared_mutex SharedMutex;
+typedef boost::unique_lock<SharedMutex> WriteLock;
+typedef boost::shared_lock<SharedMutex> ReadLock;
+
+
+/*@brief 位姿信息*/
+class Pose
 {
+public:
+	double x, y, z, yaw;
+};
+
+/*@brief 路径点信息*/
+class GpsPoint : public Pose
+{
+public:
 	double longitude;
 	double latitude;
-	double yaw;
-	double x;
-	double y;
 	float curvature;
-}gpsMsg_t;
+};
+
+class Path
+{
+public:
+	std::vector<GpsPoint> points;
+	float resolution;
+
+	size_t size() {return points.size();}
+	const GpsPoint& operator[](size_t i)
+	{
+		return points[i];
+	}
+};
+
 
 typedef struct
 {
@@ -19,8 +45,7 @@ typedef struct
 }point_t;
 
 
-/*@brief 车辆控制信息
-*/
+/*@brief 车辆控制信息*/
 typedef struct ControlCmd
 {
 	ControlCmd()
@@ -38,10 +63,10 @@ typedef struct ControlCmd
 	
 } controlCmd_t;
 
-/*@brief 停车点信息
- */
-typedef struct ParkingPoint
+/*@brief 停车点信息*/
+class ParkingPoint
 {
+public:
 	ParkingPoint()
 	{
 		index = 0;
@@ -59,12 +84,51 @@ typedef struct ParkingPoint
 	float  parkingDuration; //停车时长s,若为0,则表示一直停车
 	double parkingTime;     //停车时刻
 	bool   isParking;       //正在停车
-} parkingPoint_t;
+};
 
-/*@brief 路径转向信息
- */
-typedef struct TurnRange
+class ParkingPoints
 {
+public:
+	std::vector<ParkingPoint> points;
+	size_t next_index = 0;
+
+	size_t size() {return points.size();}
+	void push_back(const ParkingPoint& point)
+	{
+		points.push_back(point);
+	} 
+	ParkingPoint& operator[](size_t i) {return points[i];}
+
+	bool available(){ return next_index  < points.size();}
+
+	void sort() //停车点由小到大排序
+	{
+		std::sort(points.begin(),points.end(),
+			[](const ParkingPoint& point1,const ParkingPoint& point2)
+			{return point1.index < point2.index;});
+	}
+
+	void print(const std::string& prefix)
+	{
+		for(auto &point:points)
+			printf("[%s] parking point index: %d  duration: %.1f",prefix.c_str(), point.index,point.parkingDuration);
+	}
+	
+	ParkingPoint& next()
+	{
+		if(!available())
+			next_index = 0;
+
+		return points[next_index];
+	}
+
+}
+
+
+/*@brief 路径转向区间信息 */
+class TurnRange
+{
+public:
 	enum TurnType
 	{
 		TurnType_Left = -1,
@@ -82,13 +146,13 @@ typedef struct TurnRange
 		start_index = _start_index;
 		end_index = _end_index;
 	}
+};
+std::vector<TurnRange> TurnRanges;
 
-} turnRange_t;
-
-/*@brief 车辆参数
-*/
-typedef struct VehicleParams
+/*@brief 车辆参数 */
+class VehicleParams
 {
+public:
 	float max_roadwheel_angle;
 	float max_speed;
 	float wheel_base;
@@ -101,15 +165,91 @@ typedef struct VehicleParams
 	{
 		validity = false;
 	}
-}vehicleParams_t;
+};
 
-/*@brief 车辆状态
+/*@brief 车辆状态 内部状态+外部状态
+ * 更新车辆状态的线程利用类方法进行更新
+ * 读取车辆状态的线程先创建副本，然后直接访问副本成员
 */
-typedef struct VehicleState
+class VehicleState 
 {
-	float speed;
+public:
+	float speed;        //车速
+	float steer_angle;  //前轮转角
+	Pose pose;          //车辆位置
 
-} vehicleState_t;
+	bool speed_validity = false;
+	bool steer_validity = false;
+	bool pose_validity  = false;
+
+	SharedMutex wr_mutex;//读写锁
+
+	void setSpeed(const float& val)
+	{
+		WriteLock writeLock(wr_mutex);
+		speed = val;
+	}
+
+	void setSteerAngle(const float& val)
+	{
+		WriteLock writeLock(wr_mutex);
+		steer_angle = val;
+	}
+
+	void setPose(const Pose& val)
+	{
+		WriteLock writeLock(wr_mutex);
+		pose = val;
+	}
+
+	VehicleState(const VehicleState& obj)
+	{
+		ReadLock readLock(wr_mutex);
+		this->speed       = obj.speed;
+		this->steer_angle = obj.steer_angle;
+		this->pose        = obj.pose;
+		this->speed_validity    = obj.speed_validity;
+		this->steer_validity    = obj.steer_validity;
+		this->pose_validity     = obj.pose_validity;
+	};
+	const VehicleState& operator=(const VehicleState& obj)
+	{
+		ReadLock readLock(wr_mutex);
+		this->speed       = obj.speed;
+		this->steer_angle = obj.steer_angle;
+		this->pose        = obj.pose;
+		this->speed_validity    = obj.speed_validity;
+		this->steer_validity    = obj.steer_validity;
+		this->pose_validity     = obj.pose_validity;
+		return *this;
+	};
+
+	bool validity(std::string& info)
+	{
+		bool ok = true;
+		if(!speed_validity)
+		{
+			info += "Vehicle speed is validity!\t";
+			ok = false;
+		}
+		if(!steer_validity)
+		{
+			info += "Vehicle steer angle is validity!\t";
+			ok = false;
+		}
+		if(pose.x <100 || pose.y <100) //the pose from gps is invailed!
+		{
+			info += "Vehicle pose is validity!";
+			ok = false;
+			pose_validity = false;
+		}
+		else
+			pose_validity = true;
+		return ok;
+	}
+
+
+};
 
 
 #endif

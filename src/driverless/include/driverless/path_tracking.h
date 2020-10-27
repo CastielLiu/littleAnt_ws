@@ -24,21 +24,21 @@ public:
 	bool init(ros::NodeHandle nh,ros::NodeHandle nh_private);
 	
 	size_t getNearestPointIndex();
-	bool updateStatus(const gpsMsg_t& pose,const float& speed, const float& roadWheelAngle);
-	virtual bool setParkingPoints(const std::vector<parkingPoint_t>& points);
+	bool updateStatus(const GpsPoint& pose,const float& speed, const float& roadWheelAngle);
+	virtual bool setParkingPoints(const std::vector<ParkingPoint>& points);
 
 private:
 	void  trackingThread();
-	gpsMsg_t pointOffset(const gpsMsg_t& point,float offset);
+	GpsPoint pointOffset(const GpsPoint& point,float offset);
 	bool  extendGlobalPath(float extendDis);
 	void  publishPathTrackingState();
 	void  publishNearestIndex();
-	float disToParkingPoint(const parkingPoint_t& parkingPoint);
+	float disToParkingPoint(const ParkingPoint& ParkingPoint);
 	float limitSpeedByParkingPoint(const float& speed,const float& acc=5);
-	std::pair<float, float> getDisAndYaw(const gpsMsg_t &point1, const gpsMsg_t &point2);
+	std::pair<float, float> getDisAndYaw(const GpsPoint &point1, const GpsPoint &point2);
 	inline float generateRoadwheelAngleByRadius(const float& radius);
 	float limitRoadwheelAngleBySpeed(const float& angle, const float& speed);
-	float generateMaxTolarateSpeedByCurvature(const std::vector<gpsMsg_t>& path_points,
+	float generateMaxTolarateSpeedByCurvature(const std::vector<GpsPoint>& path_points,
 											const size_t& start_search_index,
 											const size_t& end_search_index,
 											float max_side_accel);

@@ -25,7 +25,7 @@ public:
 	CarFollowing();
 	virtual ~CarFollowing(){};
 	
-	bool updateStatus(const gpsMsg_t& pose,const float& speed, const size_t& nearest_point_index);
+	bool updateStatus(const GpsPoint& pose,const float& speed, const size_t& nearest_point_index);
 	bool init(ros::NodeHandle nh,ros::NodeHandle nh_private);
 	virtual bool start();
 	virtual void stop();
