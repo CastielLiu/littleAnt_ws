@@ -25,36 +25,33 @@ bool CarFollowing::init(ros::NodeHandle nh,ros::NodeHandle nh_private)
 	return true;
 }
 
-bool CarFollowing::updateStatus(const GpsPoint& pose,const float& speed, const size_t& nearest_point_index)
-{
-	if(!is_ready_) is_ready_ = true;
-	std::lock_guard<std::mutex> lock(state_mutex_);
-	vehicle_pose_ = pose;
-	vehicle_speed_ = speed;
-	nearest_point_index_ = nearest_point_index;
-}
 
 //启动跟踪线程
 bool CarFollowing::start()
 {
-	if(path_points_.size() == 0)
+	if(global_path_.size() == 0)
 	{
-		ROS_ERROR("[%s]: please setGlobalPath before start!", __NAME__);
+		ROS_ERROR("[%s]: global path is empty!", __NAME__);
 		return false;
 	}
-	if(parking_points_.size() == 0)
+	if(global_path_.park_points.size() == 0)
 	{
-		ROS_ERROR("[%s]: please set parking points before start!", __NAME__);
+		ROS_ERROR("[%s]: No parking points!", __NAME__);
 		return false;
 	}
 
-	/*@brief 获取终点索引,用于限制障碍物搜索距离,超出终点的目标不予考虑,
-	 *@brief 以保证车辆驶入终点,而不被前方障碍干扰
-	 *@brief 从停车点文件获取停车时间为0(终点)的点
+	//确保停车点有序
+	if(!global_path_.park_points.isSorted())
+		global_path_.park_points.sort();
+
+	/*@brief 获取终点索引,
+	 * 用于限制障碍物搜索距离,超出终点的目标不予考虑,
+	 * 以保证车辆驶入终点,而不被前方障碍干扰
+	 * 从停车点文件获取停车时间为0(终点)的点
 	 */
-	for(auto& point:parking_points_)
+	for(const ParkingPoint& point : global_path_.park_points.points)
 	{
-		if(point.parkingDuration == 0.0)
+		if(point.parkingDuration == 0.0) //查找第一个停车时间为0的停车点(终点)
 			dst_index_ = point.index;
 	}
 		
@@ -117,15 +114,13 @@ void CarFollowing::object_callback(const esr_radar::ObjectArray::ConstPtr& objec
 		radar_in_base_yaw_ = yaw;
 		ROS_INFO("mm_radar in base_link, x:%.2f  y:%.2f  yaw:%.2f",radar_in_base_x_,radar_in_base_y_,radar_in_base_yaw_*180.0/M_PI);
 	}
-	
-	state_mutex_.lock();
-	float vehicle_speed = vehicle_speed_;
-	GpsPoint vehicle_pose = vehicle_pose_;
-	size_t pose_index = nearest_point_index_;
-	state_mutex_.unlock();
+
+	//创建车辆状态副本
+	const VehicleState vehicle = vehicle_state_;
+	const Pose& vehicle_pose = vehicle.pose;
 
 	//跟车距离： x = v*v/(2*a) + C常
-	follow_distance_ = vehicle_speed*vehicle_speed/(2*4.0)  + 8.0;
+	follow_distance_ = vehicle.speed *vehicle.speed/(2*4.0)  + 8.0;
 	
 	//目标分类,障碍物和非障碍物
 	std::vector<esr_radar::Object> obstacles;
@@ -144,7 +139,7 @@ void CarFollowing::object_callback(const esr_radar::ObjectArray::ConstPtr& objec
 			local2global(vehicle_pose.x,vehicle_pose.y,-vehicle_pose.yaw, base_pose.first,base_pose.second);
 		
 		//计算目标到全局路径的距离
-		float dis2path = calculateDis2path(object_global_pos.first, object_global_pos.second,path_points_,pose_index,dst_index_);
+		float dis2path = calculateDis2path(object_global_pos.first, object_global_pos.second, global_path_, global_path_.pose_index, dst_index_);
 		//std::cout << std::fixed << std::setprecision(2) <<
 		//	object.x <<"  "<<object.y <<"\t" << dis2path << std::endl;
 		if(fabs(dis2path) < safety_side_dis_)
@@ -200,11 +195,12 @@ void CarFollowing::object_callback(const esr_radar::ObjectArray::ConstPtr& objec
 	float t_speed;  //m/s
 	//加速度与减速度不同，单独计算
 	if(distanceErr >= 0)
-		t_speed = vehicle_speed + nearestObstal.speed + distanceErr *0.5; 
+		t_speed = vehicle.speed + nearestObstal.speed + distanceErr *0.5; 
 	else
-		t_speed = vehicle_speed + nearestObstal.speed + distanceErr *0.3;
+		t_speed = vehicle.speed + nearestObstal.speed + distanceErr *0.3;
 			
-	ROS_INFO("target dis:%.2f  speed:%.2f  dis2path:%.2f  vehicle speed:%.2f  t_speed:%.2f  t_dis:%.2f   dis:%f",minDis,vehicle_speed + nearestObstal.speed,targetDis2path, vehicle_speed,t_speed,follow_distance_,nearestObstal.distance);
+	ROS_INFO("target dis:%.2f  speed:%.2f  dis2path:%.2f  vehicle speed:%.2f  t_speed:%.2f  t_dis:%.2f   dis:%f",
+		minDis,vehicle.speed + nearestObstal.speed,targetDis2path, vehicle.speed,t_speed,follow_distance_,nearestObstal.distance);
 	ROS_INFO("target x:%.2f  y:%.2f  id:%2d",nearestObstal.x,nearestObstal.y,nearestObstal.id);
 	
 	//防止速度抖动
@@ -226,32 +222,34 @@ void CarFollowing::publishLocalPath()
 	nav_msgs::Path path;
     path.header.stamp=ros::Time::now();
     path.header.frame_id="base_link";
-	size_t startIndex = nearest_point_index_;
-	size_t endIndex   = std::min(startIndex+200,path_points_.size()-1);
+	size_t startIndex = global_path_.pose_index;
+	size_t endIndex   = std::min(startIndex+200, global_path_.final_index);
 	if(endIndex <= startIndex)
 		return;
-	GpsPoint origin_point = vehicle_pose_;
+
+	const Pose origin_point = vehicle_state_.getPose(LOCK);
+
 	path.poses.reserve(endIndex-startIndex+1);
 	
 	for(size_t i=startIndex; i<endIndex; ++i)
 	{
-		const auto& global_point = path_points_[i];
+		const auto& global_point = global_path_[i];
 		std::pair<float,float> local_point = 
-			global2local(origin_point.x,origin_point.y,-origin_point.yaw,global_point.x,global_point.y);
+			global2local(origin_point.x,origin_point.y,-origin_point.yaw, global_point.x,global_point.y);
 		
-		geometry_msgs::PoseStamped this_pose_stamped;
-        this_pose_stamped.pose.position.x = local_point.first;
-        this_pose_stamped.pose.position.y = local_point.second;
+		geometry_msgs::PoseStamped poseStamped;
+        poseStamped.pose.position.x = local_point.first;
+        poseStamped.pose.position.y = local_point.second;
 
 //        geometry_msgs::Quaternion goal_quat = tf::createQuaternionMsgFromYaw(origin_point.yaw-global_point.yaw);
-//        this_pose_stamped.pose.orientation.x = goal_quat.x;
-//        this_pose_stamped.pose.orientation.y = goal_quat.y;
-//        this_pose_stamped.pose.orientation.z = goal_quat.z;
-//        this_pose_stamped.pose.orientation.w = goal_quat.w;
+//        poseStamped.pose.orientation.x = goal_quat.x;
+//        poseStamped.pose.orientation.y = goal_quat.y;
+//        poseStamped.pose.orientation.z = goal_quat.z;
+//        poseStamped.pose.orientation.w = goal_quat.w;
 
-        //this_pose_stamped.header.stamp=current_time;
-        this_pose_stamped.header.frame_id="base_link";
-        path.poses.push_back(this_pose_stamped);
+        //poseStamped.header.stamp=current_time;
+        poseStamped.header.frame_id="base_link";
+        path.poses.push_back(poseStamped);
 	}
 	pub_local_path_.publish(path);
 }

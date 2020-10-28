@@ -2,7 +2,7 @@
 #define CAR_FOLLOWING_H_
 
 #include <ros/ros.h>
-#include "auto_drive_base.hpp"
+#include "auto_drive_base.h"
 #include <esr_radar/Object.h>
 #include <esr_radar/ObjectArray.h>
 #include <pcl_ros/point_cloud.h>
@@ -25,7 +25,6 @@ public:
 	CarFollowing();
 	virtual ~CarFollowing(){};
 	
-	bool updateStatus(const GpsPoint& pose,const float& speed, const size_t& nearest_point_index);
 	bool init(ros::NodeHandle nh,ros::NodeHandle nh_private);
 	virtual bool start();
 	virtual void stop();
@@ -47,14 +46,9 @@ private:
 	ros::Timer      update_timer_;
 	std::string     objects_topic_;
 
-	int    dst_index_; //终点索引
-
-	//state
-	std::mutex state_mutex_;
-	size_t     nearest_point_index_;
-
-	float follow_distance_;
-	float safety_side_dis_;
+	size_t  dst_index_; //终点索引
+	float   follow_distance_;
+	float   safety_side_dis_;
 
 	uint8_t targetId_;
 	double  cmd_update_time_;

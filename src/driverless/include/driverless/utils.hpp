@@ -104,10 +104,10 @@ static bool loadPathInfos(const std::string& file, Path& global_path, const std:
 		park_points.sort();  //停车点小到大排序
 		park_points.print(user); //打印到终端显示
 			
-		ROS_INFO("[%s] load Parking Points ok.",user);
+		ROS_INFO("[%s] load Parking Points ok.",user.c_str());
 	}
 	else
-		ROS_INFO("[%s] No Parking Points in path info file!",user);
+		ROS_INFO("[%s] No Parking Points in path info file!",user.c_str());
 
 	tinyxml2::XMLElement *pTurnRanges = pRoot->FirstChildElement("TurnRanges"); //一级子节点
 	if(pTurnRanges)
@@ -125,12 +125,12 @@ static bool loadPathInfos(const std::string& file, Path& global_path, const std:
 			pTurnRange = pTurnRange->NextSiblingElement("TurnRange"); 
 		}
 		for(auto &range : turn_ranges.ranges)
-			ROS_INFO("[%s] turn range: type:%d  start:%d  end:%d", user, range.type,range.start_index, range.end_index);
+			ROS_INFO("[%s] turn range: type:%d  start:%lu  end:%lu", user, range.type,range.start_index, range.end_index);
 		
-		ROS_INFO("[%s] load turn ranges ok.",user);
+		ROS_INFO("[%s] load turn ranges ok.",user.c_str());
 	}
 	else
-		ROS_INFO("[%s] No tutn ranges in path info file!",user);
+		ROS_INFO("[%s] No tutn ranges in path info file!",user.c_str());
 	return true;
 }
 
@@ -146,7 +146,7 @@ static bool extendPath(Path& path, float extendDis)
 	//std::cout << "extendPath: " << path_points.size() << "\t" << path_points.size()-1 << std::endl;
 	if(path_points.size()-1 < n)
 	{
-		ROS_ERROR("path points is too few (%d), extend path failed",path_points.size()-1);
+		ROS_ERROR("path points is too few (%lu), extend path failed",path_points.size()-1);
 		return false;
 	}
 	int endIndex = path_points.size()-1;
@@ -295,15 +295,17 @@ static float calculateDis2path(const double& x,const double& y,
 /*@brief 计算目标点到达路径的距离,点在路径左侧为负,右侧为正
  *@brief 该函数主要用于计算目标到路径的距离,并考虑路径终点问题
  *@param x,y         目标点坐标
- *@param path_points 路径点集
+ *@param path        路径
  *@param ref_point_index 参考点索引，以此参考点展开搜索，加速计算
  *@param max_search_index 最大搜索索引,超出此索引的目标物则输出距离为FLT_MAX
  */
 static float calculateDis2path(const double& x,const double& y,
-						 const std::vector<GpsPoint>& path_points, 
+						 const Path& path, 
 						 size_t  ref_point_index, //参考点索引
 						 size_t  max_search_index)
 {
+	const std::vector<GpsPoint>& path_points = path.points;
+
 	int searchDir; //搜索方向 -1:向后搜索， 1：向前搜索， 0 搜索完毕
 	if(ref_point_index == 0)
 	{

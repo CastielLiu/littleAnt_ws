@@ -73,6 +73,7 @@ bool PathTracking::start()
 //跟踪线程
 void PathTracking::trackingThread()
 {
+	/*
 	size_t nearest_index = findNearestPoint(global_path_, vehicle_state_.getPose(LOCK)); 
 
 	if(global_path_.pose_index > global_path_.size() - 10)
@@ -201,7 +202,7 @@ void PathTracking::trackingThread()
 		
 		loop_rate.sleep();
 	}
-	
+	*/
 	publishDiagnosticMsg(diagnostic_msgs::DiagnosticStatus::OK,"Arrived at the destination.");
 	ROS_INFO("driverless completed...");
 	

@@ -8,7 +8,7 @@
 #include <ant_msgs/ControlCmd2.h>
 #include <ant_msgs/State2.h>  //speed
 #include <ant_msgs/State4.h>  //steerAngle
-#include "auto_drive_base.hpp"
+#include "auto_drive_base.h"
 
 class AutoDrive : public AutoDriveBase
 {
@@ -20,7 +20,6 @@ public:
 
 private:
     bool loadVehicleParams();
-    bool loadPathInfos(const std::string& file);
 	void publishPathTrackingState();
     bool isGpsPointValid(const GpsPoint& point);
     void vehicleSpeed_callback(const ant_msgs::State2::ConstPtr& msg);
@@ -54,9 +53,11 @@ private:
     PathTracking tracker_;
     controlCmd_t tracker_cmd_;
 
+
     CarFollowing car_follower_;
     controlCmd_t follower_cmd_;
-    
+ /*   
     ExternControl extern_controler_;
     controlCmd_t  extern_cmd_;
+*/
 };

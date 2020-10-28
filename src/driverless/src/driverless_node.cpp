@@ -68,7 +68,7 @@ bool AutoDrive::init()
 
 	//载入路径信息
 	std::string path_infos_file = path_points_file.substr(0,path_points_file.find_last_of(".")) + "_info.xml";
-	if(!loadPathInfos(path_infos_file, global_path_, parking_points_, __NAME__))
+	if(!loadPathInfos(path_infos_file, global_path_, __NAME__))
 	{
 		ROS_ERROR("[%s] Load path infomation failed!",__NAME__);
 		publishDiagnosticMsg(diagnostic_msgs::DiagnosticStatus::ERROR,"Load path infomation failed!");
@@ -166,6 +166,7 @@ void AutoDrive::run()
 	tracker_.start();//路径跟踪控制器
 	ROS_INFO("[%s] path tracker init ok",__NAME__);
 	
+	
 	//配置跟车控制器
 	if(!car_follower_.init(nh_, nh_private_))
 	{
@@ -175,18 +176,18 @@ void AutoDrive::run()
 	}
 	car_follower_.start(); //跟车控制器
 	ROS_INFO("[%s] car follower init ok",__NAME__);
-	
+/*	
 	//配置外部控制器
 	extern_controler_.init(nh_, nh_private_);
 	extern_controler_.start();
-
+*/
 	ros::Rate loop_rate(20);
 	
 	while(ros::ok())
 	{
 		tracker_cmd_ = tracker_.getControlCmd();
 		follower_cmd_= car_follower_.getControlCmd();
-		extern_cmd_ = extern_controler_.getControlCmd();
+		//extern_cmd_ = extern_controler_.getControlCmd();
 		
 		decisionMaking();
 		loop_rate.sleep();
@@ -195,7 +196,7 @@ void AutoDrive::run()
 	ROS_INFO("driverless completed..."); 
 	tracker_.stop();
 	car_follower_.stop();
-	extern_controler_.stop();
+	//extern_controler_.stop();
 }
 
 void AutoDrive::decisionMaking()
@@ -204,7 +205,7 @@ void AutoDrive::decisionMaking()
 //	showCmd(extern_cmd_,"extern_cmd");
 //	showCmd(follower_cmd_,"follower_cmd");
 //	showCmd(tracker_cmd_,"tracker_cmd");
-	
+	/*
 	if(extern_cmd_.validity && extern_cmd_.speed < tracker_cmd_.speed)
 		controlCmd2_.set_speed = extern_cmd_.speed;
 	else if(follower_cmd_.validity && follower_cmd_.speed < tracker_cmd_.speed)
@@ -224,6 +225,7 @@ void AutoDrive::decisionMaking()
 		controlCmd1_.set_turnLight_R = false;
 		controlCmd1_.set_turnLight_L = false;
 	}
+	*/
 }
 
 void AutoDrive::sendCmd1_callback(const ros::TimerEvent&)
@@ -249,7 +251,7 @@ void AutoDrive::odom_callback(const nav_msgs::Odometry::ConstPtr& msg)
 
 void AutoDrive::vehicleSpeed_callback(const ant_msgs::State2::ConstPtr& msg)
 {
-	if(vehicle_speed_ >20.0)
+	if(msg->vehicle_speed >20.0)
 		return;
 
 	vehicle_state_.setSpeed(msg->vehicle_speed); //  m/s

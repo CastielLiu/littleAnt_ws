@@ -8,8 +8,6 @@
 #include "utils.hpp"
 #include <diagnostic_msgs/DiagnosticStatus.h>
 
-
-
 /*@brief 自动驾驶子模块基类
  */
 class AutoDriveBase
@@ -85,7 +83,7 @@ protected:
 	/*@brief 初始化故障诊断发布器
 	*/
 	virtual void initDiagnosticPublisher(ros::NodeHandle& nh,const std::string& module_id)
-	{
+	{ 
 		diagnostic_msg_.hardware_id = module_id;
 		pub_diagnostic_ = nh.advertise<diagnostic_msgs::DiagnosticStatus>("driverless/diagnostic",1);
 		diagnostic_inited_ = true;
@@ -104,10 +102,5 @@ protected:
 		pub_diagnostic_.publish(diagnostic_msg_);
 	}
 };
-
-Path AutoDriveBase::global_path_ ;            //全局路径
-Path AutoDriveBase::local_path_;              //局部路径
-VehicleState AutoDriveBase::vehicle_state_;   //汽车状态
-VehicleParams AutoDriveBase::vehicle_params_; //汽车参数
 
 #endif

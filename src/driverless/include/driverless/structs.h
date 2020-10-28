@@ -61,6 +61,7 @@ class ParkingPoints
 public:
 	std::vector<ParkingPoint> points;
 	size_t next_index = 0;
+	bool sorted = false;
 
 	size_t size() const {return points.size();}
 	void push_back(const ParkingPoint& point)
@@ -77,12 +78,15 @@ public:
 		std::sort(points.begin(),points.end(),
 			[](const ParkingPoint& point1,const ParkingPoint& point2)
 			{return point1.index < point2.index;});
+		sorted = true;
 	}
+
+	bool isSorted() const {return sorted;}
 
 	void print(const std::string& prefix) const 
 	{
 		for(auto &point:points)
-			printf("[%s] parking point index: %d  duration: %.1f",prefix.c_str(), point.index,point.parkingDuration);
+			printf("[%s] parking point index: %lu  duration: %.1f",prefix.c_str(), point.index,point.parkingDuration);
 	}
 	
 	ParkingPoint& next()

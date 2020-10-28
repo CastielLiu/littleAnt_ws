@@ -6,7 +6,7 @@
 #include <mutex>
 #include <atomic>
 
-#include "auto_drive_base.hpp"
+#include "auto_drive_base.h"
 #include <std_msgs/UInt32.h>
 #include <nav_msgs/Odometry.h>
 #include <geometry_msgs/Quaternion.h>
