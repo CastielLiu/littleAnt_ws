@@ -9,6 +9,7 @@
 #include <diagnostic_msgs/DiagnosticStatus.h>
 
 
+
 /*@brief 自动驾驶子模块基类
  */
 class AutoDriveBase
@@ -17,16 +18,8 @@ class AutoDriveBase
 protected://子类可访问,实例不可访问
 	static Path global_path_ ;            //全局路径
 	static Path local_path_;              //局部路径
-    static ParkingPoints parking_points_; //停车点索引
-	static TurnRanges turn_ranges_;       //转向区间
 	static VehicleState vehicle_state_;   //汽车状态
-
-	bool vehicle_speed_status_;
-	float vehicle_speed_;
-    GpsPoint vehicle_pose_;
-	float roadwheel_angle_;
-
-	VehicleParams vehicle_params_;
+	static VehicleParams vehicle_params_;
 
 	std::mutex cmd_mutex_;
 	controlCmd_t cmd_;
@@ -61,57 +54,6 @@ public:
 
 	}
 
-	virtual bool setVehicleParams(const VehicleParams& params)
-	{
-		if(false == params.validity)
-		{
-			ROS_ERROR("[%s] Vehicle parameters is invalid, please load them correctly.",child_name_.c_str());
-			return false;
-		}
-		vehicle_params_ = params;
-		return true;
-	}
-
-	/*@brief 设置全局路径
-	*/
-	virtual bool setGlobalPath(const std::vector<GpsPoint>& path, float resolution)
-	{
-		if(path_points_.size()!=0)
-		{
-			ROS_ERROR("[%s] global path points is not empty, set new points failed!",child_name_.c_str());
-			return false;
-		}
-			
-		path_points_ = path;
-		path_points_resolution_ = resolution;
-		return true;
-	}
-
-	/*@brief 设置停车点
-	*/
-	virtual bool setParkingPoints(const std::vector<ParkingPoint>& points)
-	{
-		if(parking_points_.size()!=0)
-		{
-			ROS_ERROR("[%s] parking points is not empty, set new points failed!",child_name_.c_str());
-			return false;
-		}
-		parking_points_ = points;
-		return true;
-	}
-
-	/*@brief 设置转向区间信息
-	*/
-	virtual bool setTurnRanges(const std::vector<TurnRange>& ranges)
-	{
-		if(turn_ranges_.size()!=0)
-		{
-			ROS_ERROR("[%s] turn ranges is not empty, set new ranges failed!",child_name_.c_str());
-			return false;
-		}
-		turn_ranges_ = ranges;
-	}
-
 	/*@brief 获取控制指令
 	*/
 	virtual controlCmd_t getControlCmd()
@@ -119,6 +61,13 @@ public:
 		std::lock_guard<std::mutex> lock(cmd_mutex_);
 		return cmd_;
 	}
+
+	virtual controlCmd_t setControlCmd(const controlCmd_t& cmd)
+	{
+		std::lock_guard<std::mutex> lock(cmd_mutex_);
+		cmd_ = cmd;
+	}
+
 
 	virtual void showCmd(const std::string& name)
 	{
@@ -154,8 +103,11 @@ protected:
 		diagnostic_msg_.message = msg;
 		pub_diagnostic_.publish(diagnostic_msg_);
 	}
-
-	
 };
+
+Path AutoDriveBase::global_path_ ;            //全局路径
+Path AutoDriveBase::local_path_;              //局部路径
+VehicleState AutoDriveBase::vehicle_state_;   //汽车状态
+VehicleParams AutoDriveBase::vehicle_params_; //汽车参数
 
 #endif

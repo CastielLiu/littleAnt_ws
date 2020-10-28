@@ -22,7 +22,7 @@ private:
     bool loadVehicleParams();
     bool loadPathInfos(const std::string& file);
 	void publishPathTrackingState();
-    bool is_gps_data_valid(const GpsPoint& point);
+    bool isGpsPointValid(const GpsPoint& point);
     void vehicleSpeed_callback(const ant_msgs::State2::ConstPtr& msg);
     void vehicleState4_callback(const ant_msgs::State4::ConstPtr& msg);
     void odom_callback(const nav_msgs::Odometry::ConstPtr& msg);
@@ -46,6 +46,7 @@ private:
     ros::Publisher pub_cmd1_, pub_cmd2_;
     
     std::mutex command_mutex_;
+
 	ant_msgs::ControlCmd1 controlCmd1_;
 	ant_msgs::ControlCmd2 controlCmd2_;
     

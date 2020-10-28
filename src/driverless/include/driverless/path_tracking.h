@@ -4,6 +4,7 @@
 #include <climits>
 #include <thread>
 #include <mutex>
+#include <atomic>
 
 #include "auto_drive_base.hpp"
 #include <std_msgs/UInt32.h>
@@ -21,21 +22,16 @@ public:
 	virtual ~PathTracking();
 	virtual bool start();
 	bool setExpectSpeed(float speed);
-	bool init(ros::NodeHandle nh,ros::NodeHandle nh_private);
-	
-	size_t getNearestPointIndex();
-	bool updateStatus(const GpsPoint& pose,const float& speed, const float& roadWheelAngle);
-	virtual bool setParkingPoints(const std::vector<ParkingPoint>& points);
+	bool init(ros::NodeHandle nh,ros::NodeHandle nh_private);	
 
 private:
 	void  trackingThread();
 	GpsPoint pointOffset(const GpsPoint& point,float offset);
-	bool  extendGlobalPath(float extendDis);
 	void  publishPathTrackingState();
 	void  publishNearestIndex();
 	float disToParkingPoint(const ParkingPoint& ParkingPoint);
 	float limitSpeedByParkingPoint(const float& speed,const float& acc=5);
-	std::pair<float, float> getDisAndYaw(const GpsPoint &point1, const GpsPoint &point2);
+	std::pair<float, float> getDisAndYaw(const Pose &, const Pose &);
 	inline float generateRoadwheelAngleByRadius(const float& radius);
 	float limitRoadwheelAngleBySpeed(const float& angle, const float& speed);
 	float generateMaxTolarateSpeedByCurvature(const std::vector<GpsPoint>& path_points,
@@ -53,13 +49,11 @@ private:
 	driverless::TrackingState tracking_state_;
 	
 	//state
-	std::mutex state_mutex_;
 	float expect_speed_;
-	float lateral_err_;
-	float yaw_err_;
+	std::atomic<float> lat_err_;
+	std::atomic<float> yaw_err_;
+
 	size_t target_point_index_;
-	std::mutex nearest_point_index_mutex_;
-	size_t nearest_point_index_;
 	
 	//param
 	float foreSightDis_speedCoefficient_;

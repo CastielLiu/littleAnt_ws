@@ -1,43 +1,13 @@
 #ifndef STRUCTS_H_
 #define STRUCTS_H_
 
+#include <atomic>
 #include <boost/thread/locks.hpp>    
 #include <boost/thread/shared_mutex.hpp>    
 
 typedef boost::shared_mutex SharedMutex;
 typedef boost::unique_lock<SharedMutex> WriteLock;
 typedef boost::shared_lock<SharedMutex> ReadLock;
-
-
-/*@brief 位姿信息*/
-class Pose
-{
-public:
-	double x, y, z, yaw;
-};
-
-/*@brief 路径点信息*/
-class GpsPoint : public Pose
-{
-public:
-	double longitude;
-	double latitude;
-	float curvature;
-};
-
-class Path
-{
-public:
-	std::vector<GpsPoint> points;
-	float resolution;
-
-	size_t size() {return points.size();}
-	const GpsPoint& operator[](size_t i)
-	{
-		return points[i];
-	}
-};
-
 
 typedef struct
 {
@@ -92,14 +62,15 @@ public:
 	std::vector<ParkingPoint> points;
 	size_t next_index = 0;
 
-	size_t size() {return points.size();}
+	size_t size() const {return points.size();}
 	void push_back(const ParkingPoint& point)
 	{
 		points.push_back(point);
 	} 
-	ParkingPoint& operator[](size_t i) {return points[i];}
+	const ParkingPoint& operator[](size_t i)const  {return points[i];}
+	ParkingPoint& operator[](size_t i)             {return points[i];}
 
-	bool available(){ return next_index  < points.size();}
+	bool available() const { return next_index  < points.size();}
 
 	void sort() //停车点由小到大排序
 	{
@@ -108,7 +79,7 @@ public:
 			{return point1.index < point2.index;});
 	}
 
-	void print(const std::string& prefix)
+	void print(const std::string& prefix) const 
 	{
 		for(auto &point:points)
 			printf("[%s] parking point index: %d  duration: %.1f",prefix.c_str(), point.index,point.parkingDuration);
@@ -122,7 +93,7 @@ public:
 		return points[next_index];
 	}
 
-}
+};
 
 
 /*@brief 路径转向区间信息 */
@@ -147,7 +118,51 @@ public:
 		end_index = _end_index;
 	}
 };
-std::vector<TurnRange> TurnRanges;
+
+class TurnRanges
+{
+public:
+	std::vector<TurnRange> ranges;
+
+	size_t size() const {return ranges.size();}
+
+};
+
+
+/*@brief 位姿信息*/
+class Pose
+{
+public:
+	double x, y, z, yaw;
+};
+
+/*@brief 路径点信息*/
+class GpsPoint : public Pose
+{
+public:
+	double longitude;
+	double latitude;
+	float curvature;
+};
+
+class Path
+{
+public:
+	std::vector<GpsPoint> points;
+	float resolution;
+
+	std::atomic<size_t> pose_index;    //距离车辆最近路径点的索引
+	size_t final_index;                //终点索引
+
+	ParkingPoints park_points;         //停车点信息
+	TurnRanges    turn_ranges;		   //转向取件信息
+
+public:
+	size_t size() const {return points.size();}
+	const GpsPoint& operator[](size_t i) const {return points[i];}
+	GpsPoint& operator[](size_t i)             {return points[i];}
+
+};
 
 /*@brief 车辆参数 */
 class VehicleParams
@@ -171,12 +186,14 @@ public:
  * 更新车辆状态的线程利用类方法进行更新
  * 读取车辆状态的线程先创建副本，然后直接访问副本成员
 */
+#define LOCK true
+#define UNLOCK  false
 class VehicleState 
 {
 public:
 	float speed;        //车速
 	float steer_angle;  //前轮转角
-	Pose pose;          //车辆位置
+	Pose  pose;         //车辆位置
 
 	bool speed_validity = false;
 	bool steer_validity = false;
@@ -201,6 +218,37 @@ public:
 		WriteLock writeLock(wr_mutex);
 		pose = val;
 	}
+
+	float getSpeed(bool lock = UNLOCK)
+	{
+		if(lock)
+		{
+			ReadLock readLock(wr_mutex);
+			return speed;
+		}
+		return speed;
+	}
+	float getSteerAngle(bool lock = UNLOCK)
+	{
+		if(lock)
+		{
+			ReadLock readLock(wr_mutex);
+			return steer_angle;
+		}
+		return steer_angle;
+	}
+
+	Pose getPose(bool lock = UNLOCK)
+	{
+		if(lock)
+		{
+			ReadLock readLock(wr_mutex);
+			return pose;
+		}
+		return pose;
+	}
+
+	VehicleState(){} //当定义了拷贝构造函数时，编译器将不提供默认构造函数，需显式定义
 
 	VehicleState(const VehicleState& obj)
 	{
