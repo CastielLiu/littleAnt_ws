@@ -20,9 +20,9 @@ class PathTracking : public AutoDriveBase
 public:
 	PathTracking();
 	virtual ~PathTracking();
-	virtual bool start();
+	virtual bool start() override;
+	virtual bool init(ros::NodeHandle nh,ros::NodeHandle nh_private) override;	
 	bool setExpectSpeed(float speed);
-	bool init(ros::NodeHandle nh,ros::NodeHandle nh_private);	
 
 private:
 	void  trackingThread();

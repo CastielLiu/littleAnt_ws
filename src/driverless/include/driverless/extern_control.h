@@ -3,12 +3,12 @@
 
 #include <ros/ros.h>
 #include <std_msgs/UInt8.h>
-#include <diagnostic_msgs/DiagnosticStatus.h>
 #include <vector>
 #include <thread>
 #include <mutex>
 #include "structs.h"
 #include "utils.hpp"
+#include "driverless/auto_drive_base.h"
 
 #include <sys/socket.h>
 #include <netinet/in.h>
@@ -23,9 +23,9 @@
 
 enum ExternCmdType
 {
-	ExternCmdType_Speed = 0,
+	ExternCmdType_Speed = 0,   //速度指令
 	ExternCmdType_Disable = 1, //禁用外部指令
-	ExternCmdType_turnLight=2, //转向灯
+	ExternCmdType_turnLight=2, //转向灯指令
 	
 };
 
@@ -40,45 +40,25 @@ typedef struct ExternCmd
 }) externCmd_t;
 
 
-class ExternControl
+class ExternControl : public AutoDriveBase
 {
 public:
 	ExternControl();
 	~ExternControl(){};
 	
-	bool setGlobalPath(const std::vector<GpsPoint>& path);
-	bool updateStatus(const GpsPoint& pose,const float& speed);
-	bool init(ros::NodeHandle nh,ros::NodeHandle nh_private);
+	virtual bool init(ros::NodeHandle nh,ros::NodeHandle nh_private) override;
 	bool start();
 	void stop();
 	bool isRunning();
-	controlCmd_t getControlCmd();
 
 private:
 	bool initSocket();
 	void externControlThread();
 	
 private:
-	ros::NodeHandle nh_;
-	ros::NodeHandle nh_private_;
-	ros::Publisher  pub_diagnostic_;
-
 	ros::Timer      update_timer_;
-
-	std::vector<GpsPoint> path_points_;
-	float path_points_resolution_;
-
-	std::mutex cmd_mutex_;
-	controlCmd_t cmd_;
-
-	//state
-	std::mutex state_mutex_;
-	float      vehicle_speed_;
-	float      roadwheel_angle_;
 	bool       is_ready_; //是否准备就绪
 	bool       is_running_;
-
-	diagnostic_msgs::DiagnosticStatus diagnostic_msg_;
 	
 	int udp_fd_;
 	struct sockaddr_in sockaddr_;

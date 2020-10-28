@@ -37,8 +37,6 @@ private:
 	void publishLocalPath();
 	
 private:
-	ros::NodeHandle nh_;
-	ros::NodeHandle nh_private_;
 	ros::Subscriber sub_objects_;
 	ros::Publisher  pub_diagnostic_;
 	ros::Publisher  pub_local_path_;

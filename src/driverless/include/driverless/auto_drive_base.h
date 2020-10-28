@@ -14,6 +14,8 @@ class AutoDriveBase
 {
 /*params*/
 protected://子类可访问,实例不可访问
+
+	/*基类静态成员，子类共享*/
 	static Path global_path_ ;            //全局路径
 	static Path local_path_;              //局部路径
 	static VehicleState vehicle_state_;   //汽车状态
@@ -22,6 +24,7 @@ protected://子类可访问,实例不可访问
 	std::mutex cmd_mutex_;
 	controlCmd_t cmd_;
 
+	ros::NodeHandle nh_, nh_private_;
 	ros::Publisher pub_diagnostic_;
 	diagnostic_msgs::DiagnosticStatus diagnostic_msg_;
 	bool is_ready_;
@@ -52,8 +55,7 @@ public:
 
 	}
 
-	/*@brief 获取控制指令
-	*/
+	/*@brief 获取控制指令*/
 	virtual controlCmd_t getControlCmd()
 	{
 		std::lock_guard<std::mutex> lock(cmd_mutex_);
@@ -74,7 +76,7 @@ public:
 				"\t" << cmd_.roadWheelAngle << std::endl; 
 	}
 
-	//virtual bool init();
+	virtual bool init(ros::NodeHandle nh,ros::NodeHandle nh_private) = 0;
 	virtual bool start() {is_running_ = true;}
 	virtual void stop() {is_running_=false;}
 	virtual bool isRunning() {return is_running_;}

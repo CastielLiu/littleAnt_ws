@@ -125,7 +125,7 @@ static bool loadPathInfos(const std::string& file, Path& global_path, const std:
 			pTurnRange = pTurnRange->NextSiblingElement("TurnRange"); 
 		}
 		for(auto &range : turn_ranges.ranges)
-			ROS_INFO("[%s] turn range: type:%d  start:%lu  end:%lu", user, range.type,range.start_index, range.end_index);
+			ROS_INFO("[%s] turn range: type:%d  start:%lu  end:%lu", user.c_str(), range.type,range.start_index, range.end_index);
 		
 		ROS_INFO("[%s] load turn ranges ok.",user.c_str());
 	}

@@ -3,6 +3,7 @@
 #include "path_tracking.h"
 #include "car_following.h"
 #include "extern_control.h"
+#include "reverse_drive.h"
 
 #include <ant_msgs/ControlCmd1.h>
 #include <ant_msgs/ControlCmd2.h>
@@ -10,13 +11,22 @@
 #include <ant_msgs/State4.h>  //steerAngle
 #include "auto_drive_base.h"
 
+
 class AutoDrive : public AutoDriveBase
 {
 public:
     AutoDrive();
     ~AutoDrive();
-    virtual bool init();
+    virtual bool init(ros::NodeHandle nh,ros::NodeHandle nh_private) override;
     void run();
+
+    enum State
+    {
+        State_Stop    = 0,
+        State_Drive   = 1,
+        State_Reverse = 2,
+        State_Idle    = 3,
+    };
 
 private:
     bool loadVehicleParams();
@@ -36,7 +46,8 @@ private:
     bool  use_car_following_;
     bool  is_offline_debug_;
 
-	ros::NodeHandle nh_, nh_private_;
+    int system_state_;
+
 	ros::Timer cmd1_timer_, cmd2_timer_;
     ros::Subscriber sub_odom_;
 	ros::Subscriber sub_vehicleState2_;
@@ -53,11 +64,12 @@ private:
     PathTracking tracker_;
     controlCmd_t tracker_cmd_;
 
-
     CarFollowing car_follower_;
     controlCmd_t follower_cmd_;
- /*   
+ 
     ExternControl extern_controler_;
     controlCmd_t  extern_cmd_;
-*/
+
+    ReverseDrive reverse_controler_;
+    controlCmd_t  reverse_cmd_;
 };

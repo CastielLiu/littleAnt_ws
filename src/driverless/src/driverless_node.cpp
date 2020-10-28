@@ -6,8 +6,8 @@
 
 AutoDrive::AutoDrive():
 	AutoDriveBase(__NAME__),
-    nh_private_("~"),
-    avoid_offset_(0.0)
+    avoid_offset_(0.0),
+	system_state_(State_Idle)
 {
 	controlCmd1_.set_driverlessMode = true;
 	controlCmd1_.set_handBrake = false;
@@ -30,8 +30,10 @@ bool AutoDrive::isGpsPointValid(const GpsPoint& point)
 	return false;
 }
 
-bool AutoDrive::init()
+bool AutoDrive::init(ros::NodeHandle nh,ros::NodeHandle nh_private)
 {
+	nh_ = nh; nh_private_ = nh_private;
+
 	//获取参数
 	nh_private_.param<float>("max_speed",max_speed_,10.0);//km/h
 	nh_private_.param<bool>("use_car_following",use_car_following_,false);
@@ -121,32 +123,32 @@ bool AutoDrive::loadVehicleParams()
 	std::string node = ros::this_node::getName();
 	if(vehicle_params_.max_roadwheel_angle == 0.0)
 	{
-		ROS_ERROR("[%s] No parameter %s/vehicle/max_roadwheel_angle.",__NAME__,node);
+		ROS_ERROR("[%s] No parameter %s/vehicle/max_roadwheel_angle.",__NAME__,node.c_str());
 		ok = false;
 	}
 	if(vehicle_params_.max_speed == 0.0)
 	{
-		ROS_ERROR("[%s] No parameter %s/vehicle/max_speed.",__NAME__,node);
+		ROS_ERROR("[%s] No parameter %s/vehicle/max_speed.",__NAME__,node.c_str());
 		ok = false;
 	}
 	if(vehicle_params_.wheel_base == 0.0)
 	{
-		ROS_ERROR("[%s] No parameter %s/vehicle/wheel_base.",__NAME__,node);
+		ROS_ERROR("[%s] No parameter %s/vehicle/wheel_base.",__NAME__,node.c_str());
 		ok = false;
 	}
 	if(vehicle_params_.wheel_track == 0.0)
 	{
-		ROS_ERROR("[%s] No parameter %s/vehicle/wheel_track.",__NAME__,node);
+		ROS_ERROR("[%s] No parameter %s/vehicle/wheel_track.",__NAME__,node.c_str());
 		ok = false;
 	}
 	if(vehicle_params_.width == 0.0)
 	{
-		ROS_ERROR("[%s] No parameter %s/vehicle/width.",__NAME__,node);
+		ROS_ERROR("[%s] No parameter %s/vehicle/width.",__NAME__,node.c_str());
 		ok = false;
 	}
 	if(vehicle_params_.length == 0.0)
 	{
-		ROS_ERROR("[%s] No parameter %s/vehicle/length.",__NAME__,node);
+		ROS_ERROR("[%s] No parameter %s/vehicle/length.",__NAME__,node.c_str());
 		ok = false;
 	}
 	if(ok) vehicle_params_.validity = true;
@@ -271,8 +273,9 @@ int main(int argc, char *argv[])
 	ros::AsyncSpinner spinner(5);
 	spinner.start(); //非阻塞
 
+	ros::NodeHandle nh, nh_private("~");
     AutoDrive auto_drive;
-    if(auto_drive.init())
+    if(auto_drive.init(nh, nh_private))
 		auto_drive.run();
     //ros::waitForShutdown();
     return 0;

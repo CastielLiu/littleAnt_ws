@@ -2,7 +2,8 @@
 
 #define __NAME__ "extern_control"
 
-ExternControl::ExternControl()
+ExternControl::ExternControl():
+	AutoDriveBase(__NAME__)
 {
 	cmd_.validity = false;
 	is_running_ = false;
@@ -20,24 +21,9 @@ bool ExternControl::init(ros::NodeHandle nh,ros::NodeHandle nh_private)
 	return initSocket();
 }
 
-bool ExternControl::setGlobalPath(const std::vector<GpsPoint>& path)
-{
-	if(path_points_.size()!=0)
-		return false;
-	path_points_ = path;
-	return true;
-}
-
 bool ExternControl::isRunning()
 {
 	return is_running_;
-}
-
-bool ExternControl::updateStatus(const GpsPoint& pose,const float& speed)
-{
-	if(!is_ready_) is_ready_ = true;
-	std::lock_guard<std::mutex> lock(state_mutex_);
-	vehicle_speed_ = speed;
 }
 
 bool ExternControl::initSocket()
@@ -159,10 +145,4 @@ void ExternControl::stop()
 	cmd_mutex_.lock();
 	cmd_.validity = false;
 	cmd_mutex_.unlock();
-}
-
-controlCmd_t ExternControl::getControlCmd() 
-{
-	std::lock_guard<std::mutex> lock(cmd_mutex_);
-	return cmd_;
 }
