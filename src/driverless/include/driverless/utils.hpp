@@ -494,6 +494,35 @@ static point_t coordinationConvert(point_t origin,float theta, point_t local)
 	return global;
 }
 
+/*@brief 获取两点间的距离以及航向
+ *@param point1 终点
+ *@param point2 起点
+ */
+static std::pair<float, float> getDisAndYaw(const Pose& point1, const Pose& point2)
+{
+	float x = point1.x - point2.x;
+	float y = point1.y - point2.y;
+	
+	std::pair<float, float> dis_yaw;
+	dis_yaw.first = sqrt(x * x + y * y);
+	dis_yaw.second = atan2(x,y);
+	
+	if(dis_yaw.second <0)
+		dis_yaw.second += 2*M_PI;
+	return dis_yaw;
+}
+
+/*@brief 利用转弯半径计算前轮转角
+ *@param radius 转弯半径
+ *@return 前轮转角
+ */
+static float generateRoadwheelAngleByRadius(float wheel_base, float radius)
+{
+	assert(radius!=0);
+	//return asin(vehicle_params_.wheelbase /radius)*180/M_PI;  //the angle larger
+	return atan(wheel_base/radius)*180/M_PI;    //correct algorithm 
+}
+
 
 
 #endif

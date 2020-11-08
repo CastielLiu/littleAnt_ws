@@ -165,7 +165,7 @@ public:
 	size_t size() const {return points.size();}
 	const GpsPoint& operator[](size_t i) const {return points[i];}
 	GpsPoint& operator[](size_t i)             {return points[i];}
-
+	bool finish() const {return pose_index>=final_index;}
 };
 
 /*@brief 车辆参数 */
@@ -195,9 +195,10 @@ public:
 class VehicleState 
 {
 public:
-	float speed;        //车速
-	float steer_angle;  //前轮转角
-	Pose  pose;         //车辆位置
+	uint8_t gear;         //档位
+	float   speed;        //车速
+	float   steer_angle;  //前轮转角
+	Pose    pose;         //车辆位置
 
 	bool speed_validity = false;
 	bool steer_validity = false;
@@ -221,6 +222,18 @@ public:
 	{
 		WriteLock writeLock(wr_mutex);
 		pose = val;
+	}
+
+	void setGear(uint8_t g)
+	{
+		ReadLock writeLock(wr_mutex);
+		gear = g;
+	}
+
+	uint8_t getGear()
+	{
+		ReadLock readLock(wr_mutex);
+		return gear;
 	}
 
 	float getSpeed(bool lock = UNLOCK)

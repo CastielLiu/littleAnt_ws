@@ -31,6 +31,7 @@ private:
     Path reverse_path_ ;
     ActionlibServer* as_;
     std::mutex working_mutex_;
+    float preview_dis_;
 };
 
 #endif

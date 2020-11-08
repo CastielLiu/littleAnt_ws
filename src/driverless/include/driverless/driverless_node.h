@@ -7,6 +7,8 @@
 
 #include <ant_msgs/ControlCmd1.h>
 #include <ant_msgs/ControlCmd2.h>
+#include <ant_msgs/State1.h>  //gear
+#include <ant_msgs/State3.h>  //
 #include <ant_msgs/State2.h>  //speed
 #include <ant_msgs/State4.h>  //steerAngle
 #include "auto_drive_base.h"
@@ -22,22 +24,29 @@ public:
 
     enum State
     {
-        State_Stop    = 0,
-        State_Drive   = 1,
-        State_Reverse = 2,
-        State_Idle    = 3,
+        State_Stop    = 0,  //停止
+        State_Drive   = 1,  //前进
+        State_Reverse = 2,  //后退
+        State_Idle    = 3,  //空闲
     };
 
 private:
     bool loadVehicleParams();
+    bool loadTrackingTaskFile(const std::string& file);
 	void publishPathTrackingState();
     bool isGpsPointValid(const GpsPoint& point);
     void vehicleSpeed_callback(const ant_msgs::State2::ConstPtr& msg);
     void vehicleState4_callback(const ant_msgs::State4::ConstPtr& msg);
+    void vehicleState1_callback(const ant_msgs::State1::ConstPtr& msg);
+
     void odom_callback(const nav_msgs::Odometry::ConstPtr& msg);
     void sendCmd1_callback(const ros::TimerEvent&);
 	void sendCmd2_callback(const ros::TimerEvent&);
     void decisionMaking();
+
+    bool isReverseGear();
+    bool isDriveGear();
+    bool isNeutralGear();
 
 private: 
     float max_speed_;
@@ -47,9 +56,11 @@ private:
     bool  is_offline_debug_;
 
     int system_state_;
+    bool has_new_task_;
 
 	ros::Timer cmd1_timer_, cmd2_timer_;
     ros::Subscriber sub_odom_;
+    ros::Subscriber sub_vehicleState1_;
 	ros::Subscriber sub_vehicleState2_;
 	ros::Subscriber sub_vehicleState4_;
 

@@ -90,7 +90,7 @@ void PathTracking::trackingThread()
 
 	is_running_ = true;
 
-	while(ros::ok() && is_running_)
+	while(ros::ok() && is_running_ && !global_path_.finish())
 	{
 		//创建基类数据拷贝
 		VehicleState vhicle = vehicle_state_;
@@ -116,7 +116,7 @@ void PathTracking::trackingThread()
 		GpsPoint target_point = global_path_[target_index];
 		//获取当前点到目标点的距离和航向
 		std::pair<float, float> dis_yaw = getDisAndYaw(target_point, pose);
-	#if 1
+
 		//循环查找满足disThreshold_的目标点
 		while(dis_yaw.first < disThreshold_)
 		{
@@ -125,51 +125,13 @@ void PathTracking::trackingThread()
 			//ROS_INFO("global_path_:%d\t target_index:%d",global_path_.size(),target_index);
 		}
 		float theta = dis_yaw.second - pose.yaw;
-		if(theta > M_PI) theta -= 2*M_PI;
-		else if(theta < -M_PI) theta += 2*M_PI;
-	#else
-		while(dis_yaw.first < disThreshold_)
-		{
-			target_point = global_path_[++target_index];
-			dis_yaw = getDisAndYaw(target_point, pose);
-		}
-		
-		ROS_INFO("target_index:%d  dis:%.2f",target_index,dis_yaw.first);
-		
-		//预瞄航向与车辆航向夹角
-		//预瞄点在右侧时,theta为正,反之为负
-		float theta;
-		size_t temp_target_index = target_index;
-		for( ; ; )
-		{
-			theta = dis_yaw.second - pose.yaw;
-			if(theta > M_PI) theta -= 2*M_PI;
-			else if(theta < -M_PI) theta += 2*M_PI;
-			
-			//车辆沿圆弧到达预瞄点时的航向与预瞄点航向的偏差
-			float target_yaw_err = pose.yaw+2*theta-target_point.yaw;
-			if(target_yaw_err > M_PI)
-				target_yaw_err -= 2*M_PI;
-			else if(target_yaw_err < -M_PI)
-				target_yaw_err += 2*M_PI;
-			
-//			ROS_INFO("theta:%.2f\ttarget_yaw_err:%.2f",theta/M_PI*180.0,fabs(target_yaw_err)/M_PI*180.0);
-			if(fabs(target_yaw_err) < max_target_yaw_err_ ||
-				(yaw_err_*theta > 0) && (fabs(yaw_err_) > 15.0/180.0*M_PI)) //航向角缩小
-				break;
-		
-			target_point = global_path_[++temp_target_index];
-			dis_yaw = getDisAndYaw(target_point, pose);
-//			ROS_INFO("target_yaw_err:%.2f",target_yaw_err*180.0/M_PI);
-		}
-		ROS_INFO("raw_target_index:%d  temp_target_index:%d",target_index,temp_target_index);
-	#endif
-	
-		if(theta==0.0 || theta==M_PI) continue;
+		float sin_theta = sin(theta);
+        if(sin_theta == 0)
+            continue;
 		
 		float turning_radius = (-0.5 * dis_yaw.first)/sin(theta);
 
-		float t_roadWheelAngle = generateRoadwheelAngleByRadius(turning_radius);
+		float t_roadWheelAngle = generateRoadwheelAngleByRadius(vehicle_params_.wheel_base, turning_radius);
 		
 		t_roadWheelAngle = limitRoadwheelAngleBySpeed(t_roadWheelAngle, vhicle.speed);
 		
@@ -325,34 +287,6 @@ float PathTracking::limitSpeedByParkingPoint(const float& speed,const float& acc
 	return speed > maxSpeed ? maxSpeed : speed;
 }
 
-/*@brief 利用转弯半径计算前轮转角
- *@param radius 转弯半径
- *@return 前轮转角
- */
-inline float PathTracking::generateRoadwheelAngleByRadius(const float& radius)
-{
-	assert(radius!=0);
-	//return asin(vehicle_params_.wheelbase /radius)*180/M_PI;  //the angle larger
-	return atan(vehicle_params_.wheel_base/radius)*180/M_PI;    //correct algorithm 
-}
-
-/*@brief 获取两点间的距离以及航向
- *@param point1 终点
- *@param point2 起点
- */
-std::pair<float, float> PathTracking::getDisAndYaw(const Pose& point1, const Pose& point2)
-{
-	float x = point1.x - point2.x;
-	float y = point1.y - point2.y;
-	
-	std::pair<float, float> dis_yaw;
-	dis_yaw.first = sqrt(x * x + y * y);
-	dis_yaw.second = atan2(x,y);
-	
-	if(dis_yaw.second <0)
-		dis_yaw.second += 2*M_PI;
-	return dis_yaw;
-}
 
 /*@brief 根据当前车速限制车辆前轮转角
  *@brief 算法已经根据路径曲率对车速进行了限制，
@@ -368,7 +302,7 @@ float PathTracking::limitRoadwheelAngleBySpeed(const float& angle, const float& 
 	if(min_steering_radius < 1.0)
 		return angle;
 	
-	float max_angle = fabs(generateRoadwheelAngleByRadius(min_steering_radius));
+	float max_angle = fabs(generateRoadwheelAngleByRadius(vehicle_params_.wheel_base, min_steering_radius));
 	if(max_angle > vehicle_params_.max_roadwheel_angle)
 	   max_angle = vehicle_params_.max_roadwheel_angle;
 	//ROS_INFO("max_angle:%f\t angle:%f",max_angle,angle);

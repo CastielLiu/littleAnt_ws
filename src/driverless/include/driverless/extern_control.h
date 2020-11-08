@@ -26,7 +26,6 @@ enum ExternCmdType
 	ExternCmdType_Speed = 0,   //速度指令
 	ExternCmdType_Disable = 1, //禁用外部指令
 	ExternCmdType_turnLight=2, //转向灯指令
-	
 };
 
 PACK(
@@ -56,7 +55,7 @@ private:
 	void externControlThread();
 	
 private:
-	ros::Timer      update_timer_;
+	ros::Timer update_timer_;
 	bool       is_ready_; //是否准备就绪
 	bool       is_running_;
 	

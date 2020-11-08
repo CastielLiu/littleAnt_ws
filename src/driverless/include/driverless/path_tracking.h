@@ -31,8 +31,6 @@ private:
 	void  publishNearestIndex();
 	float disToParkingPoint(const ParkingPoint& ParkingPoint);
 	float limitSpeedByParkingPoint(const float& speed,const float& acc=5);
-	std::pair<float, float> getDisAndYaw(const Pose &, const Pose &);
-	inline float generateRoadwheelAngleByRadius(const float& radius);
 	float limitRoadwheelAngleBySpeed(const float& angle, const float& speed);
 	float generateMaxTolarateSpeedByCurvature(const std::vector<GpsPoint>& path_points,
 											const size_t& start_search_index,
