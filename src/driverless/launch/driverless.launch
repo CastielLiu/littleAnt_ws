@@ -34,7 +34,7 @@
 		<param name="base_link_frame" value="/base_link"/>
 		<param name="target_repeat_threshold" value="5"/>   <!-- 目标重复出现阈值，超出此阈值开始跟车 -->
 		
-		<!-- extern_control -->
+		<!-- extern_control -->dwdewqdwqd
 		<param name="extern_ip" value=""/>
 		<param name="extern_port" value="5000"/>
 
