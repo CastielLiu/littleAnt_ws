@@ -138,7 +138,6 @@ void AutoDrive::doDriveWork()
 	{
 		ROS_ERROR("[%s] path tracker init false!",__NAME__);
 		publishDiagnosticMsg(diagnostic_msgs::DiagnosticStatus::ERROR,"Init path tracker failed!");
-		system_state_ = State_Idle;
 		return;
 	}
 	tracker_.setExpectSpeed(max_speed_);
@@ -170,7 +169,7 @@ void AutoDrive::doDriveWork()
 		this->decisionMaking();
 		loop_rate.sleep();
 	}
-	
+
 	ROS_INFO("driverless completed..."); 
 	tracker_.stop();
 	car_follower_.stop();
