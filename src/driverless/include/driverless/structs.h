@@ -97,6 +97,13 @@ public:
 		return points[next_index];
 	}
 
+	void clear()
+	{
+		points.clear();
+		next_index = 0;
+		sorted = false;
+	}
+
 };
 
 
@@ -129,7 +136,10 @@ public:
 	std::vector<TurnRange> ranges;
 
 	size_t size() const {return ranges.size();}
-
+	void clear()
+	{
+		ranges.clear();
+	}
 };
 
 
@@ -165,6 +175,16 @@ public:
 	size_t size() const {return points.size();}
 	const GpsPoint& operator[](size_t i) const {return points[i];}
 	GpsPoint& operator[](size_t i)             {return points[i];}
+	void clear()                       //清空路径信息
+	{
+		points.clear();
+		resolution = 0.0;
+		pose_index = 0;
+		final_index = 0;
+		park_points.clear();
+		turn_ranges.clear();
+	}
+
 	bool finish() const {return pose_index>=final_index;}
 };
 

@@ -20,14 +20,14 @@ public:
     AutoDrive();
     ~AutoDrive();
     virtual bool init(ros::NodeHandle nh,ros::NodeHandle nh_private) override;
-    void run();
+    void run(){};
 
     enum State
     {
         State_Stop    = 0,  //停止
         State_Drive   = 1,  //前进
         State_Reverse = 2,  //后退
-        State_Idle    = 3,  //空闲
+        State_Idle    = 3,  //空闲, 停止控制指令发送，退出自动驾驶模式
     };
 
 private:
@@ -42,11 +42,19 @@ private:
     void odom_callback(const nav_msgs::Odometry::ConstPtr& msg);
     void sendCmd1_callback(const ros::TimerEvent&);
 	void sendCmd2_callback(const ros::TimerEvent&);
+    void setSendControlCmdEnable(bool flag);
+
     void decisionMaking();
 
     bool isReverseGear();
     bool isDriveGear();
     bool isNeutralGear();
+
+    void workingThread();
+    void doDriveWork();
+    void doReverseWork();
+    void setVehicleGear(int state);
+    
 
 private: 
     float max_speed_;
@@ -55,7 +63,7 @@ private:
     bool  use_car_following_;
     bool  is_offline_debug_;
 
-    int system_state_;
+    std::atomic<int> system_state_;
     bool has_new_task_;
 
 	ros::Timer cmd1_timer_, cmd2_timer_;
@@ -66,8 +74,7 @@ private:
 
     ros::Publisher pub_cmd1_, pub_cmd2_;
     
-    std::mutex command_mutex_;
-
+    std::mutex cmd1_mutex_, cmd2_mutex_;
 	ant_msgs::ControlCmd1 controlCmd1_;
 	ant_msgs::ControlCmd2 controlCmd2_;
     
@@ -83,4 +90,9 @@ private:
 
     ReverseDrive reverse_controler_;
     controlCmd_t  reverse_cmd_;
+
+
+    //debug
+    bool reverse_test_;
+    std::string reverse_path_file_;
 };

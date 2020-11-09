@@ -3,9 +3,12 @@
 #define __NAME__ "reverse_drive"
 #define MAX_SPEED 5.0 //km/h
 
-/* 倒车控制，使用actionlib实现倒车路径规划，然后进行倒车控制
+/* 倒车控制器，
+ * 调用方式1：使用actionlib实现倒车路径规划，然后进行倒车控制
  * 提供两种服务 1.指定目标点进行路径规划然后倒车控制
- *            2.指定倒车路径然后进行倒车路径跟踪     
+ *            2.指定倒车路径然后进行倒车路径跟踪
+ * 
+ * 调用方式2: 设置外部调用类成员函数进行路径配置和运动控制
 */
 ReverseDrive::ReverseDrive():
     AutoDriveBase(__NAME__),
@@ -34,13 +37,19 @@ bool ReverseDrive::init(ros::NodeHandle nh,ros::NodeHandle nh_private)
         ROS_ERROR("[%s] The max_speed is fast! Use the defaut value: %.2f.", __NAME__, MAX_SPEED);
         max_speed_ = MAX_SPEED;
     }
+    exp_speed_ = max_speed_;
+    //启动actionlib 服务器，监听外部请求并执行相应操作
+    as_ = new ActionlibServer(nh_private_, "do_reverse", 
+                              boost::bind(&ReverseDrive::executeCallback,this, _1), false);
+    as_->start();
+    return true;
 }
 
 bool ReverseDrive::start()
 {
-    as_ = new ActionlibServer(nh_private_, "do_reverse", 
-                              boost::bind(&ReverseDrive::executeCallback,this, _1), false);
-    as_->start();
+    std::thread t(&ReverseDrive::reverseControlThread, this);
+    t.detach();
+    return true;
 }
 
 void ReverseDrive::stopCurrentWork()
@@ -101,7 +110,6 @@ void ReverseDrive::executeCallback(const driverless::DoReverseGoalConstPtr& goal
 
     std::thread t(&ReverseDrive::reverseControlThread, this);
     t.detach();
-    
 
     //as_->setSucceeded();
 }
@@ -111,14 +119,18 @@ void ReverseDrive::executeCallback(const driverless::DoReverseGoalConstPtr& goal
 */
 bool ReverseDrive::reversePathPlan(const Pose& target_pose)
 {
-
-
     //reverse_path_.points.push_back(point)
     return true;
 }
 
 void ReverseDrive::reverseControlThread()
 {
+    if(is_running_)
+    {
+        ROS_ERROR("[%s] new task request but old task not quit!", __NAME__);
+        return ;
+    }
+
     is_running_ = true;
     std::lock_guard<std::mutex> lck(working_mutex_);
  
@@ -131,7 +143,7 @@ void ReverseDrive::reverseControlThread()
 
 	if(reverse_path_.finish()) //还未开始已经完成，表明路径无效
 	{
-		ROS_ERROR("Remaind target path is too short! nearest_point_index:%lu", nearest_index);
+		ROS_ERROR("[%s] Remaind target path is too short! nearest_point_index:%lu", __NAME__, nearest_index);
 		publishDiagnosticMsg(diagnostic_msgs::DiagnosticStatus::ERROR,"Remaind target path is too short!");
 		is_running_ = false;
 
@@ -176,7 +188,7 @@ void ReverseDrive::reverseControlThread()
         if(sin_theta == 0)
         {
             cmd_mutex_.lock();
-            cmd_.speed = max_speed_;
+            cmd_.speed = exp_speed_;
             cmd_.roadWheelAngle = 0.0;
             cmd_mutex_.unlock();
             continue;
@@ -186,16 +198,44 @@ void ReverseDrive::reverseControlThread()
 		float t_roadWheelAngle = generateRoadwheelAngleByRadius(vehicle_params_.wheel_base, turning_radius);
 
 		cmd_mutex_.lock();
-		cmd_.speed = max_speed_;
+		cmd_.speed = exp_speed_;
 		cmd_.roadWheelAngle = t_roadWheelAngle;
 		cmd_mutex_.unlock();
 
         driverless::DoReverseFeedback feedback;
-        feedback.speed = max_speed_;
+        feedback.speed = exp_speed_;
         feedback.steer_angle = t_roadWheelAngle;
         as_->publishFeedback(feedback);
 
         loop_rate.sleep();
     }
+
+    reverse_path_.clear(); //清空路径信息
+}
+
+/*@brief 从文件载入倒车路径
+ *@param file 文件名
+ *@param reverse 是否需要翻转路径
+*/
+bool ReverseDrive::loadReversePath(const std::string& file, bool reverse)
+{
+    if(!loadPathPoints(file, reverse_path_))
+        return false;
+    if(reverse)
+    {
+        Path temp_path;
+        temp_path.points.reserve(reverse_path_.points.size());
+
+        for(int i=reverse_path_.points.size()-1; i >0; --i)
+        {
+            GpsPoint& point = reverse_path_.points[i];
+            //point.yaw += M_PI;
+            //if(point.yaw > 2*M_PI) point.yaw -= 2*M_PI;
+            temp_path.points.push_back(point);
+        }
+        reverse_path_.points.swap(temp_path.points);
+    }
+
+    return extendPath(reverse_path_, 2*preview_dis_);
 }
 

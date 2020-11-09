@@ -19,16 +19,17 @@ public:
     virtual ~ReverseDrive();
 	virtual bool init(ros::NodeHandle nh,ros::NodeHandle nh_private) override;
     virtual bool start() override;
+    bool loadReversePath(const std::string& file, bool reverse);
 
     void stopCurrentWork();
-
     void executeCallback(const driverless::DoReverseGoalConstPtr& goal);
     bool reversePathPlan(const Pose& target_pose);
     void reverseControlThread();
 
 private:
-    float max_speed_;
-    Path reverse_path_ ;
+    float exp_speed_;           //期望倒车速度
+    float max_speed_;           //最大倒车速度
+    Path reverse_path_;
     ActionlibServer* as_;
     std::mutex working_mutex_;
     float preview_dis_;

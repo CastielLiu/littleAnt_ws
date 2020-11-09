@@ -37,6 +37,12 @@
 		<!-- extern_control -->
 		<param name="extern_ip" value=""/>
 		<param name="extern_port" value="5000"/>
+
+		<!-- reverse control -->
+		<param name="max_speed" value="3.0"/>
+		<param name="reverse_test" value="true"/>
+		<param name="reverse_path_file" value="$(arg roadnet_file)"/>
+
 	</node> 
 	
 	<!-- GPS -->

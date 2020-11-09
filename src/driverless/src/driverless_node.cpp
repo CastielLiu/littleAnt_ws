@@ -33,7 +33,7 @@ bool AutoDrive::isGpsPointValid(const GpsPoint& point)
 
 bool AutoDrive::init(ros::NodeHandle nh,ros::NodeHandle nh_private)
 {
-	nh_ = nh; nh_private_ = nh_private;
+	nh_ = nh;  nh_private_ = nh_private;
 
 	//获取参数
 	nh_private_.param<float>("max_speed",max_speed_,10.0);//km/h
@@ -43,6 +43,9 @@ bool AutoDrive::init(ros::NodeHandle nh,ros::NodeHandle nh_private)
 	
 	std::string odom_topic = nh_private_.param<std::string>("odom_topic","/ll2utm_odom");
 	std::string path_points_file = nh_private_.param<std::string>("path_points_file","");
+
+	nh_private_.param<bool>("reverse_test", reverse_test_, false);
+	nh_private_.param<std::string>("reverse_path_file",reverse_path_file_,"");
 	
 	initDiagnosticPublisher(nh_,__NAME__);
 
@@ -64,13 +67,12 @@ bool AutoDrive::init(ros::NodeHandle nh,ros::NodeHandle nh_private)
 	pub_cmd2_ = nh_.advertise<ant_msgs::ControlCmd2>("/controlCmd2",1);
 	pub_diagnostic_ = nh_.advertise<diagnostic_msgs::DiagnosticStatus>("driverless/diagnostic",1);
 
-	//定时器
-	cmd1_timer_ = nh_.createTimer(ros::Duration(0.02), &AutoDrive::sendCmd1_callback,this);
-	cmd2_timer_ = nh_.createTimer(ros::Duration(0.01), &AutoDrive::sendCmd2_callback,this);
+	//定时器                                                                           one_shot, auto_start
+	cmd1_timer_ = nh_.createTimer(ros::Duration(0.02), &AutoDrive::sendCmd1_callback,this, false, false);
+	cmd2_timer_ = nh_.createTimer(ros::Duration(0.01), &AutoDrive::sendCmd2_callback,this, false, false);
 	
 	//离线调试,无需系统检查
-	if(is_offline_debug_)
-		return true;
+	if(is_offline_debug_) return true;
 		
 	// 车辆状态检查，等待初始化
 	while(ros::ok())
@@ -86,15 +88,295 @@ bool AutoDrive::init(ros::NodeHandle nh,ros::NodeHandle nh_private)
 			break;
 	}
 
-	if(loadTrackingTaskFile(path_points_file))
+	system_state_ = State_Idle;
+
+	if(reverse_test_)                               //倒车测试
+	{
+		system_state_ = State_Reverse;
+		has_new_task_ = true;
+	}
+	else if(loadTrackingTaskFile(path_points_file)) //前进任务
 	{
 		system_state_ = State_Drive;
 		has_new_task_ = true;
 	}
-	else
-		system_state_ = State_Idle;
+	
+	std::thread t(&AutoDrive::workingThread, this);
+	t.detach();
 
 	return true;
+}
+
+void AutoDrive::workingThread()
+{
+	ros::Rate loop_rate1(10);
+	while(ros::ok())
+	{
+		if(!has_new_task_)
+		{
+			loop_rate1.sleep();
+			continue;
+		}
+		has_new_task_ = false;
+		setVehicleGear(system_state_);
+
+		if(system_state_ == State_Drive)
+			doDriveWork();
+		else if(system_state_ == State_Reverse)
+			doReverseWork();
+	}
+}
+
+void AutoDrive::doDriveWork()
+{
+	//配置路径跟踪控制器
+    if(!tracker_.init(nh_, nh_private_))
+	{
+		ROS_ERROR("[%s] path tracker init false!",__NAME__);
+		publishDiagnosticMsg(diagnostic_msgs::DiagnosticStatus::ERROR,"Init path tracker failed!");
+		system_state_ = State_Idle;
+		return;
+	}
+	tracker_.setExpectSpeed(max_speed_);
+	tracker_.start();//路径跟踪控制器
+	ROS_INFO("[%s] path tracker init ok",__NAME__);
+	
+	//配置跟车控制器
+	if(!car_follower_.init(nh_, nh_private_))
+	{
+		ROS_ERROR("[%s] car follower init false!",__NAME__);
+		publishDiagnosticMsg(diagnostic_msgs::DiagnosticStatus::ERROR,"Init car follower failed!");
+		return;
+	}
+	car_follower_.start(); //跟车控制器
+	ROS_INFO("[%s] car follower init ok",__NAME__);
+
+	//配置外部控制器
+	extern_controler_.init(nh_, nh_private_);
+	extern_controler_.start();
+
+	ros::Rate loop_rate(20);
+	
+	while(ros::ok() && system_state_ == State_Drive)
+	{
+		tracker_cmd_ = tracker_.getControlCmd();
+		follower_cmd_= car_follower_.getControlCmd();
+		extern_cmd_ = extern_controler_.getControlCmd();
+		
+		this->decisionMaking();
+		loop_rate.sleep();
+	}
+	
+	ROS_INFO("driverless completed..."); 
+	tracker_.stop();
+	car_follower_.stop();
+	extern_controler_.stop();
+
+	system_state_ = State_Stop;
+}
+
+void AutoDrive::doReverseWork()
+{
+	reverse_controler_.loadReversePath(reverse_path_file_, true);
+	reverse_controler_.start();
+
+	ros::Rate loop_rate(20);
+
+	while(ros::ok() && system_state_ == State_Reverse)
+	{
+		reverse_cmd_ = reverse_controler_.getControlCmd();
+		
+		if(reverse_cmd_.validity)
+		{
+			std::lock_guard<std::mutex> lock2(cmd2_mutex_);
+			controlCmd2_.set_speed = reverse_cmd_.speed;
+			controlCmd2_.set_roadWheelAngle = reverse_cmd_.roadWheelAngle;
+		}
+		loop_rate.sleep();
+	}
+
+
+}
+
+/* @brief 根据系统状态设置档位，直到档位设置成功，函数退出
+*/
+void AutoDrive::setVehicleGear(int state)
+{
+	if(state == State_Drive) //前进
+	{
+		cmd1_mutex_.lock();
+		controlCmd1_.set_driverlessMode = true;
+		controlCmd1_.set_handBrake = false;
+		cmd1_mutex_.unlock();
+
+		cmd2_mutex_.lock();
+		controlCmd2_.set_gear = controlCmd2_.GEAR_DRIVE;
+		controlCmd2_.set_speed = 0.0;
+		controlCmd2_.set_brake = 0.0;
+		controlCmd2_.set_roadWheelAngle = 0.0;
+		controlCmd2_.set_emergencyBrake = false;
+		cmd2_mutex_.unlock();
+
+		setSendControlCmdEnable(true);
+
+		//等待档位切换成功
+		while(ros::ok() && vehicle_state_.getGear() != ant_msgs::State1::GEAR_DRIVE)
+			ros::Duration(0.1).sleep();
+	}
+	else if(system_state_ == State_Reverse) //后退
+	{
+		cmd1_mutex_.lock();
+		controlCmd1_.set_driverlessMode = true;
+		controlCmd1_.set_handBrake = false;
+		cmd1_mutex_.unlock();
+
+		cmd2_mutex_.lock();
+		controlCmd2_.set_gear = controlCmd2_.GEAR_REVERSE;
+		controlCmd2_.set_speed = 0.0;
+		controlCmd2_.set_brake = 0.0;
+		controlCmd2_.set_roadWheelAngle = 0.0;
+		controlCmd2_.set_emergencyBrake = false;
+		cmd2_mutex_.unlock();
+
+		setSendControlCmdEnable(true);
+
+		//等待档位切换成功
+		while(ros::ok() && vehicle_state_.getGear() != ant_msgs::State1::GEAR_REVERSE)
+			ros::Duration(0.1).sleep();
+	}
+	else if(system_state_ == State_Idle)  //空闲
+	{
+		setSendControlCmdEnable(false);
+	}
+	else if(system_state_ == State_Stop)  //停止
+	{
+		cmd1_mutex_.lock();
+		controlCmd1_.set_driverlessMode = true;
+		controlCmd1_.set_handBrake = true;
+		cmd1_mutex_.unlock();
+
+		cmd2_mutex_.lock();
+		controlCmd2_.set_gear = controlCmd2_.GEAR_NEUTRAL;
+		controlCmd2_.set_speed = 0.0;
+		controlCmd2_.set_brake = 0.0;
+		controlCmd2_.set_roadWheelAngle = 0.0;
+		controlCmd2_.set_emergencyBrake = false;
+		cmd2_mutex_.unlock();
+		setSendControlCmdEnable(true);
+
+		while(ros::ok() && vehicle_state_.getSpeed(LOCK) != 0.0)
+			ros::Duration(0.1).sleep();
+		system_state_ = State_Idle;
+	}
+}
+
+void AutoDrive::decisionMaking()
+{
+	std::lock_guard<std::mutex> lock1(cmd1_mutex_);
+	std::lock_guard<std::mutex> lock2(cmd2_mutex_);
+//	showCmd(extern_cmd_,"extern_cmd");
+//	showCmd(follower_cmd_,"follower_cmd");
+//	showCmd(tracker_cmd_,"tracker_cmd");
+
+	if(extern_cmd_.validity && extern_cmd_.speed < tracker_cmd_.speed)
+		controlCmd2_.set_speed = extern_cmd_.speed;
+	else if(follower_cmd_.validity && follower_cmd_.speed < tracker_cmd_.speed)
+		controlCmd2_.set_speed = follower_cmd_.speed;
+	else
+		controlCmd2_.set_speed = tracker_cmd_.speed;
+	
+	controlCmd2_.set_roadWheelAngle = tracker_cmd_.roadWheelAngle;
+	
+	//转向灯
+	if(extern_cmd_.turnLight == 1)
+		controlCmd1_.set_turnLight_L = true;
+	else if(extern_cmd_.turnLight == 2)
+		controlCmd1_.set_turnLight_R = true;
+	else if(extern_cmd_.turnLight == 0)
+	{
+		controlCmd1_.set_turnLight_R = false;
+		controlCmd1_.set_turnLight_L = false;
+	}
+
+}
+
+void AutoDrive::setSendControlCmdEnable(bool flag)
+{
+	static bool last_flag = false;
+	if(flag == last_flag)
+		return;
+	last_flag = flag;
+
+	if(flag)
+	{
+		cmd1_timer_.start();
+		cmd2_timer_.start();
+	}
+	else
+	{
+		cmd1_timer_.stop();
+		cmd2_timer_.stop();
+	}
+}
+
+void AutoDrive::sendCmd1_callback(const ros::TimerEvent&)
+{
+	std::lock_guard<std::mutex> lock(cmd1_mutex_);
+	pub_cmd1_.publish(controlCmd1_);
+}
+
+void AutoDrive::sendCmd2_callback(const ros::TimerEvent&)
+{
+	std::lock_guard<std::mutex> lock(cmd2_mutex_);
+	pub_cmd2_.publish(controlCmd2_);
+}
+
+void AutoDrive::odom_callback(const nav_msgs::Odometry::ConstPtr& msg)
+{
+	Pose pose;
+	pose.x =  msg->pose.pose.position.x;
+	pose.y =  msg->pose.pose.position.y;
+	pose.yaw = msg->pose.covariance[0];
+	
+	vehicle_state_.setPose(pose);
+}
+
+void AutoDrive::vehicleSpeed_callback(const ant_msgs::State2::ConstPtr& msg)
+{
+	if(msg->vehicle_speed >20.0)
+	{
+		vehicle_state_.speed_validity = false;
+		return;
+	}
+		
+	vehicle_state_.setSpeed(msg->vehicle_speed); //  m/s
+	vehicle_state_.speed_validity = true;
+}
+
+void AutoDrive::vehicleState4_callback(const ant_msgs::State4::ConstPtr& msg)
+{
+	vehicle_state_.setSteerAngle(msg->roadwheelAngle);
+	vehicle_state_.steer_validity = true;
+}
+
+void AutoDrive::vehicleState1_callback(const ant_msgs::State1::ConstPtr& msg)
+{
+	vehicle_state_.setGear(msg->act_gear);
+}
+
+bool AutoDrive::isReverseGear()
+{
+	return vehicle_state_.getGear() == ant_msgs::State1::GEAR_REVERSE;
+}
+
+bool AutoDrive::isDriveGear()
+{
+	return vehicle_state_.getGear() == ant_msgs::State1::GEAR_DRIVE;
+}
+
+bool AutoDrive::isNeutralGear()
+{
+	return vehicle_state_.getGear() == ant_msgs::State1::GEAR_NEUTRAL;
 }
 
 bool AutoDrive::loadVehicleParams()
@@ -165,152 +447,6 @@ bool AutoDrive::loadTrackingTaskFile(const std::string& file)
 	return true;
 }
 
-void AutoDrive::workingThread()
-{
-	
-	if(has_new_task_)
-	ros::Rate loop_rate1(10);
-	while(ros::ok())
-	{
-		if()
-
-
-	}
-}
-
-void AutoDrive::run()
-{
-	//配置路径跟踪控制器
-    if(!tracker_.init(nh_, nh_private_))
-	{
-		ROS_ERROR("[%s] path tracker init false!",__NAME__);
-		publishDiagnosticMsg(diagnostic_msgs::DiagnosticStatus::ERROR,"Init path tracker failed!");
-		return;
-	}
-	tracker_.setExpectSpeed(max_speed_);
-	tracker_.start();//路径跟踪控制器
-	ROS_INFO("[%s] path tracker init ok",__NAME__);
-	
-	//配置跟车控制器
-	if(!car_follower_.init(nh_, nh_private_))
-	{
-		ROS_ERROR("[%s] car follower init false!",__NAME__);
-		publishDiagnosticMsg(diagnostic_msgs::DiagnosticStatus::ERROR,"Init car follower failed!");
-		return;
-	}
-	car_follower_.start(); //跟车控制器
-	ROS_INFO("[%s] car follower init ok",__NAME__);
-
-	//配置外部控制器
-	extern_controler_.init(nh_, nh_private_);
-	extern_controler_.start();
-
-	ros::Rate loop_rate(20);
-	
-	while(ros::ok())
-	{
-		tracker_cmd_ = tracker_.getControlCmd();
-		follower_cmd_= car_follower_.getControlCmd();
-		extern_cmd_ = extern_controler_.getControlCmd();
-		
-		this->decisionMaking();
-		loop_rate.sleep();
-	}
-	
-	ROS_INFO("driverless completed..."); 
-	tracker_.stop();
-	car_follower_.stop();
-	extern_controler_.stop();
-}
-
-void AutoDrive::decisionMaking()
-{
-	std::lock_guard<std::mutex> lock(command_mutex_);
-//	showCmd(extern_cmd_,"extern_cmd");
-//	showCmd(follower_cmd_,"follower_cmd");
-//	showCmd(tracker_cmd_,"tracker_cmd");
-	/*
-	if(extern_cmd_.validity && extern_cmd_.speed < tracker_cmd_.speed)
-		controlCmd2_.set_speed = extern_cmd_.speed;
-	else if(follower_cmd_.validity && follower_cmd_.speed < tracker_cmd_.speed)
-		controlCmd2_.set_speed = follower_cmd_.speed;
-	else
-		controlCmd2_.set_speed = tracker_cmd_.speed;
-	
-	controlCmd2_.set_roadWheelAngle = tracker_cmd_.roadWheelAngle;
-	
-	//转向灯
-	if(extern_cmd_.turnLight == 1)
-		controlCmd1_.set_turnLight_L = true;
-	else if(extern_cmd_.turnLight == 2)
-		controlCmd1_.set_turnLight_R = true;
-	else if(extern_cmd_.turnLight == 0)
-	{
-		controlCmd1_.set_turnLight_R = false;
-		controlCmd1_.set_turnLight_L = false;
-	}
-	*/
-}
-
-void AutoDrive::sendCmd1_callback(const ros::TimerEvent&)
-{
-	pub_cmd1_.publish(controlCmd1_);
-}
-
-void AutoDrive::sendCmd2_callback(const ros::TimerEvent&)
-{
-	std::lock_guard<std::mutex> lock(command_mutex_);
-	pub_cmd2_.publish(controlCmd2_);
-}
-
-void AutoDrive::odom_callback(const nav_msgs::Odometry::ConstPtr& msg)
-{
-	Pose pose;
-	pose.x =  msg->pose.pose.position.x;
-	pose.y =  msg->pose.pose.position.y;
-	pose.yaw = msg->pose.covariance[0];
-	
-	vehicle_state_.setPose(pose);
-}
-
-void AutoDrive::vehicleSpeed_callback(const ant_msgs::State2::ConstPtr& msg)
-{
-	if(msg->vehicle_speed >20.0)
-	{
-		vehicle_state_.speed_validity = false;
-		return;
-	}
-		
-	vehicle_state_.setSpeed(msg->vehicle_speed); //  m/s
-	vehicle_state_.speed_validity = true;
-}
-
-void AutoDrive::vehicleState4_callback(const ant_msgs::State4::ConstPtr& msg)
-{
-	vehicle_state_.setSteerAngle(msg->roadwheelAngle);
-	vehicle_state_.steer_validity = true;
-}
-
-void AutoDrive::vehicleState1_callback(const ant_msgs::State1::ConstPtr& msg)
-{
-	vehicle_state_.setGear(msg->act_gear);
-}
-
-bool AutoDrive::isReverseGear()
-{
-	return vehicle_state_.getGear() == ant_msgs::State1::GEAR_REVERSE;
-}
-
-bool AutoDrive::isDriveGear()
-{
-	return vehicle_state_.getGear() == ant_msgs::State1::GEAR_DRIVE;
-}
-
-bool AutoDrive::isNeutralGear()
-{
-	return vehicle_state_.getGear() == ant_msgs::State1::GEAR_NEUTRAL;
-}
-
 
 int main(int argc, char *argv[])
 {
@@ -321,7 +457,6 @@ int main(int argc, char *argv[])
 	ros::NodeHandle nh, nh_private("~");
     AutoDrive auto_drive;
     if(auto_drive.init(nh, nh_private))
-		auto_drive.run();
-    //ros::waitForShutdown();
+    	ros::waitForShutdown();
     return 0;
 }  
