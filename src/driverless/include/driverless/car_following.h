@@ -5,7 +5,6 @@
 #include "auto_drive_base.h"
 #include <esr_radar/Object.h>
 #include <esr_radar/ObjectArray.h>
-#include <pcl_ros/point_cloud.h>
 #include <tf/transform_listener.h>
 #include <nav_msgs/Path.h>
 #include <geometry_msgs/Quaternion.h>

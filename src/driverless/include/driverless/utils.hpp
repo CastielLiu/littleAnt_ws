@@ -156,15 +156,15 @@ static bool extendPath(Path& path, float extendDis)
 	float ds = sqrt(dx*dx+dy*dy);
 
 	GpsPoint point;
-	float remaindDis = 0.0;
+	float remaind_dis = 0.0;
 	for(size_t i=1;;++i)
 	{
 		point.x = path_points[endIndex].x + dx*i;
 		point.y = path_points[endIndex].y + dy*i;
 		point.curvature = 0.0;
 		path_points.push_back(point);
-		remaindDis += ds;
-		if(remaindDis > extendDis)
+		remaind_dis += ds;
+		if(remaind_dis > extendDis)
 			break;
 	}
 	return true;

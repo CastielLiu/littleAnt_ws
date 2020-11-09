@@ -186,6 +186,12 @@ public:
 	}
 
 	bool finish() const {return pose_index>=final_index;}
+	float remaindDis()
+	{
+		float dis = (final_index - pose_index) * resolution;
+		if(dis < 0) dis = 0;
+		return dis;
+	}
 };
 
 /*@brief 车辆参数 */
@@ -193,6 +199,7 @@ class VehicleParams
 {
 public:
 	float max_roadwheel_angle;
+	float min_roadwheel_angle;
 	float max_speed;
 	float wheel_base;
 	float wheel_track;
@@ -314,17 +321,17 @@ public:
 		bool ok = true;
 		if(!speed_validity)
 		{
-			info += "Vehicle speed is validity!\t";
+			info += "Vehicle speed is invalidity!\t";
 			ok = false;
 		}
 		if(!steer_validity)
 		{
-			info += "Vehicle steer angle is validity!\t";
+			info += "Vehicle steer angle is invalidity!\t";
 			ok = false;
 		}
 		if(pose.x <100 || pose.y <100) //the pose from gps is invailed!
 		{
-			info += "Vehicle pose is validity!";
+			info += "Vehicle pose is invalidity!";
 			ok = false;
 			pose_validity = false;
 		}

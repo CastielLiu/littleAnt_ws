@@ -17,11 +17,11 @@ find_package(catkin REQUIRED COMPONENTS
   geometry_msgs
   message_filters
   message_generation
-  euclidean_cluster
   roscpp
   rospy
   std_msgs
   actionlib_msgs
+  tf
 )
 
 ## Generate messages in the 'msg' folder

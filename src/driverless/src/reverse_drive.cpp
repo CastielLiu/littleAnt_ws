@@ -47,6 +47,10 @@ bool ReverseDrive::init(ros::NodeHandle nh,ros::NodeHandle nh_private)
 
 bool ReverseDrive::start()
 {
+    if(is_running_)
+    	stopCurrentWork();
+
+    is_running_ = true;
     std::thread t(&ReverseDrive::reverseControlThread, this);
     t.detach();
     return true;
@@ -125,13 +129,6 @@ bool ReverseDrive::reversePathPlan(const Pose& target_pose)
 
 void ReverseDrive::reverseControlThread()
 {
-    if(is_running_)
-    {
-        ROS_ERROR("[%s] new task request but old task not quit!", __NAME__);
-        return ;
-    }
-
-    is_running_ = true;
     std::lock_guard<std::mutex> lck(working_mutex_);
  
     cmd_mutex_.lock();
@@ -140,6 +137,8 @@ void ReverseDrive::reverseControlThread()
 
     reverse_path_.pose_index = findNearestPoint(reverse_path_, vehicle_state_.getPose(LOCK)); 
 	size_t nearest_index = reverse_path_.pose_index;
+	
+	ROS_INFO("[%s] Ready to reverse tracking, the nearest point index is: %lu", __NAME__, nearest_index);
 
 	if(reverse_path_.finish()) //还未开始已经完成，表明路径无效
 	{
@@ -152,6 +151,8 @@ void ReverseDrive::reverseControlThread()
         as_->setAborted(res, "Aborting on reverse path, because it is invalid ");
 		return ;
 	}
+	
+	ROS_INFO("[%s] Current path is validity, ready to reverse tracking.", __NAME__);
 
 	size_t i =0;
 	ros::Rate loop_rate(30);
@@ -161,6 +162,7 @@ void ReverseDrive::reverseControlThread()
 
 	while(ros::ok() && is_running_ && !reverse_path_.finish())
 	{
+		ROS_INFO("[%s] new cycle.", __NAME__);
 		//创建基类数据拷贝
 		VehicleState vhicle = vehicle_state_;
 		const Pose&  pose   = vhicle.pose;
@@ -169,10 +171,15 @@ void ReverseDrive::reverseControlThread()
 		//横向偏差,左偏为负,右偏为正
 		lat_err = calculateDis2path(pose.x, pose.y, reverse_path_, nearest_index, &nearest_index);
 		reverse_path_.pose_index = nearest_index;
+		
+		ROS_INFO("[%s] lateral error: %.2f.", __NAME__, lat_err);
+		
 		//航向偏差,左偏为正,右偏为负
 		yaw_err = reverse_path_[nearest_index].yaw - back_yaw;
 		if(yaw_err > M_PI)       yaw_err -= 2*M_PI;
 		else if(yaw_err < -M_PI) yaw_err += 2*M_PI;
+		
+		ROS_INFO("[%s] yaw error: %.2f.", __NAME__, yaw_err*180.0/M_PI);
 		
         std::pair<float, float> dis_yaw;      //当前点到目标点的距离和航向
         while(ros::ok())
@@ -196,20 +203,39 @@ void ReverseDrive::reverseControlThread()
 		
 		float turning_radius = (0.5 * dis_yaw.first)/sin_theta;
 		float t_roadWheelAngle = generateRoadwheelAngleByRadius(vehicle_params_.wheel_base, turning_radius);
+		if(t_roadWheelAngle > vehicle_params_.max_roadwheel_angle)
+			t_roadWheelAngle = vehicle_params_.max_roadwheel_angle;
+		else if(t_roadWheelAngle < vehicle_params_.min_roadwheel_angle)
+			t_roadWheelAngle = vehicle_params_.min_roadwheel_angle;
+		
+		float steer_angle_err = fabs(vehicle_state_.getSteerAngle(LOCK) - t_roadWheelAngle);
+		
+		//limit vehicle speed by the remaind distance(dis to end)
+		float t_speed = reverse_path_.remaindDis() * 1.0 + 0.5;
+		if(t_speed > exp_speed_) t_speed = exp_speed_;
+		
+		if(steer_angle_err > 4.0)
+			t_speed = 0.0;
 
 		cmd_mutex_.lock();
-		cmd_.speed = exp_speed_;
+		cmd_.speed = t_speed;
 		cmd_.roadWheelAngle = t_roadWheelAngle;
 		cmd_mutex_.unlock();
-
-        driverless::DoReverseFeedback feedback;
-        feedback.speed = exp_speed_;
-        feedback.steer_angle = t_roadWheelAngle;
-        as_->publishFeedback(feedback);
+		
+		ROS_INFO("[%s] expect speed: %.2f\t expect angle: %.2f", __NAME__, exp_speed_, t_roadWheelAngle);
+		
+//        driverless::DoReverseFeedback feedback;
+//        feedback.speed = t_speed;
+//        feedback.steer_angle = t_roadWheelAngle;
+//        as_->publishFeedback(feedback);
 
         loop_rate.sleep();
     }
-
+    cmd_mutex_.lock();
+	cmd_.speed = 0.0;
+	cmd_.roadWheelAngle = 0.0;
+	cmd_mutex_.unlock();
+	is_running_ = false;
     reverse_path_.clear(); //清空路径信息
 }
 

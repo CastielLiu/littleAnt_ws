@@ -79,7 +79,7 @@ bool AutoDrive::init(ros::NodeHandle nh,ros::NodeHandle nh_private)
 	{
 		std::string info;
 		if(!vehicle_state_.validity(info))
-		{	
+		{
 			ROS_INFO("[%s] %s",__NAME__, info.c_str());
 			publishDiagnosticMsg(diagnostic_msgs::DiagnosticStatus::WARN, info);
 			ros::Duration(0.5).sleep();
@@ -119,11 +119,15 @@ void AutoDrive::workingThread()
 		}
 		has_new_task_ = false;
 		setVehicleGear(system_state_);
+		ROS_INFO("[%s] set vehicle gear complete, current gear: %d", __NAME__, vehicle_state_.getGear());
 
 		if(system_state_ == State_Drive)
 			doDriveWork();
 		else if(system_state_ == State_Reverse)
 			doReverseWork();
+		
+		system_state_ = State_Stop;
+		setVehicleGear(State_Stop);
 	}
 }
 
@@ -134,7 +138,6 @@ void AutoDrive::doDriveWork()
 	{
 		ROS_ERROR("[%s] path tracker init false!",__NAME__);
 		publishDiagnosticMsg(diagnostic_msgs::DiagnosticStatus::ERROR,"Init path tracker failed!");
-		system_state_ = State_Idle;
 		return;
 	}
 	tracker_.setExpectSpeed(max_speed_);
@@ -166,7 +169,7 @@ void AutoDrive::doDriveWork()
 		this->decisionMaking();
 		loop_rate.sleep();
 	}
-	
+
 	ROS_INFO("driverless completed..."); 
 	tracker_.stop();
 	car_follower_.stop();
@@ -177,14 +180,27 @@ void AutoDrive::doDriveWork()
 
 void AutoDrive::doReverseWork()
 {
-	reverse_controler_.loadReversePath(reverse_path_file_, true);
+	if(!reverse_controler_.init(nh_, nh_private_))
+	{
+		ROS_ERROR("[%s] Initial reverse controller failed!", __NAME__);
+		return ;
+	}
+	if(!reverse_controler_.loadReversePath(reverse_path_file_, true))
+	{
+		ROS_ERROR("[%s] load reverse path failed!", __NAME__);
+		return ;
+	}
+	
 	reverse_controler_.start();
-
+	
 	ros::Rate loop_rate(20);
 
-	while(ros::ok() && system_state_ == State_Reverse)
+	while(ros::ok() && system_state_ == State_Reverse && reverse_controler_.isRunning())
 	{
+		ROS_INFO("[%s] new cycle.", __NAME__);
 		reverse_cmd_ = reverse_controler_.getControlCmd();
+		
+		ROS_INFO("[%s] speed: %.2f\t angle: %.2f", __NAME__, reverse_cmd_.speed, reverse_cmd_.roadWheelAngle);
 		
 		if(reverse_cmd_.validity)
 		{
@@ -194,8 +210,9 @@ void AutoDrive::doReverseWork()
 		}
 		loop_rate.sleep();
 	}
-
-
+	reverse_controler_.stopCurrentWork();
+	ROS_INFO("[%s] reverse work complete.", __NAME__);
+	system_state_ = State_Stop;
 }
 
 /* @brief 根据系统状态设置档位，直到档位设置成功，函数退出
@@ -383,6 +400,7 @@ bool AutoDrive::loadVehicleParams()
 {
 	bool ok = true;
 	vehicle_params_.max_roadwheel_angle = nh_private_.param<float>("vehicle/max_roadwheel_angle",0.0);
+	vehicle_params_.min_roadwheel_angle = nh_private_.param<float>("vehicle/min_roadwheel_angle",0.0);
 	vehicle_params_.max_speed = nh_private_.param<float>("vehicle/max_speed",0.0);
 	vehicle_params_.wheel_base = nh_private_.param<float>("vehicle/wheel_base",0.0);
 	vehicle_params_.wheel_track = nh_private_.param<float>("vehicle/wheel_track",0.0);
@@ -392,6 +410,11 @@ bool AutoDrive::loadVehicleParams()
 	if(vehicle_params_.max_roadwheel_angle == 0.0)
 	{
 		ROS_ERROR("[%s] No parameter %s/vehicle/max_roadwheel_angle.",__NAME__,node.c_str());
+		ok = false;
+	}
+	if(vehicle_params_.min_roadwheel_angle == 0.0)
+	{
+		ROS_ERROR("[%s] No parameter %s/vehicle/min_roadwheel_angle.",__NAME__,node.c_str());
 		ok = false;
 	}
 	if(vehicle_params_.max_speed == 0.0)
