@@ -3,31 +3,22 @@
 #define __NAME__ "reverse_drive"
 #define MAX_SPEED 5.0 //km/h
 
-/* 倒车控制器，
- * 调用方式1：使用actionlib实现倒车路径规划，然后进行倒车控制
- * 提供两种服务 1.指定目标点进行路径规划然后倒车控制
- *            2.指定倒车路径然后进行倒车路径跟踪
- * 
- * 调用方式2: 设置外部调用类成员函数进行路径配置和运动控制
+/* 倒车控制器
 */
 ReverseDrive::ReverseDrive():
-    AutoDriveBase(__NAME__),
-    as_(NULL)
+    AutoDriveBase(__NAME__)
 {
     preview_dis_ = 2.0;
 }
 ReverseDrive::~ReverseDrive()
 {
-    this->stopCurrentWork();
-    if(as_)
-    {
-        delete as_;
-        as_ = NULL;
-    }
+    this->stop();
 }
 
+/*@brief 初始化倒车控制器*/
 bool ReverseDrive::init(ros::NodeHandle nh,ros::NodeHandle nh_private)
 {
+    if(is_initialed_) return true;
     nh_ = nh;
     nh_private_ = nh_private;
 
@@ -39,83 +30,20 @@ bool ReverseDrive::init(ros::NodeHandle nh,ros::NodeHandle nh_private)
     }
     exp_speed_ = max_speed_;
     //启动actionlib 服务器，监听外部请求并执行相应操作
-    as_ = new ActionlibServer(nh_private_, "do_reverse", 
-                              boost::bind(&ReverseDrive::executeCallback,this, _1), false);
-    as_->start();
+    is_initialed_ = true;
     return true;
 }
 
 bool ReverseDrive::start()
 {
+    //如果有正在执行的任务，则先终止
     if(is_running_)
-    	stopCurrentWork();
+    	stop();
 
     is_running_ = true;
     std::thread t(&ReverseDrive::reverseControlThread, this);
     t.detach();
     return true;
-}
-
-void ReverseDrive::stopCurrentWork()
-{
-    is_running_ = false;
-    //直到工作线程退出，此处才会获得锁，然后退出
-    std::lock_guard<std::mutex> lck(working_mutex_); 
-}
-
-void ReverseDrive::executeCallback(const driverless::DoReverseGoalConstPtr& goal)
-{
-    //此处需要如此判断？
-    if(as_->isPreemptRequested())  //请求抢占
-    {
-        this->stopCurrentWork();
-        if(!as_->isNewGoalAvailable()) //无新目标，待测试
-            return;
-    }
-
-    if(goal->type == goal->POSE_TYPE) //给定倒车目标点位置
-    {
-        Pose target_pose;
-        target_pose.x = goal->target_pose.x;
-        target_pose.y = goal->target_pose.y;
-        target_pose.yaw = goal->target_pose.theta;
-        if(!reversePathPlan(target_pose))
-        {
-            driverless::DoReverseResult res;
-            res.success = false;
-
-            as_->setAborted(res, "Aborting on reverse goal, because it is invalid ");
-            return;
-        }
-    }
-    else if(goal->type == goal->PATH_TYPE) //给定倒车路径
-    {
-        size_t len = goal->target_path.size();
-        reverse_path_.points.reserve(len);
-
-        for(const geometry_msgs::Pose2D& pose : goal->target_path)
-        {
-            GpsPoint point;
-            point.x = pose.x;
-            point.y = pose.y;
-            point.yaw = pose.theta;
-
-            reverse_path_.points.push_back(point);
-        }
-    }
-
-    if(!extendPath(reverse_path_,2*preview_dis_)) //路径拓展延伸
-    {
-        driverless::DoReverseResult res;
-        res.success = false;
-        as_->setAborted(res, "Aborting on reverse path, because it is invalid ");
-        return;
-    }
-
-    std::thread t(&ReverseDrive::reverseControlThread, this);
-    t.detach();
-
-    //as_->setSucceeded();
 }
 
 /*@brief 倒车路径规划
@@ -145,11 +73,6 @@ void ReverseDrive::reverseControlThread()
 		ROS_ERROR("[%s] Remaind target path is too short! nearest_point_index:%lu", __NAME__, nearest_index);
 		publishDiagnosticMsg(diagnostic_msgs::DiagnosticStatus::ERROR,"Remaind target path is too short!");
 		is_running_ = false;
-
-        driverless::DoReverseResult res;
-        res.success = false;
-        as_->setAborted(res, "Aborting on reverse path, because it is invalid ");
-		return ;
 	}
 	
 	ROS_INFO("[%s] Current path is validity, ready to reverse tracking.", __NAME__);
@@ -224,11 +147,6 @@ void ReverseDrive::reverseControlThread()
 		
 		ROS_INFO("[%s] expect speed: %.2f\t expect angle: %.2f", __NAME__, exp_speed_, t_roadWheelAngle);
 		
-//        driverless::DoReverseFeedback feedback;
-//        feedback.speed = t_speed;
-//        feedback.steer_angle = t_roadWheelAngle;
-//        as_->publishFeedback(feedback);
-
         loop_rate.sleep();
     }
     cmd_mutex_.lock();
@@ -265,3 +183,9 @@ bool ReverseDrive::loadReversePath(const std::string& file, bool reverse)
     return extendPath(reverse_path_, 2*preview_dis_);
 }
 
+void ReverseDrive::stop()
+{
+    is_running_ = false;
+    //直到工作线程退出，此处才会获得锁，然后退出
+    std::lock_guard<std::mutex> lck(working_mutex_); 
+}

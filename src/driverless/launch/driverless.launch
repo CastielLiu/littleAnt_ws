@@ -21,7 +21,6 @@
 	<node name="driverless_node" pkg="driverless" type="driverless_node" output="screen">
 		<rosparam file="$(find driverless)/config/params.yaml" command="load"/>
 		<!-- main -->
-		<param name="path_points_file" value="$(arg roadnet_file)"/>
 		<param name="max_speed" value="$(arg max_speed)"/>
 		<param name="odom_topic" value="/ll2utm_odom"/>
 		
@@ -34,14 +33,18 @@
 		<param name="base_link_frame" value="/base_link"/>
 		<param name="target_repeat_threshold" value="5"/>   <!-- 目标重复出现阈值，超出此阈值开始跟车 -->
 		
-		<!-- extern_control -->dwdewqdwqd
+		<!-- extern_control -->
 		<param name="extern_ip" value=""/>
 		<param name="extern_port" value="5000"/>
 
-		<!-- reverse control -->
-		<param name="max_speed" value="3.0"/>
+		<!-- reverse control test-->
 		<param name="reverse_test" value="false"/>
+		<param name="reverse_path_flip" value="false"/>
 		<param name="reverse_path_file" value="$(arg roadnet_file)"/>
+
+		<!-- drive control test -->
+		<param name="drive_test" value="false"/>
+		<param name="drive_path_file" value="$(arg roadnet_file)"/>
 
 	</node> 
 	

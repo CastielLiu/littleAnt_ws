@@ -34,6 +34,7 @@ add_message_files(
 add_action_files(DIRECTORY action 
   FILES 
   DoReverse.action
+  DoDriverlessTask.action
   )
 
 ## Generate added messages and services with any dependencies listed here
@@ -54,6 +55,7 @@ catkin_package(
 )
 
 include_directories(
+  include ${catkin_INCLUDE_DIRS}
   include
   ${catkin_INCLUDE_DIRS}
 )
@@ -61,6 +63,7 @@ include_directories(
 #add_executable(${PROJECT_NAME}_node src/driverless_node.cpp src/path_tracking.cpp src/car_following.cpp src/extern_control.cpp)
 add_executable(${PROJECT_NAME}_node src/auto_drive_base.cpp 
                                     src/driverless_node.cpp 
+                                    src/driverless_fun.cpp
                                     src/path_tracking.cpp
                                     src/car_following.cpp
                                     src/extern_control.cpp

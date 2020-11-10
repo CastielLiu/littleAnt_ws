@@ -1,5 +1,6 @@
 
 #include <ros/ros.h>
+#include <memory>
 #include "path_tracking.h"
 #include "car_following.h"
 #include "extern_control.h"
@@ -13,10 +14,18 @@
 #include <ant_msgs/State4.h>  //steerAngle
 #include "auto_drive_base.h"
 
+#include <actionlib/client/simple_action_client.h>
+#include <actionlib/server/simple_action_server.h>
+#include <driverless/DoReverseAction.h> // Note: "Action" is appended
+#include <driverless/DoDriverlessTaskAction.h>   // Note: "Action" is appended
+
 
 class AutoDrive : public AutoDriveBase
 {
 public:
+    typedef actionlib::SimpleActionClient<driverless::DoDriverlessTaskAction> DoDriverlessTaskClient;
+    typedef actionlib::SimpleActionServer<driverless::DoDriverlessTaskAction> DoDriverlessTaskServer;
+
     AutoDrive();
     ~AutoDrive();
     virtual bool init(ros::NodeHandle nh,ros::NodeHandle nh_private) override;
@@ -24,15 +33,23 @@ public:
 
     enum State
     {
-        State_Stop    = 0,  //停止
-        State_Drive   = 1,  //前进
-        State_Reverse = 2,  //后退
+        State_Stop    = 0,  //停止,速度置零/切空挡/拉手刹/车辆停止后跳转到空闲模式
+        State_Drive   = 1,  //前进,前进档
+        State_Reverse = 2,  //后退,后退档
         State_Idle    = 3,  //空闲, 停止控制指令发送，退出自动驾驶模式
+        State_SwitchToDrive  = 4,  //任务切换为前进，
+                                   //①若当前为R挡，速度置零->切N挡->切D档
+                                   //②若当前为D档，不进行其他操作
+                                   //跳转到前进模式
+        State_SwitchToReverse= 5,  //任务切换为倒车
+                                   //①若当前为R档，不进行其他操作
+                                   //②若当前为D档，速度置零->切N档->切R档
+                                   //跳转到后退模式
     };
 
 private:
     bool loadVehicleParams();
-    bool loadTrackingTaskFile(const std::string& file);
+    bool loadDriveTaskFile(const std::string& file);
 	void publishPathTrackingState();
     bool isGpsPointValid(const GpsPoint& point);
     void vehicleSpeed_callback(const ant_msgs::State2::ConstPtr& msg);
@@ -43,8 +60,9 @@ private:
     void sendCmd1_callback(const ros::TimerEvent&);
 	void sendCmd2_callback(const ros::TimerEvent&);
     void setSendControlCmdEnable(bool flag);
+    void executeDriverlessCallback(const driverless::DoDriverlessTaskGoalConstPtr& goal);
 
-    void decisionMaking();
+    ant_msgs::ControlCmd2 decisionMaking();
 
     bool isReverseGear();
     bool isDriveGear();
@@ -53,12 +71,13 @@ private:
     void workingThread();
     void doDriveWork();
     void doReverseWork();
-    void setVehicleGear(int state);
-    
+    void switchSystemState(int state);
 
-private: 
-    float max_speed_;
-    float max_roadwheelAngle_;
+    void waitGearOk(int gear);
+    void waitSpeedZero();
+    
+private:
+    float expect_speed_;
     bool  use_avoiding_;
     bool  use_car_following_;
     bool  is_offline_debug_;
@@ -77,6 +96,8 @@ private:
     std::mutex cmd1_mutex_, cmd2_mutex_;
 	ant_msgs::ControlCmd1 controlCmd1_;
 	ant_msgs::ControlCmd2 controlCmd2_;
+
+    DoDriverlessTaskServer* as_;
     
     float avoid_offset_;
     PathTracking tracker_;
@@ -90,9 +111,4 @@ private:
 
     ReverseDrive reverse_controler_;
     controlCmd_t  reverse_cmd_;
-
-
-    //debug
-    bool reverse_test_;
-    std::string reverse_path_file_;
 };
