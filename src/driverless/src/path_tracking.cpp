@@ -166,7 +166,7 @@ void PathTracking::trackingThread()
 	}
 	
 	publishDiagnosticMsg(diagnostic_msgs::DiagnosticStatus::OK,"Arrived at the destination.");
-	ROS_INFO("driverless completed...");
+	ROS_INFO("[%s] path_tracking completed...", __NAME__);
 	
 	cmd_mutex_.lock();
 	cmd_.speed = 0.0;

@@ -160,7 +160,11 @@ void AutoDrive::executeDriverlessCallback(const driverless::DoDriverlessTaskGoal
 	          << "goal->task: " << int(goal->task)  << "\t"
 			  << "goal->file: " << goal->roadnet_file <<std::endl;
 
-	handleNewGoal(goal);    
+	handleNewGoal(goal);
+	
+	//while()
+	//setSucceeded  auto 
+	    
 }
 
 void AutoDrive::handleNewGoal(const driverless::DoDriverlessTaskGoalConstPtr& goal)
@@ -169,7 +173,10 @@ void AutoDrive::handleNewGoal(const driverless::DoDriverlessTaskGoalConstPtr& go
                                    //因此只能停车后开始新任务
                                    //实则，若新任务与当前任务驾驶方向一致，只需合理的切换路径文件即可！
                                    //已经预留了切换接口，尚未解决运行中清空历史文件带来的隐患 
-
+	std::lock_guard<std::mutex> lock(current_work_mutex_);  //current work exit ok. the lock will get.
+	
+	//ROS_INFO("[%s] new task received, vehicle has speed zero now.", __NAME__);
+	this->expect_speed_ = goal->expect_speed;
 	if(goal->task == goal->DRIVE_TASK)  //前进任务
     {
         //给定目标点位置，调用路径规划
@@ -213,10 +220,11 @@ void AutoDrive::handleNewGoal(const driverless::DoDriverlessTaskGoalConstPtr& go
 			as_->setAborted(driverless::DoDriverlessTaskResult(), "Aborting on unknown goal type! ");
             return ;
         }
-        this->expect_speed_ = goal->expect_speed;
-        has_new_task_ = true;
+        
+        
         //切换系统状态为: 切换到前进
         switchSystemState(State_SwitchToDrive);
+        has_new_task_ = true;
 		return;
     }
     else if(goal->task == goal->REVERSE_TASK)  //倒车任务
@@ -276,9 +284,10 @@ void AutoDrive::handleNewGoal(const driverless::DoDriverlessTaskGoalConstPtr& go
             return ;
         }
         this->expect_speed_ = goal->expect_speed;
-        has_new_task_ = true;
+        
         //切换系统状态为: 切换到倒车
         switchSystemState(State_SwitchToReverse);
+        has_new_task_ = true;
 		return;
     }
 	else
@@ -296,6 +305,7 @@ void AutoDrive::handleNewGoal(const driverless::DoDriverlessTaskGoalConstPtr& go
 */
 void AutoDrive::switchSystemState(int state)
 {
+	ROS_INFO("[%s] switchSystemState: %d", __NAME__, state);
     system_state_ = state;
 
     //状态为前进，自动驾驶模式开，档位置D
@@ -349,7 +359,8 @@ void AutoDrive::switchSystemState(int state)
     //状态为空闲，停止发送控制指令
 	else if(state == State_Idle)  //空闲
 	{
-		setSendControlCmdEnable(false);
+		//setSendControlCmdEnable(false);
+		setSendControlCmdEnable(true);
 	}
     //状态为停止，自动驾驶模式开, 速度置零，拉手刹
     //车辆停止后，切换为空挡
@@ -375,11 +386,12 @@ void AutoDrive::switchSystemState(int state)
 		controlCmd2_.set_gear = controlCmd2_.GEAR_NEUTRAL;
         cmd2_mutex_.unlock();
 
-        switchSystemState(State_Idle); //递归调用， 状态置为空闲
+        switchSystemState(State_Idle); //递归调用， 状态置为空闲  !!!!
 	}
     //准备切换到前进状态
     else if(state == State_SwitchToDrive)
     {
+    	setSendControlCmdEnable(true);  //启动控制指令发送
         //已经D档，直接退出
         if(isDriveGear()) return;
         
@@ -394,13 +406,13 @@ void AutoDrive::switchSystemState(int state)
 		controlCmd2_.set_brake = 0.0;
 		cmd2_mutex_.unlock();
 
-		setSendControlCmdEnable(true);  //启动控制指令发送
         waitSpeedZero();                //等待速度为0
         switchSystemState(State_Drive); //递归调用，状态置为前进
     }
     //切换到倒车状态
     else if(state == State_SwitchToReverse)
     {
+    	setSendControlCmdEnable(true);  //启动控制指令发送
         //已经为R档，直接返回
         if(isReverseGear()) return;
         
@@ -415,7 +427,6 @@ void AutoDrive::switchSystemState(int state)
 		controlCmd2_.set_brake = 0.0;
 		cmd2_mutex_.unlock();
 
-		setSendControlCmdEnable(true);  //启动控制指令发送
         waitSpeedZero();                //等待速度为0
         switchSystemState(State_Reverse); //递归调用，状态置为倒车
     }
@@ -586,6 +597,10 @@ void AutoDrive::waitSpeedZero()
  */
 void AutoDrive::waitGearOk(int gear)
 {
-    while(ros::ok() && vehicle_state_.getGear() != gear)
-			ros::Duration(0.2).sleep();
+	int try_cnt = 0;
+    while(ros::ok() && vehicle_state_.getGear() != gear && system_state_!= State_Idle)
+    {
+		ros::Duration(0.2).sleep();
+		ROS_INFO("[%s] wait for gear: %d", __NAME__, gear);
+	}
 }

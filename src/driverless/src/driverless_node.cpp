@@ -10,6 +10,9 @@ void AutoDrive::workingThread()
 	is_running_ = true;
 	while(ros::ok() && is_running_)
 	{
+		int state = system_state_;
+		//ROS_INFO("[%s] Current system_state: %d", __NAME__, state);
+		
 		if(!has_new_task_)
 		{
 			loop_rate1.sleep();
@@ -17,17 +20,23 @@ void AutoDrive::workingThread()
 		}
 		has_new_task_ = false;
 
-		if(system_state_ == State_Drive)
+		if(state == State_Drive)
 			doDriveWork();
-		else if(system_state_ == State_Reverse)
+		else if(state == State_Reverse)
 			doReverseWork();
+		else
+			ROS_ERROR("[%s] Unknown task type in current state: %d.", __NAME__, state);
 		
-		switchSystemState(State_Stop);
+		//Can not call switchSystemState(State_Stop) here !!!
+		//Because the expect state has set by doDriveWork/doReverseWork
+
 	}
 }
 
 void AutoDrive::doDriveWork()
 {
+	std::lock_guard<std::mutex> lock(current_work_mutex_);
+	
 	//配置路径跟踪控制器
 	tracker_.setExpectSpeed(expect_speed_);
 	tracker_.start();//路径跟踪控制器
@@ -38,7 +47,7 @@ void AutoDrive::doDriveWork()
 
 	ros::Rate loop_rate(20);
 	
-	while(ros::ok() && system_state_ == State_Drive)
+	while(ros::ok() && system_state_ == State_Drive && tracker_.isRunning())
 	{
 		tracker_cmd_ = tracker_.getControlCmd();
 		follower_cmd_= car_follower_.getControlCmd();
@@ -74,15 +83,22 @@ void AutoDrive::doDriveWork()
 
 		loop_rate.sleep();
 	}
-
-	ROS_INFO("[%s] driverless completed...", __NAME__); 
+	switchSystemState(State_Stop);
+	ROS_INFO("[%s] drive work  completed...", __NAME__); 
 	tracker_.stop();
 	car_follower_.stop();
 	extern_controler_.stop();
+	if(as_->isActive())
+	{
+		as_->setSucceeded(driverless::DoDriverlessTaskResult(), "drive work  completed");
+	}
+	
 }
 
 void AutoDrive::doReverseWork()
 {
+	std::lock_guard<std::mutex> lock(current_work_mutex_);
+	reverse_controler_.setExpectSpeed(expect_speed_);
 	reverse_controler_.start();
 	
 	ros::Rate loop_rate(20);
@@ -110,8 +126,17 @@ void AutoDrive::doReverseWork()
 
 		loop_rate.sleep();
 	}
+	if(as_->isActive())
+	{
+		
+	}
+	switchSystemState(State_Stop);
 	reverse_controler_.stop();
 	ROS_INFO("[%s] reverse work complete.", __NAME__);
+	if(as_->isActive())
+	{
+		as_->setSucceeded(driverless::DoDriverlessTaskResult(), "drive work  completed");
+	}
 }
 
 ant_msgs::ControlCmd2 AutoDrive::decisionMaking()

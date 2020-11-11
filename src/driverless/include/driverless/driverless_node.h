@@ -84,6 +84,7 @@ private:
 
     std::atomic<int> system_state_;
     bool has_new_task_;
+    std::mutex current_work_mutex_;
 
 	ros::Timer cmd1_timer_, cmd2_timer_;
     ros::Subscriber sub_odom_;
