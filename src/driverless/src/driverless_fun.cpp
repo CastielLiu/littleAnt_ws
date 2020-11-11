@@ -72,11 +72,9 @@ bool AutoDrive::init(ros::NodeHandle nh,ros::NodeHandle nh_private)
 	cmd1_timer_ = nh_.createTimer(ros::Duration(0.02), &AutoDrive::sendCmd1_callback,this, false, false);
 	cmd2_timer_ = nh_.createTimer(ros::Duration(0.01), &AutoDrive::sendCmd2_callback,this, false, false);
 	
-	//离线调试,无需系统检查
-	if(is_offline_debug_) return true;
 		
 	// 车辆状态检查，等待初始化
-	while(ros::ok())
+	while(ros::ok() && !is_offline_debug_ ) //若离线调试,无需系统检查
 	{
 		std::string info;
 		if(!vehicle_state_.validity(info))
@@ -157,17 +155,22 @@ bool AutoDrive::init(ros::NodeHandle nh,ros::NodeHandle nh_private)
 
 void AutoDrive::executeDriverlessCallback(const driverless::DoDriverlessTaskGoalConstPtr& goal)
 {
-    switchSystemState(State_Stop); //新请求，无论如何先停止, 暂未解决现任务文件覆盖旧文件导致的自动驾驶异常问题，
+	ROS_INFO("[%s] executeDriverlessCallback!", __NAME__);
+	std::cout << "goal->type: " << int(goal->type)  << "\t"
+	          << "goal->task: " << int(goal->task)  << "\t"
+			  << "goal->file: " << goal->roadnet_file <<std::endl;
+
+	handleNewGoal(goal);    
+}
+
+void AutoDrive::handleNewGoal(const driverless::DoDriverlessTaskGoalConstPtr& goal)
+{
+	switchSystemState(State_Stop); //新请求，无论如何先停止, 暂未解决现任务文件覆盖旧文件导致的自动驾驶异常问题，
                                    //因此只能停车后开始新任务
                                    //实则，若新任务与当前任务驾驶方向一致，只需合理的切换路径文件即可！
-                                   //已经预留了切换接口，尚未解决运行中清空历史文件带来的隐患
+                                   //已经预留了切换接口，尚未解决运行中清空历史文件带来的隐患 
 
-    if(as_->isPreemptRequested())  //请求抢占?
-    {
-        if(!as_->isNewGoalAvailable()) //无新目标，待测试
-            return;
-    }
-    if(goal->task == goal->DRIVE_TASK)  //前进任务
+	if(goal->task == goal->DRIVE_TASK)  //前进任务
     {
         //给定目标点位置，调用路径规划
         if(goal->type == goal->POSE_TYPE) 
@@ -200,19 +203,21 @@ void AutoDrive::executeDriverlessCallback(const driverless::DoDriverlessTaskGoal
                 ROS_ERROR("[%s] Load drive path file failed!", __NAME__);
                 driverless::DoDriverlessTaskResult res;
                 res.success = false;
-                as_->setAborted(res, "Aborting on drive task, because load drive path file failed! ");
+                as_->setSucceeded(res, "Aborting on drive task, because load drive path file failed! ");
                 return ;
             }
         }
         else
         {
             ROS_ERROR("[%s] Request type error!", __NAME__);
+			as_->setAborted(driverless::DoDriverlessTaskResult(), "Aborting on unknown goal type! ");
             return ;
         }
         this->expect_speed_ = goal->expect_speed;
         has_new_task_ = true;
         //切换系统状态为: 切换到前进
         switchSystemState(State_SwitchToDrive);
+		return;
     }
     else if(goal->task == goal->REVERSE_TASK)  //倒车任务
     {
@@ -262,17 +267,27 @@ void AutoDrive::executeDriverlessCallback(const driverless::DoDriverlessTaskGoal
                 as_->setAborted(res, "Aborting on reverse task, because load reverse path file failed! ");
                 return ;
             }
+			ROS_INFO("[%s] load reverse path ok!", __NAME__);
         }
         else
         {
             ROS_ERROR("[%s] Request type error!", __NAME__);
+			as_->setAborted(driverless::DoDriverlessTaskResult(), "Aborting on unknown goal type! ");
             return ;
         }
         this->expect_speed_ = goal->expect_speed;
         has_new_task_ = true;
         //切换系统状态为: 切换到倒车
         switchSystemState(State_SwitchToReverse);
+		return;
     }
+	else
+	{
+		ROS_ERROR("[%s] Unknown task type!", __NAME__);
+		as_->setAborted(driverless::DoDriverlessTaskResult(), "Aborting on unknown task! ");
+		return;
+	}
+	as_->setAborted(driverless::DoDriverlessTaskResult(), "Aborting on unknown error! ");
 }
 
 
@@ -564,7 +579,7 @@ bool AutoDrive::loadDriveTaskFile(const std::string& file)
 void AutoDrive::waitSpeedZero()
 {
     while(ros::ok() && vehicle_state_.getSpeed(LOCK)!=0.0)
-            ros::Duration(0.1).sleep();
+            ros::Duration(0.2).sleep();
 }
 
 /*@brief 等待档位切换成功
@@ -572,5 +587,5 @@ void AutoDrive::waitSpeedZero()
 void AutoDrive::waitGearOk(int gear)
 {
     while(ros::ok() && vehicle_state_.getGear() != gear)
-			ros::Duration(0.1).sleep();
+			ros::Duration(0.2).sleep();
 }

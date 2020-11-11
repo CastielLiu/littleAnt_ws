@@ -46,12 +46,30 @@ void AutoDrive::doDriveWork()
 		
 		auto cmd = this->decisionMaking();
 
-		if(as_->isActive())
+		if(as_->isActive()) //判断action server是否为活动，防止函数的非服务调用导致的错误
 		{
 			driverless::DoDriverlessTaskFeedback feedback;
 			feedback.speed = cmd.set_speed;
 			feedback.steer_angle = cmd.set_roadWheelAngle;
 			as_->publishFeedback(feedback);
+
+			if(as_->isPreemptRequested()) 
+			{
+				ROS_INFO("[%s] isPreemptRequested.", __NAME__);
+				//在执行当前目标的同时，判断是否有新目标到达
+				if(as_->isNewGoalAvailable())
+				{
+					//if we're active and a new goal is available, we'll accept it, but we won't shut anything down
+					driverless::DoDriverlessTaskGoalConstPtr new_goal = as_->acceptNewGoal();
+					handleNewGoal(new_goal);
+					break;
+				}
+				else
+				{
+					as_->setPreempted(); //自主触发中断请求
+					break;
+				}
+			}
 		}
 
 		loop_rate.sleep();

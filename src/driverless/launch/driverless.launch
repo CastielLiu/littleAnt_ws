@@ -18,9 +18,10 @@
 	</node>
 	
 	<!-- 上层控制 -->
-	<node name="driverless_node" pkg="driverless" type="driverless_node" output="screen">
+	<node name="driverless" pkg="driverless" type="driverless_node" output="screen">
 		<rosparam file="$(find driverless)/config/params.yaml" command="load"/>
 		<!-- main -->
+		<param name="is_offline_debug" value="true"/>
 		<param name="max_speed" value="$(arg max_speed)"/>
 		<param name="odom_topic" value="/ll2utm_odom"/>
 		

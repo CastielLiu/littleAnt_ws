@@ -16,7 +16,6 @@
 
 #include <actionlib/client/simple_action_client.h>
 #include <actionlib/server/simple_action_server.h>
-#include <driverless/DoReverseAction.h> // Note: "Action" is appended
 #include <driverless/DoDriverlessTaskAction.h>   // Note: "Action" is appended
 
 
@@ -61,6 +60,7 @@ private:
 	void sendCmd2_callback(const ros::TimerEvent&);
     void setSendControlCmdEnable(bool flag);
     void executeDriverlessCallback(const driverless::DoDriverlessTaskGoalConstPtr& goal);
+    void handleNewGoal(const driverless::DoDriverlessTaskGoalConstPtr& goal);
 
     ant_msgs::ControlCmd2 decisionMaking();
 
