@@ -13,7 +13,7 @@
 #include <ant_msgs/State2.h>  //speed
 #include <ant_msgs/State4.h>  //steerAngle
 #include "auto_drive_base.h"
-
+#include <condition_variable>
 #include <actionlib/client/simple_action_client.h>
 #include <actionlib/server/simple_action_server.h>
 #include <driverless/DoDriverlessTaskAction.h>   // Note: "Action" is appended
@@ -83,8 +83,11 @@ private:
     bool  is_offline_debug_;
 
     std::atomic<int> system_state_;
-    bool has_new_task_;
     std::mutex current_work_mutex_;
+    bool has_new_task_;
+    std::mutex work_cv_mutex_;
+    std::condition_variable work_cv_;
+
 
 	ros::Timer cmd1_timer_, cmd2_timer_;
     ros::Subscriber sub_odom_;

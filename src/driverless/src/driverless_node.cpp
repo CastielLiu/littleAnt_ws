@@ -10,16 +10,14 @@ void AutoDrive::workingThread()
 	is_running_ = true;
 	while(ros::ok() && is_running_)
 	{
+
+		std::unique_lock<std::mutex> lock(work_cv_mutex_);
+		work_cv_.wait(lock, [&](){return has_new_task_;});
+		has_new_task_ = false;
+
 		int state = system_state_;
 		//ROS_INFO("[%s] Current system_state: %d", __NAME__, state);
 		
-		if(!has_new_task_)
-		{
-			loop_rate1.sleep();
-			continue;
-		}
-		has_new_task_ = false;
-
 		if(state == State_Drive)
 			doDriveWork();
 		else if(state == State_Reverse)
@@ -29,14 +27,17 @@ void AutoDrive::workingThread()
 		
 		//Can not call switchSystemState(State_Stop) here !!!
 		//Because the expect state has set by doDriveWork/doReverseWork
-
+		/*此处不可切换系统状态，而需要在上述子任务函数(doDriveWork/doReverseWork)中进行切换,
+		 *子任务中系统状态切换包含两种情况，
+		 *1. 任务完成，切换系统为停止状态
+		 *2. 被新任务打断，切换系统为指定状态
+		 *因此！此处不能再切换系统状态，否则状态机制将被打破，导致任务无法正常运行！
+		 */
 	}
 }
 
 void AutoDrive::doDriveWork()
 {
-	std::lock_guard<std::mutex> lock(current_work_mutex_);
-	
 	//配置路径跟踪控制器
 	tracker_.setExpectSpeed(expect_speed_);
 	tracker_.start();//路径跟踪控制器
@@ -97,7 +98,6 @@ void AutoDrive::doDriveWork()
 
 void AutoDrive::doReverseWork()
 {
-	std::lock_guard<std::mutex> lock(current_work_mutex_);
 	reverse_controler_.setExpectSpeed(expect_speed_);
 	reverse_controler_.start();
 	

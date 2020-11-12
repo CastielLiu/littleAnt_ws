@@ -161,10 +161,15 @@ void AutoDrive::executeDriverlessCallback(const driverless::DoDriverlessTaskGoal
 			  << "goal->file: " << goal->roadnet_file <<std::endl;
 
 	handleNewGoal(goal);
-	
-	//while()
-	//setSucceeded  auto 
-	    
+
+	/*handleNewGoal 将处理目标信息并唤醒工作线程开始工作，
+	 *工作开始后work_cv_mutex_将被加锁，当任务完成后锁被释放，
+	 *此处等待任务完成后再退出当前函数，否则actionlib将认为任务已完成而向客户端反馈完成！
+	 *等待work_cv_mutex_被解锁后即任务任务完成，
+	 *然而需要等待工作线程完成加锁后再尝试加锁，否则当前线程立刻获得锁而直接退出！
+	 */
+	ros::Duration(0.1).sleep(); 
+	std::unique_lock<std::mutex> lock(work_cv_mutex_); //等待工作线程退出  
 }
 
 void AutoDrive::handleNewGoal(const driverless::DoDriverlessTaskGoalConstPtr& goal)
@@ -173,8 +178,9 @@ void AutoDrive::handleNewGoal(const driverless::DoDriverlessTaskGoalConstPtr& go
                                    //因此只能停车后开始新任务
                                    //实则，若新任务与当前任务驾驶方向一致，只需合理的切换路径文件即可！
                                    //已经预留了切换接口，尚未解决运行中清空历史文件带来的隐患 
-	std::lock_guard<std::mutex> lock(current_work_mutex_);  //current work exit ok. the lock will get.
-	
+
+	std::unique_lock<std::mutex> lock(work_cv_mutex_);  //只有当前正在执行的任务退出后，此处才能获得锁
+
 	//ROS_INFO("[%s] new task received, vehicle has speed zero now.", __NAME__);
 	this->expect_speed_ = goal->expect_speed;
 	if(goal->task == goal->DRIVE_TASK)  //前进任务
@@ -225,6 +231,7 @@ void AutoDrive::handleNewGoal(const driverless::DoDriverlessTaskGoalConstPtr& go
         //切换系统状态为: 切换到前进
         switchSystemState(State_SwitchToDrive);
         has_new_task_ = true;
+		work_cv_.notify_one(); //唤醒工作线程
 		return;
     }
     else if(goal->task == goal->REVERSE_TASK)  //倒车任务
@@ -288,6 +295,7 @@ void AutoDrive::handleNewGoal(const driverless::DoDriverlessTaskGoalConstPtr& go
         //切换系统状态为: 切换到倒车
         switchSystemState(State_SwitchToReverse);
         has_new_task_ = true;
+		work_cv_.notify_one(); //唤醒工作线程
 		return;
     }
 	else
