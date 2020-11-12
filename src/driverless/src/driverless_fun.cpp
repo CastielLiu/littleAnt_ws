@@ -254,6 +254,7 @@ void AutoDrive::handleNewGoal(const driverless::DoDriverlessTaskGoalConstPtr& go
                 as_->setAborted(res, "Aborting on reverse goal, because it is invalid ");
                 return;
             }
+            ROS_INFO("[%s] plan reverse path complete.", __NAME__);
         }
         //指定驾驶路径
         else if(goal->type == goal->PATH_TYPE)
@@ -381,13 +382,13 @@ void AutoDrive::switchSystemState(int state)
 	{
 		cmd1_mutex_.lock();
 		controlCmd1_.set_driverlessMode = true;
-		controlCmd1_.set_handBrake = true; //拉手刹
+		controlCmd1_.set_handBrake = false; // true:拉手刹
 		cmd1_mutex_.unlock();
 
 		cmd2_mutex_.lock();
 		//controlCmd2_.set_gear = controlCmd2_.GEAR_NEUTRAL;
-		controlCmd2_.set_speed = 0.0;
-		controlCmd2_.set_brake = 0.0;
+		controlCmd2_.set_speed = 0.0; 
+		controlCmd2_.set_brake = 60;  //
 		controlCmd2_.set_roadWheelAngle = 0.0;
 		controlCmd2_.set_emergencyBrake = false;
 		cmd2_mutex_.unlock();

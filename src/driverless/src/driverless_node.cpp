@@ -10,7 +10,6 @@ void AutoDrive::workingThread()
 	is_running_ = true;
 	while(ros::ok() && is_running_)
 	{
-
 		std::unique_lock<std::mutex> lock(work_cv_mutex_);
 		work_cv_.wait(lock, [&](){return has_new_task_;});
 		has_new_task_ = false;
@@ -104,10 +103,10 @@ void AutoDrive::doReverseWork()
 	ros::Rate loop_rate(20);
 	while(ros::ok() && system_state_ == State_Reverse && reverse_controler_.isRunning())
 	{
-		ROS_INFO("[%s] new cycle.", __NAME__);
+		//ROS_INFO("[%s] new cycle.", __NAME__);
 		reverse_cmd_ = reverse_controler_.getControlCmd();
 		
-		ROS_INFO("[%s] speed: %.2f\t angle: %.2f", __NAME__, reverse_cmd_.speed, reverse_cmd_.roadWheelAngle);
+		//ROS_INFO("[%s] speed: %.2f\t angle: %.2f", __NAME__, reverse_cmd_.speed, reverse_cmd_.roadWheelAngle);
 		
 		if(reverse_cmd_.validity)
 		{
@@ -122,6 +121,24 @@ void AutoDrive::doReverseWork()
 			feedback.speed = reverse_cmd_.speed;
 			feedback.steer_angle = reverse_cmd_.roadWheelAngle;
 			as_->publishFeedback(feedback);
+			
+			if(as_->isPreemptRequested()) 
+			{
+				ROS_INFO("[%s] isPreemptRequested.", __NAME__);
+				//在执行当前目标的同时，判断是否有新目标到达
+				if(as_->isNewGoalAvailable())
+				{
+					//if we're active and a new goal is available, we'll accept it, but we won't shut anything down
+					driverless::DoDriverlessTaskGoalConstPtr new_goal = as_->acceptNewGoal();
+					handleNewGoal(new_goal);
+					break;
+				}
+				else
+				{
+					as_->setPreempted(); //自主触发中断请求
+					break;
+				}
+			}
 		}
 
 		loop_rate.sleep();

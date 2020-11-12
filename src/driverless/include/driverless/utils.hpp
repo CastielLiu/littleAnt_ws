@@ -26,7 +26,7 @@ static bool loadPathPoints(std::string file_path,Path& path)
 	}
 	GpsPoint point;
 	std::string line;
-	
+	path.points.clear();
 	while(in_file.good())
 	{
 		getline(in_file,line);
@@ -272,7 +272,7 @@ static float calculateDis2path(const double& x,const double& y,
 							pow(path_points[ref_point_index-1].y - y, 2);
 		float dis2next = pow(path_points[ref_point_index+1].x - x, 2) + 
 							pow(path_points[ref_point_index+1].y - y, 2);
-	//std::cout  << ref_point_index << "\t" <<  sqrt(dis2last)  << "\t" << sqrt(dis2ref) << "\t" << sqrt(dis2next) << "\r\n";		
+//	std::cout  << ref_point_index << "\t" <<  sqrt(dis2last)  << "\t" << sqrt(dis2ref) << "\t" << sqrt(dis2next) << "\r\n";		
 		if((searchDir == 1 && dis2next > dis2ref) ||
 		   (searchDir ==-1 && dis2last > dis2ref) ||
 		   (searchDir == 0))
@@ -512,11 +512,24 @@ static std::pair<float, float> getDisAndYaw(const Pose& point1, const Pose& poin
 	
 	std::pair<float, float> dis_yaw;
 	dis_yaw.first = sqrt(x * x + y * y);
-	dis_yaw.second = atan2(x,y);
+	dis_yaw.second = atan2(y,x);
 	
 	if(dis_yaw.second <0)
 		dis_yaw.second += 2*M_PI;
 	return dis_yaw;
+}
+
+/*@brief 获取两点间的航向
+ *@param point1 终点
+ *@param point2 起点
+ */
+static float getYaw(const Point& point1, const Point& point2)
+{
+	float yaw = atan2(point1.y - point2.y, point1.x - point2.x);
+	
+	if(yaw <0) yaw += 2*M_PI;
+	
+	return yaw;
 }
 
 /*@brief 利用转弯半径计算前轮转角

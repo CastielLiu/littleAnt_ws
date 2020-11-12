@@ -93,8 +93,8 @@ void PathTracking::trackingThread()
 	while(ros::ok() && is_running_ && !global_path_.finish())
 	{
 		//创建基类数据拷贝
-		VehicleState vhicle = vehicle_state_;
-		const Pose&  pose   = vhicle.pose;
+		VehicleState vehicle = vehicle_state_;
+		const Pose&  pose   = vehicle.pose;
 		
 		//横向偏差,左偏为负,右偏为正
 		lat_err = calculateDis2path(pose.x, pose.y, global_path_, nearest_index, &nearest_index);
@@ -107,7 +107,7 @@ void PathTracking::trackingThread()
 		yaw_err_ = yaw_err; //update the member var
 		lat_err_ = lat_err; //update the member var
 		
-		disThreshold_ = foreSightDis_speedCoefficient_ * vhicle.speed + foreSightDis_latErrCoefficient_ * fabs(lat_err);
+		disThreshold_ = foreSightDis_speedCoefficient_ * vehicle.speed + foreSightDis_latErrCoefficient_ * fabs(lat_err);
 	
 		if(disThreshold_ < min_foresight_distance_) 
 			disThreshold_  = min_foresight_distance_;
@@ -129,14 +129,14 @@ void PathTracking::trackingThread()
         if(sin_theta == 0)
             continue;
 		
-		float turning_radius = (-0.5 * dis_yaw.first)/sin(theta);
+		float turning_radius = (0.5 * dis_yaw.first)/sin(theta);
 
 		float t_roadWheelAngle = generateRoadwheelAngleByRadius(vehicle_params_.wheel_base, turning_radius);
 		
-		t_roadWheelAngle = limitRoadwheelAngleBySpeed(t_roadWheelAngle, vhicle.speed);
+		t_roadWheelAngle = limitRoadwheelAngleBySpeed(t_roadWheelAngle, vehicle.speed);
 		
 		//float curvature_search_distance = disThreshold_ + 13; //曲率搜索距离
-		float curvature_search_distance = vhicle.speed * vhicle.speed/(2 * 1);
+		float curvature_search_distance = vehicle.speed * vehicle.speed/(2 * 1);
 		float max_curvature = maxCurvatureInRange(global_path_, nearest_index, curvature_search_distance);
 
 		float max_speed = generateMaxTolarateSpeedByCurvature(max_curvature, max_side_accel_);
@@ -154,8 +154,11 @@ void PathTracking::trackingThread()
 
 		if((i++)%50==0)
 		{
+			ROS_INFO("final_index: %lu",global_path_.final_index);
 			ROS_INFO("min_r:%.3f\t max_speed:%.1f",1.0/max_curvature, max_speed);
-			ROS_INFO("set_speed:%f\t speed:%f",cmd_.speed ,vhicle.speed*3.6);
+			ROS_INFO("set_speed:%f\t speed:%f",cmd_.speed ,vehicle.speed*3.6);
+			
+			ROS_INFO("yaw: %.2f\t targetYaw:%.2f", pose.yaw*180.0/M_PI , dis_yaw.second *180.0/M_PI);
 			ROS_INFO("dis2target:%.2f\t yaw_err:%.2f\t lat_err:%.2f",dis_yaw.first,yaw_err_*180.0/M_PI,lat_err);
 			ROS_INFO("disThreshold:%f\t expect roadwheel angle:%.2f",disThreshold_,t_roadWheelAngle);
 			ROS_INFO("nearest_point_index:%lu",nearest_index);
