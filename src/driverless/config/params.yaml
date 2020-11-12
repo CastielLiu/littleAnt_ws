@@ -2,7 +2,7 @@
 vehicle:
    max_roadwheel_angle: 25.0
    min_roadwheel_angle: -23.0
-   min_radius:  4.5
+   min_radius:  5.0
    max_speed:   60.0
    wheel_base:  2.15
    wheel_track: 1.2

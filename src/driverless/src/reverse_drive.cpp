@@ -22,6 +22,8 @@ bool ReverseDrive::init(ros::NodeHandle nh,ros::NodeHandle nh_private)
     nh_ = nh;
     nh_private_ = nh_private;
 
+    pub_local_path_ = nh_private_.advertise<nav_msgs::Path>("/local_path",2);
+
     nh_private_.param<float>("max_speed", max_speed_, 3.0);//km/h
     if(max_speed_ > MAX_SPEED)
     {
@@ -47,12 +49,48 @@ bool ReverseDrive::start()
 }
 
 /*@brief 倒车路径规划
+ *@param origin_pose 车辆姿态
  *@param target_pose 目标点姿态
 */
-bool ReverseDrive::reversePathPlan(const Pose& target_pose)
+bool ReverseDrive::reversePathPlan(const Pose& origin_pose, const Pose& target_pose)
 {
-    //reverse_path_.points.push_back(point)
-    return true;
+    float park_rect_width = 2.7;
+    float park_rect_length = 5.0;
+    Pose p2; //车位入口点
+    p2.x = target_pose.x + park_rect_length/2 * sin(target_pose.yaw);
+    p2.y = target_pose.y + park_rect_length/2 * cos(target_pose.yaw);
+    p2.yaw = target_pose.yaw;
+
+    Point p1; //车位前方某点位置
+    p1.x = target_pose.x + (park_rect_length/2+2.0) * sin(target_pose.yaw);
+    p1.y = target_pose.y + (park_rect_length/2+2.0) * cos(target_pose.yaw);
+    Pose p0 = origin_pose; //车辆位置
+
+    Point p0_in_p2 = global2local(p2, p0); //将p0转换到p2坐标系
+    float p2_dis2_line = p0_in_p2.x; //车辆到车库横线的距离(+/-)
+    //最小转弯半径情况下，弧线到车库横线的最小距离
+    float min_dis = vehicle_params_.min_radius * (1-fabs(sin(p0.yaw-p2.yaw))); 
+    if(p2_dis2_line - min_dis < vehicle_params_.width)
+    {
+        ROS_ERROR("[%s] Can not park vehicle, Because too close!", __NAME__);
+        return false;
+    }
+
+    float dx = p0.x - p2.x, dy = p0.y - p2.y;
+    float distance = sqrt(dx*dx + dy*dy);
+    int point_cnt = distance/0.1;
+
+    reverse_path_.points.reserve(point_cnt+1);
+    for(size_t i=0; i<point_cnt+1; ++i)
+    {
+        float t = 1.0*i/point_cnt;
+        GpsPoint point;
+        point.x = pow(1 - t, 2)*p0.x + 2*t*(1 - t)*p1.x + pow(t, 2) * p2.x;
+		point.y = pow(1 - t, 2)*p0.y + 2*t*(1 - t)*p1.y + pow(t, 2) * p2.y;
+        reverse_path_.points.push_back(point);
+    }
+    reverse_path_.final_index = reverse_path_.points.size();
+    return extendPath(reverse_path_, 2*preview_dis_);
 }
 
 void ReverseDrive::reverseControlThread()
@@ -82,10 +120,10 @@ void ReverseDrive::reverseControlThread()
 	float yaw_err, lat_err;
     size_t target_index = nearest_index;
     GpsPoint target_point = reverse_path_[target_index];
-
+    int cnt = 0;
 	while(ros::ok() && is_running_ && !reverse_path_.finish())
 	{
-		ROS_INFO("[%s] new cycle.", __NAME__);
+		//ROS_INFO("[%s] new cycle.", __NAME__);
 		//创建基类数据拷贝
 		VehicleState vhicle = vehicle_state_;
 		const Pose&  pose   = vhicle.pose;
@@ -95,14 +133,10 @@ void ReverseDrive::reverseControlThread()
 		lat_err = calculateDis2path(pose.x, pose.y, reverse_path_, nearest_index, &nearest_index);
 		reverse_path_.pose_index = nearest_index;
 		
-		ROS_INFO("[%s] lateral error: %.2f.", __NAME__, lat_err);
-		
 		//航向偏差,左偏为正,右偏为负
 		yaw_err = reverse_path_[nearest_index].yaw - back_yaw;
 		if(yaw_err > M_PI)       yaw_err -= 2*M_PI;
 		else if(yaw_err < -M_PI) yaw_err += 2*M_PI;
-		
-		ROS_INFO("[%s] yaw error: %.2f.", __NAME__, yaw_err*180.0/M_PI);
 		
         std::pair<float, float> dis_yaw;      //当前点到目标点的距离和航向
         while(ros::ok())
@@ -144,8 +178,14 @@ void ReverseDrive::reverseControlThread()
 		cmd_.speed = t_speed;
 		cmd_.roadWheelAngle = t_roadWheelAngle;
 		cmd_mutex_.unlock();
-		
-		ROS_INFO("[%s] expect speed: %.2f\t expect angle: %.2f", __NAME__, exp_speed_, t_roadWheelAngle);
+
+        if((cnt ++)%10 ==0)
+        {
+            this->publishLocalPath();
+            ROS_INFO("[%s] lateral error: %.2f.", __NAME__, lat_err);
+            ROS_INFO("[%s] yaw error: %.2f.", __NAME__, yaw_err*180.0/M_PI);
+            ROS_INFO("[%s] expect speed: %.2f\t expect angle: %.2f", __NAME__, exp_speed_, t_roadWheelAngle);
+        }
 		
         loop_rate.sleep();
     }
@@ -188,4 +228,34 @@ void ReverseDrive::stop()
     is_running_ = false;
     //直到工作线程退出，此处才会获得锁，然后退出
     std::lock_guard<std::mutex> lck(working_mutex_); 
+}
+
+void ReverseDrive::publishLocalPath()
+{
+    nav_msgs::Path path;
+    path.header.stamp=ros::Time::now();
+    path.header.frame_id="base_link";
+	size_t startIndex = reverse_path_.pose_index;
+	size_t endIndex   = reverse_path_.final_index;
+	if(endIndex <= startIndex)
+		return;
+
+	Pose origin_point = vehicle_state_.getPose(LOCK);
+
+	path.poses.reserve(endIndex-startIndex+1);
+	
+	for(size_t i=startIndex; i<endIndex; ++i)
+	{
+		const auto& global_point = reverse_path_[i];
+		std::pair<float,float> local_point = 
+			global2local(origin_point.x,origin_point.y,-origin_point.yaw, global_point.x,global_point.y);
+		
+		geometry_msgs::PoseStamped poseStamped;
+        poseStamped.pose.position.x = local_point.first;
+        poseStamped.pose.position.y = local_point.second;
+
+        poseStamped.header.frame_id="base_link";
+        path.poses.push_back(poseStamped);
+	}
+	pub_local_path_.publish(path);
 }

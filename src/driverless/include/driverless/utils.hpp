@@ -481,17 +481,24 @@ global2local(float origin_x,float origin_y,float theta, float global_x,float glo
 }
 
 /*@brief 坐标变换
- *@param origin   局部坐标系原点在全局坐标下的位置
- *@param theta    局部坐标系在全局坐标下的角度
+ *@param origin   局部坐标系原点在全局坐标下的位姿
  *@param local   点在局部坐标系下的位置
  *@return        点在全局坐标系下的位置
  */
-static point_t coordinationConvert(point_t origin,float theta, point_t local)
+static Point local2global(const Pose& origin, const Point& local)
 {
-	point_t global;
-	global.x = local.x*cos(theta) - local.y*sin(theta) + origin.x;
-	global.y = local.x*sin(theta) + local.y*cos(theta) + origin.y;
+	Point global;
+	global.x = local.x*cos(origin.yaw) - local.y*sin(origin.yaw) + origin.x;
+	global.y = local.x*sin(origin.yaw) + local.y*cos(origin.yaw) + origin.y;
 	return global;
+}
+
+static Point global2local(const Pose& origin, const Point& global)
+{
+	Point local;
+	local.x  = (global.x-origin.x)*cos(origin.yaw) + (global.y-origin.y)*sin(origin.yaw);
+	local.y = -(global.x-origin.x)*sin(origin.yaw) + (global.y-origin.y)*cos(origin.yaw);
+	return local;
 }
 
 /*@brief 获取两点间的距离以及航向

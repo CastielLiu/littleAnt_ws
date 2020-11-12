@@ -9,11 +9,6 @@ typedef boost::shared_mutex SharedMutex;
 typedef boost::unique_lock<SharedMutex> WriteLock;
 typedef boost::shared_lock<SharedMutex> ReadLock;
 
-typedef struct
-{
-	double x,y;
-}point_t;
-
 
 /*@brief 车辆控制信息*/
 typedef struct ControlCmd
@@ -142,12 +137,21 @@ public:
 	}
 };
 
-
-/*@brief 位姿信息*/
-class Pose
+/*@brief 位置信息*/
+class Point
 {
 public:
-	double x, y, z, yaw;
+	double x,y,z;
+	Point(){}
+	Point(double _x, double _y, double _z=0.0):
+		x(_x), y(_y), z(_z){}
+};
+
+/*@brief 位姿信息*/
+class Pose : public Point
+{
+public:
+	double yaw;
 };
 
 /*@brief 路径点信息*/
@@ -200,6 +204,7 @@ class VehicleParams
 public:
 	float max_roadwheel_angle;
 	float min_roadwheel_angle;
+	float min_radius;
 	float max_speed;
 	float wheel_base;
 	float wheel_track;

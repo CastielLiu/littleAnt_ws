@@ -239,11 +239,15 @@ void AutoDrive::handleNewGoal(const driverless::DoDriverlessTaskGoalConstPtr& go
         //给定目标点位置，调用路径规划
         if(goal->type == goal->POSE_TYPE) 
         {
+			//目标点位置
             Pose target_pose;
             target_pose.x = goal->target_pose.x;
             target_pose.y = goal->target_pose.y;
             target_pose.yaw = goal->target_pose.theta;
-            if(!reverse_controler_.reversePathPlan(target_pose))
+			//获取车辆当前点位置
+			Pose vehicle_pose = vehicle_state_.getPose(LOCK);
+
+            if(!reverse_controler_.reversePathPlan(vehicle_pose, target_pose))
             {
                 driverless::DoDriverlessTaskResult res;
                 res.success = false;
@@ -269,6 +273,7 @@ void AutoDrive::handleNewGoal(const driverless::DoDriverlessTaskGoalConstPtr& go
                 reverse_path.points.push_back(point);
             }
             //reverse_controler_.setPath(reverse_path);
+			//?
 
         }
         //指定路径文件
@@ -524,6 +529,7 @@ bool AutoDrive::loadVehicleParams()
 	bool ok = true;
 	vehicle_params_.max_roadwheel_angle = nh_private_.param<float>("vehicle/max_roadwheel_angle",0.0);
 	vehicle_params_.min_roadwheel_angle = nh_private_.param<float>("vehicle/min_roadwheel_angle",0.0);
+	vehicle_params_.min_radius          = nh_private_.param<float>("vehicle/min_radius",0.0);
 	vehicle_params_.max_speed = nh_private_.param<float>("vehicle/max_speed",0.0);
 	vehicle_params_.wheel_base = nh_private_.param<float>("vehicle/wheel_base",0.0);
 	vehicle_params_.wheel_track = nh_private_.param<float>("vehicle/wheel_track",0.0);
@@ -538,6 +544,11 @@ bool AutoDrive::loadVehicleParams()
 	if(vehicle_params_.min_roadwheel_angle == 0.0)
 	{
 		ROS_ERROR("[%s] No parameter %s/vehicle/min_roadwheel_angle.",__NAME__,node.c_str());
+		ok = false;
+	}
+	if(vehicle_params_.min_radius == 0.0)
+	{
+		ROS_ERROR("[%s] No parameter %s/vehicle/min_radius.",__NAME__,node.c_str());
 		ok = false;
 	}
 	if(vehicle_params_.max_speed == 0.0)
