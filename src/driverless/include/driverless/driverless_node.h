@@ -44,6 +44,7 @@ public:
                                    //①若当前为R档，不进行其他操作
                                    //②若当前为D档，速度置零->切N档->切R档
                                    //跳转到后退模式
+        State_ForceExternControl=6, //强制使用外部控制器状态
     };
 
 private:
@@ -63,7 +64,9 @@ private:
     void executeDriverlessCallback(const driverless::DoDriverlessTaskGoalConstPtr& goal);
     void handleNewGoal(const driverless::DoDriverlessTaskGoalConstPtr& goal);
 
-    ant_msgs::ControlCmd2 decisionMaking();
+    ant_msgs::ControlCmd2 driveDecisionMaking();
+    ant_msgs::ControlCmd2 reverseDecisionMaking();
+    
 
     bool isReverseGear();
     bool isDriveGear();
@@ -84,6 +87,7 @@ private:
     bool  is_offline_debug_;
 
     std::atomic<int> system_state_;
+    int last_system_state_;
     std::atomic<bool> task_processing_;
     bool has_new_task_;
     std::mutex work_cv_mutex_;

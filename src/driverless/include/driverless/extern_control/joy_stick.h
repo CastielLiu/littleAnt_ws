@@ -9,9 +9,10 @@
 enum JoyFunction
 {
     //button
-    button_handBrake = 0,
+    button_angleGradeChange = 0,
     button_setDriverless = 1,
     button_setGear = 2 ,
+    button_hand_brake = 3,
     button_speedRangeDec = 4,
     button_speedRangeAdd = 5,
     button_isManual = 8,
@@ -27,8 +28,8 @@ class JoyCmd
 public:
     float max_speed;
     float max_steer_angle;
-    float speed_grade_cnt; //速度级别数
-    float steer_grade_cnt; //角度级别数
+    int speed_grade_cnt; //速度级别数
+    int steer_grade_cnt; //角度级别数
 
     int  speed_grade = 1;  //速度级别
     float speed_increment; //速度增量

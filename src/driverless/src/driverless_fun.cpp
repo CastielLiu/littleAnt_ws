@@ -332,6 +332,7 @@ void AutoDrive::handleNewGoal(const driverless::DoDriverlessTaskGoalConstPtr& go
 void AutoDrive::switchSystemState(int state)
 {
 	ROS_INFO("[%s] switchSystemState: %d", __NAME__, state);
+	last_system_state_ = system_state_;
     system_state_ = state;
 
     //状态为前进，自动驾驶模式开，档位置D
@@ -385,6 +386,14 @@ void AutoDrive::switchSystemState(int state)
     //状态为空闲，停止发送控制指令
 	else if(state == State_Idle)  //空闲
 	{
+		cmd2_mutex_.lock();
+		controlCmd2_.set_gear = controlCmd2_.GEAR_INITIAL;
+		controlCmd2_.set_speed = 0.0;
+		controlCmd2_.set_brake = 0.0;
+		controlCmd2_.set_roadWheelAngle = 0.0;
+		controlCmd2_.set_emergencyBrake = false;
+		cmd2_mutex_.unlock();
+
 		//setSendControlCmdEnable(false);
 		setSendControlCmdEnable(true);
 	}
@@ -456,6 +465,10 @@ void AutoDrive::switchSystemState(int state)
         waitSpeedZero();                //等待速度为0
         switchSystemState(State_Reverse); //递归调用，状态置为倒车
     }
+	else if(state == State_ForceExternControl)
+	{
+		//No operation
+	}
 }
 
 void AutoDrive::setSendControlCmdEnable(bool flag)
@@ -495,8 +508,23 @@ void AutoDrive::captureExernCmd_callback(const ros::TimerEvent&)
 	extern_cmd_ = extern_controler_.getControlCmd();
 	if(extern_cmd_.validity)
 	{
+		setSendControlCmdEnable(true);
+		if(system_state_ != State_ForceExternControl)
+			switchSystemState(State_ForceExternControl);
 		//extern_cmd_.display("Extern Cmd ");
+		cmd1_mutex_.lock();
+		controlCmd1_.set_handBrake = extern_cmd_.hand_brake;
+		cmd1_mutex_.unlock();
+
+		cmd2_mutex_.lock();
+		controlCmd2_.set_gear = extern_cmd_.gear;
+		controlCmd2_.set_speed = extern_cmd_.speed;
+		controlCmd2_.set_brake = extern_cmd_.brake;
+		controlCmd2_.set_roadWheelAngle = extern_cmd_.roadWheelAngle;
+		cmd2_mutex_.lock();
 	}
+	else
+		switchSystemState(last_system_state_);
 	extern_cmd_mutex_.unlock();
 }
 

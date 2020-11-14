@@ -224,7 +224,7 @@ private:
                 int axes_cnt = recvbuf[5];
                 int buttons_cnt = recvbuf[6];
                 int data_len = axes_cnt*4+buttons_cnt;
-                
+                //std::cout << "received joy00\r\n" ;
                 if(generateCheckValue(recvbuf+7, data_len) != recvbuf[data_len+7])
                     continue;
                 
@@ -234,19 +234,26 @@ private:
                 for(size_t i=0; i<buttons_cnt; ++i)
                     joy_msg.buttons[i] = recvbuf[7+axes_cnt*4+i];
                 
-                if(joy_msg.axes != last_joy_msg.axes || joy_msg.buttons != last_joy_msg.buttons)
+                //if(joy_msg.axes != last_joy_msg.axes || joy_msg.buttons != last_joy_msg.buttons)
                 {
-                    std::lock_guard<std::mutex> lock(cmd_mutex_);
                     if(parseJoyMsgs(joy_msg))
                     {
+                        cmd_mutex_.lock();
                         cmd_.validity = true;
                         cmd_.speed    = joy_cmd_.set_speed;
                         cmd_.brake    = joy_cmd_.set_brake;
                         cmd_.gear     = joy_cmd_.set_gear;
                         cmd_.roadWheelAngle = joy_cmd_.set_steer;
+                        cmd_.hand_brake = joy_cmd_.set_hand_brake;
+                        cmd_mutex_.unlock();
                     }
                     else
+                    {
+                        cmd_mutex_.lock();
                         cmd_.validity = false;
+                        cmd_mutex_.unlock();
+                    }
+                        
                     joy_cmd_.display();
 
                     /*
@@ -274,8 +281,8 @@ private:
             joy_cmd_.is_manual = ! joy_cmd_.is_manual;
         if(!joy_cmd_.is_manual)
             return false;
-        
-        if (joy_msg.buttons[button_handBrake] == 1)    //手刹
+
+        if(joy_msg.buttons[button_hand_brake] == 1)  //手刹
             joy_cmd_.set_hand_brake = !joy_cmd_.set_hand_brake;
         
         if (joy_msg.buttons[button_setGear] == 1)      //档位切换
@@ -291,7 +298,14 @@ private:
                 joy_cmd_.set_gear = ant_msgs::ControlCmd2::GEAR_INITIAL;
         }
 
-        //joy_cmd_.steer_grade = 1/2 ?? 角度档位切换
+        //角度档位切换
+        if (joy_msg.buttons[button_angleGradeChange] == 1)
+        {
+            ++joy_cmd_.steer_grade;
+            if(joy_cmd_.steer_grade > joy_cmd_.steer_grade_cnt)
+                joy_cmd_.steer_grade = 1;
+        }
+
         joy_cmd_.set_steer = joy_msg.axes[axes_steeringAngle] * joy_cmd_.steer_grade * joy_cmd_.steer_increment; 
         
         if(joy_msg.buttons[button_speedRangeAdd] == 1) //速度增档
@@ -350,10 +364,12 @@ private:
         state.speed = msg->vehicle_speed * 3.6 *100;
         state.roadwheelAngle = msg->roadwheelAngle *100 + 5000;
 
-        std::lock_guard<std::mutex> lck(joy_cmd_mutex_);
+        joy_cmd_mutex_.lock();
         state.is_manual = joy_cmd_.is_manual;
         state.speed_grade = joy_cmd_.speed_grade;
         state.steer_grade = joy_cmd_.steer_grade;
+        joy_cmd_mutex_.unlock();
+        
 
         memcpy(vehicle_state_buf_+5, &state ,sizeof(state));
         vehicle_state_buf_[13] = generateCheckValue(vehicle_state_buf_+5, 8);

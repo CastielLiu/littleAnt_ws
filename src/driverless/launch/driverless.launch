@@ -42,10 +42,10 @@
 		<param name="lan_control/local_ip" value=""/>
 		<param name="lan_control/local_port" value="5000"/>
 		<param name="wan_control/image" value="/usb_cam/image_raw"/>
-		<param name="wan_control/server_ip" value="192.168.0.109"/>
+		<param name="wan_control/server_ip" value="36.155.113.13"/>
 		<param name="wan_control/sever_port" value="8617"/>
 		<param name="wan_control/image_cut_h" value="0"/>
-		<param name="wan_control/image_quality" value="90"/>
+		<param name="wan_control/image_quality" value="50"/>
 
 		<!-- reverse control test-->
 		<param name="reverse_test" value="false"/>

@@ -55,7 +55,7 @@ void AutoDrive::doDriveWork()
 		tracker_cmd_ = tracker_.getControlCmd();
 		follower_cmd_= car_follower_.getControlCmd();
 		
-		auto cmd = this->decisionMaking();
+		auto cmd = this->driveDecisionMaking();
 
 		if(as_->isActive()) //判断action server是否为活动，防止函数的非服务调用导致的错误
 		{
@@ -111,9 +111,7 @@ void AutoDrive::doReverseWork()
 		
 		if(reverse_cmd_.validity)
 		{
-			std::lock_guard<std::mutex> lock2(cmd2_mutex_);
-			controlCmd2_.set_speed = reverse_cmd_.speed;
-			controlCmd2_.set_roadWheelAngle = reverse_cmd_.roadWheelAngle;
+			reverseDecisionMaking();
 		}
 
 		if(as_->isActive())
@@ -157,9 +155,13 @@ void AutoDrive::doReverseWork()
 	}
 }
 
-ant_msgs::ControlCmd2 AutoDrive::decisionMaking()
+ant_msgs::ControlCmd2 AutoDrive::driveDecisionMaking()
 {
 	std::lock_guard<std::mutex> lock2(cmd2_mutex_);
+
+	if(system_state_ == State_ForceExternControl)
+		return controlCmd2_;
+	
 //	follower_cmd_.display("follower_cmd");
 
 	if(extern_cmd_.validity && extern_cmd_.speed < tracker_cmd_.speed)
@@ -185,6 +187,17 @@ ant_msgs::ControlCmd2 AutoDrive::decisionMaking()
 	return controlCmd2_;
 }
 
+ant_msgs::ControlCmd2 AutoDrive::reverseDecisionMaking()
+{
+	std::lock_guard<std::mutex> lock2(cmd2_mutex_);
+	if(system_state_ == State_ForceExternControl)
+		return controlCmd2_;
+
+	controlCmd2_.set_speed = reverse_cmd_.speed;
+	controlCmd2_.set_roadWheelAngle = reverse_cmd_.roadWheelAngle;
+
+	return controlCmd2_;
+}
 
 
 int main(int argc, char *argv[])

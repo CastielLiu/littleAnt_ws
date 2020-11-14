@@ -1,7 +1,7 @@
 <!-- -->
 
 <launch>
-	<arg name="device" default="/dev/video1"/>
+	<arg name="device" default="/dev/video0"/>
 	<arg name="show"   default="false"/>
 	<node name="usb_cam" pkg="usb_cam" type="usb_cam_node" launch-prefix="xterm -e">
 		<param name="video_device" value="$(arg device)" />
