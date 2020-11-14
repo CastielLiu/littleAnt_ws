@@ -147,7 +147,6 @@ void PathTracking::trackingThread()
 		cmd_.speed = (expect_speed_>max_speed) ? max_speed : expect_speed_;
 		cmd_.roadWheelAngle = t_roadWheelAngle;
 		cmd_mutex_.unlock();
-		//ROS_INFO("speed:%.2f\t max:%.2f\t e:%.2f",cmd_.speed,max_speed,expect_speed_);
 		
 		publishPathTrackingState();
 		publishNearestIndex();
@@ -157,7 +156,7 @@ void PathTracking::trackingThread()
 			ROS_INFO("final_index: %lu",global_path_.final_index);
 			ROS_INFO("min_r:%.3f\t max_speed:%.1f",1.0/max_curvature, max_speed);
 			ROS_INFO("set_speed:%f\t speed:%f",cmd_.speed ,vehicle.speed*3.6);
-			
+			ROS_INFO("speed:%.2f\t max:%.2f\t ex:%.2f",cmd_.speed,max_speed,expect_speed_);
 			ROS_INFO("yaw: %.2f\t targetYaw:%.2f", pose.yaw*180.0/M_PI , dis_yaw.second *180.0/M_PI);
 			ROS_INFO("dis2target:%.2f\t yaw_err:%.2f\t lat_err:%.2f",dis_yaw.first,yaw_err_*180.0/M_PI,lat_err);
 			ROS_INFO("disThreshold:%f\t expect roadwheel angle:%.2f",disThreshold_,t_roadWheelAngle);

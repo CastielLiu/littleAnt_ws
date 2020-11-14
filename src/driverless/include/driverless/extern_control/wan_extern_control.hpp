@@ -390,6 +390,7 @@ private:
     void imageCallback(const sensor_msgs::Image::ConstPtr &msg)
     {
         if(!is_running_) return ;
+        static int cnt = 0;
 
         cv_bridge::CvImageConstPtr cv_image = cv_bridge::toCvShare(msg, "bgr8");
 
@@ -422,6 +423,7 @@ private:
                                 0, (struct sockaddr*)&sockaddr_, sizeof(sockaddr_));
         if(send_ret < 0)
             printf("send image to server failed!");
+        ROS_INFO("[%s] %d : send image.", name_.c_str(), ++cnt);
     }
 
     void closeSocket()

@@ -4,9 +4,18 @@
 
 #define __NAME__ "driverless"
 
+/*
+	step1. actionlib服务器回调函数(as_callback)收到新目标请求.
+	step2. as_callback唤醒工作线程(workingThread)开始工作，然后as_callback挂起.
+	step3. workingThread任务完成后继续挂起，唤醒as_callback判断是否有新目标.
+	step4. 如果有新任务，返回step2, 否则as_callback退出并再次等待step1.
+	
+	as_callback使用work_cv_条件变量唤醒workingThread;
+	workingThread使用listen_cv_条件变量唤醒as_callback.
+ */
+
 void AutoDrive::workingThread()
 {
-	ros::Rate loop_rate1(10);
 	is_running_ = true;
 	while(ros::ok() && is_running_)
 	{
@@ -20,7 +29,7 @@ void AutoDrive::workingThread()
 		has_new_task_ = false;
 
 		int state = system_state_;
-		//ROS_INFO("[%s] Current system_state: %d", __NAME__, state);
+		ROS_INFO("[%s] Current system_state: %d", __NAME__, state);
 		
 		if(state == State_Drive)
 			doDriveWork();
@@ -28,6 +37,10 @@ void AutoDrive::workingThread()
 			doReverseWork();
 		else
 			ROS_ERROR("[%s] Unknown task type in current state: %d.", __NAME__, state);
+			
+		std::unique_lock<std::mutex> lck(listen_cv_mutex_);
+		request_listen_ = true;
+		listen_cv_.notify_one(); //唤醒监听线程
 		
 		//Can not call switchSystemState(State_Stop) here !!!
 		//Because the expect state has set by doDriveWork/doReverseWork
@@ -67,25 +80,13 @@ void AutoDrive::doDriveWork()
 			if(as_->isPreemptRequested()) 
 			{
 				ROS_INFO("[%s] isPreemptRequested.", __NAME__);
-				//在执行当前目标的同时，判断是否有新目标到达
-				if(as_->isNewGoalAvailable())
-				{
-					//if we're active and a new goal is available, we'll accept it, but we won't shut anything down
-					driverless::DoDriverlessTaskGoalConstPtr new_goal = as_->acceptNewGoal();
-					handleNewGoal(new_goal);
-					break;
-				}
-				else
-				{
-					as_->setPreempted(); //自主触发中断请求
-					break;
-				}
+				as_->setPreempted(); //自主触发中断请求
+				break;
 			}
 		}
 
 		loop_rate.sleep();
 	}
-	switchSystemState(State_Stop);
 	ROS_INFO("[%s] drive work  completed...", __NAME__); 
 	tracker_.stop();
 	car_follower_.stop();
@@ -93,7 +94,7 @@ void AutoDrive::doDriveWork()
 	{
 		as_->setSucceeded(driverless::DoDriverlessTaskResult(), "drive work  completed");
 	}
-	
+	switchSystemState(State_Stop);
 }
 
 void AutoDrive::doReverseWork()
@@ -110,10 +111,10 @@ void AutoDrive::doReverseWork()
 		//ROS_INFO("[%s] speed: %.2f\t angle: %.2f", __NAME__, reverse_cmd_.speed, reverse_cmd_.roadWheelAngle);
 		
 		if(reverse_cmd_.validity)
-		{
 			reverseDecisionMaking();
-		}
-
+		
+		//如果actionlib服务器处于活跃状态，则进行状态反馈并判断是否外部请求中断
+		//如果actionlib服务器未active表明是其他方式请求的工作，比如测试例
 		if(as_->isActive())
 		{
 			driverless::DoDriverlessTaskFeedback feedback;
@@ -121,38 +122,23 @@ void AutoDrive::doReverseWork()
 			feedback.steer_angle = reverse_cmd_.roadWheelAngle;
 			as_->publishFeedback(feedback);
 			
-			if(as_->isPreemptRequested()) 
+			if(as_->isPreemptRequested())  //外部请求中断
 			{
 				ROS_INFO("[%s] isPreemptRequested.", __NAME__);
-				//在执行当前目标的同时，判断是否有新目标到达
-				if(as_->isNewGoalAvailable())
-				{
-					//if we're active and a new goal is available, we'll accept it, but we won't shut anything down
-					driverless::DoDriverlessTaskGoalConstPtr new_goal = as_->acceptNewGoal();
-					handleNewGoal(new_goal);
-					break;
-				}
-				else
-				{
-					as_->setPreempted(); //自主触发中断请求
-					break;
-				}
+				as_->setPreempted(); //自主中断当前任务
+				break;
 			}
 		}
 
 		loop_rate.sleep();
 	}
-	if(as_->isActive())
-	{
-		
-	}
-	switchSystemState(State_Stop);
 	reverse_controler_.stop();
 	ROS_INFO("[%s] reverse work complete.", __NAME__);
 	if(as_->isActive())
 	{
 		as_->setSucceeded(driverless::DoDriverlessTaskResult(), "drive work  completed");
 	}
+	switchSystemState(State_Stop);
 }
 
 ant_msgs::ControlCmd2 AutoDrive::driveDecisionMaking()

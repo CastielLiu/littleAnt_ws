@@ -10,7 +10,9 @@ AutoDrive::AutoDrive():
 	AutoDriveBase(__NAME__),
     avoid_offset_(0.0),
 	system_state_(State_Idle),
+	last_system_state_(State_Idle),
 	has_new_task_(false),
+	request_listen_(false),
 	as_(nullptr)
 {
 	controlCmd1_.set_driverlessMode = true;
@@ -66,8 +68,9 @@ bool AutoDrive::init(ros::NodeHandle nh,ros::NodeHandle nh_private)
 	//发布
 	pub_cmd1_ = nh_.advertise<ant_msgs::ControlCmd1>("/controlCmd1",1);
 	pub_cmd2_ = nh_.advertise<ant_msgs::ControlCmd2>("/controlCmd2",1);
-	pub_diagnostic_ = nh_.advertise<diagnostic_msgs::DiagnosticStatus>("driverless/diagnostic",1);
-
+	pub_diagnostic_ = nh_.advertise<diagnostic_msgs::DiagnosticStatus>("/driverless/diagnostic",1);
+	pub_new_goal_ = nh_.advertise<driverless::DoDriverlessTaskActionGoal>("/driverless/do_driverless_task/goal", 1);
+	
 	//定时器                                                                           one_shot, auto_start
 	cmd1_timer_ = nh_.createTimer(ros::Duration(0.02), &AutoDrive::sendCmd1_callback,this, false, false);
 	cmd2_timer_ = nh_.createTimer(ros::Duration(0.01), &AutoDrive::sendCmd2_callback,this, false, false);
@@ -167,31 +170,47 @@ bool AutoDrive::init(ros::NodeHandle nh,ros::NodeHandle nh_private)
 
 void AutoDrive::executeDriverlessCallback(const driverless::DoDriverlessTaskGoalConstPtr& goal)
 {
-	ROS_INFO("[%s] executeDriverlessCallback!", __NAME__);
-	std::cout << "goal->type: " << int(goal->type)  << "\t"
-	          << "goal->task: " << int(goal->task)  << "\t"
-			  << "goal->file: " << goal->roadnet_file <<std::endl;
-
 	handleNewGoal(goal);
-
 	/*handleNewGoal 将处理目标信息并唤醒工作线程开始工作，
 	 *工作开始后work_cv_mutex_将被加锁，当任务完成后锁被释放，
 	 *此处等待任务完成后再退出当前函数，否则actionlib将认为任务已完成而向客户端反馈完成！
 	 *等待work_cv_mutex_被解锁后即任务任务完成，
 	 *然而需要等待工作线程完成加锁后再尝试加锁，否则当前线程立刻获得锁而直接退出！
 	 */
-	ros::Duration(0.1).sleep(); 
-	std::unique_lock<std::mutex> lock(work_cv_mutex_); //等待工作线程退出  
+	
+	std::unique_lock<std::mutex> lock(listen_cv_mutex_);
+	listen_cv_.wait(lock, [&](){return request_listen_;});
+	request_listen_ = false;
+	listen_cv_mutex_.unlock();
+	
+	while(ros::ok())
+	{
+		if(as_->isNewGoalAvailable())
+		{
+			//if we're active and a new goal is available, we'll accept it, but we won't shut anything down
+			ROS_INFO("[%s] The current work was interrupted by new request!", __NAME__);
+			driverless::DoDriverlessTaskGoalConstPtr new_goal = as_->acceptNewGoal();
+			handleNewGoal(new_goal);
+			
+			std::unique_lock<std::mutex> lock(listen_cv_mutex_);
+			listen_cv_.wait(lock, [&](){return request_listen_;});
+			request_listen_ = false;
+		}
+	}
 }
 
+/*@brief 处理新目标，对新目标进行预处理/载入相关文件/切换系统状态/唤醒工作线程
+ *@param goal 目标信息
+*/
 void AutoDrive::handleNewGoal(const driverless::DoDriverlessTaskGoalConstPtr& goal)
 {
+	std::cout << "goal->type: " << int(goal->type)  << "\t"
+			      << "goal->task: " << int(goal->task)  << "\t"
+				  << "goal->file: " << goal->roadnet_file <<std::endl;
 	switchSystemState(State_Stop); //新请求，无论如何先停止, 暂未解决新任务文件覆盖旧文件导致的自动驾驶异常问题，
                                    //因此只能停车后开始新任务
                                    //实则，若新任务与当前任务驾驶方向一致，只需合理的切换路径文件即可！
                                    //已经预留了切换接口，尚未解决运行中清空历史文件带来的隐患 
-
-	std::unique_lock<std::mutex> lock(work_cv_mutex_);  //只有当前正在执行的任务退出后，此处才能获得锁
 
 	ROS_INFO("[%s] new task received, vehicle has speed zero now.", __NAME__);
 	this->expect_speed_ = goal->expect_speed;
@@ -239,9 +258,9 @@ void AutoDrive::handleNewGoal(const driverless::DoDriverlessTaskGoalConstPtr& go
             return ;
         }
         
-        
         //切换系统状态为: 切换到前进
         switchSystemState(State_SwitchToDrive);
+        std::unique_lock<std::mutex> lck(work_cv_mutex_);
         has_new_task_ = true;
 		work_cv_.notify_one(); //唤醒工作线程
 		return;
@@ -312,6 +331,7 @@ void AutoDrive::handleNewGoal(const driverless::DoDriverlessTaskGoalConstPtr& go
         
         //切换系统状态为: 切换到倒车
         switchSystemState(State_SwitchToReverse);
+        std::unique_lock<std::mutex> lck(work_cv_mutex_);
         has_new_task_ = true;
 		work_cv_.notify_one(); //唤醒工作线程
 		return;
@@ -428,7 +448,11 @@ void AutoDrive::switchSystemState(int state)
     {
     	setSendControlCmdEnable(true);  //启动控制指令发送
         //已经D档，直接退出
-        if(isDriveGear()) return;
+        if(isDriveGear()) 
+        {
+        	system_state_ = State_Drive;
+        	return;
+        }
         
         //非D档，速度置0，然后切D档
         cmd1_mutex_.lock();
@@ -449,7 +473,11 @@ void AutoDrive::switchSystemState(int state)
     {
     	setSendControlCmdEnable(true);  //启动控制指令发送
         //已经为R档，直接返回
-        if(isReverseGear()) return;
+        if(isReverseGear())
+        {
+        	system_state_ = State_Reverse;
+        	return;
+        }
         
         //非R档，速度置0，然后切R档
         cmd1_mutex_.lock();
@@ -504,8 +532,10 @@ void AutoDrive::sendCmd2_callback(const ros::TimerEvent&)
 
 void AutoDrive::captureExernCmd_callback(const ros::TimerEvent&)
 {
+	static bool last_validity = false;
 	extern_cmd_mutex_.lock();
 	extern_cmd_ = extern_controler_.getControlCmd();
+	//std::cout << "extern_cmd_.validity: " << extern_cmd_.validity << std::endl;
 	if(extern_cmd_.validity)
 	{
 		setSendControlCmdEnable(true);
@@ -521,10 +551,12 @@ void AutoDrive::captureExernCmd_callback(const ros::TimerEvent&)
 		controlCmd2_.set_speed = extern_cmd_.speed;
 		controlCmd2_.set_brake = extern_cmd_.brake;
 		controlCmd2_.set_roadWheelAngle = extern_cmd_.roadWheelAngle;
-		cmd2_mutex_.lock();
+		cmd2_mutex_.unlock();
 	}
-	else
+	else if(last_validity == true)
 		switchSystemState(last_system_state_);
+	last_validity = extern_cmd_.validity;
+	
 	extern_cmd_mutex_.unlock();
 }
 
@@ -654,7 +686,6 @@ bool AutoDrive::loadDriveTaskFile(const std::string& file)
 	}
 	return extendPath(global_path_, 20.0); //路径拓展延伸
 }
-
 
 /*@brief 等待车速减为0
 */

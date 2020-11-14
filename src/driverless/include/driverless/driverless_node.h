@@ -89,9 +89,17 @@ private:
     std::atomic<int> system_state_;
     int last_system_state_;
     std::atomic<bool> task_processing_;
+    
+    //工作线程条件变量
     bool has_new_task_;
     std::mutex work_cv_mutex_;
     std::condition_variable work_cv_;
+    
+    //任务监听线程条件变量
+    bool request_listen_;
+    std::mutex listen_cv_mutex_;
+    std::condition_variable listen_cv_;
+    
 
 	ros::Timer cmd1_timer_, cmd2_timer_;
     ros::Timer capture_extern_cmd_timer_;
@@ -101,6 +109,7 @@ private:
 	ros::Subscriber sub_vehicleState4_;
 
     ros::Publisher pub_cmd1_, pub_cmd2_;
+    ros::Publisher pub_new_goal_;
     
     std::mutex cmd1_mutex_, cmd2_mutex_;
 	ant_msgs::ControlCmd1 controlCmd1_;

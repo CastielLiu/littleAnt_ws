@@ -4,7 +4,7 @@
 	<arg name="roadnet_file" default=""/>     <!--默认为空-->
 	<arg name="max_speed" default="10.0" />
 	<arg name="use_extern_controller" default="true"/>
-	<arg name="which_extern_controller" default="wan_controller"/>
+	<arg name="which_extern_controller" default="lan_controller"/>
 	
 	<!-- 底层控制 -->
 	<arg name="can_port" default="/dev/U4"/>   <!--底层can分析仪-->
@@ -39,13 +39,13 @@
 		<!-- extern_control -->
 		<param name="use_extern_controller" value="true"/>
 		<param name="which_extern_controller" value="$(arg which_extern_controller)"/>
-		<param name="lan_control/local_ip" value=""/>
+		<param name="lan_control/local_ip" value="0.0.0.0"/>
 		<param name="lan_control/local_port" value="5000"/>
 		<param name="wan_control/image" value="/usb_cam/image_raw"/>
-		<param name="wan_control/server_ip" value="36.155.113.13"/>
+		<param name="wan_control/server_ip" value="36.155.113.13"/>  <!--  192.168.8.115-->
 		<param name="wan_control/sever_port" value="8617"/>
-		<param name="wan_control/image_cut_h" value="0"/>
-		<param name="wan_control/image_quality" value="50"/>
+		<param name="wan_control/image_cut_h" value="80"/>
+		<param name="wan_control/image_quality" value="30"/>
 
 		<!-- reverse control test-->
 		<param name="reverse_test" value="false"/>
