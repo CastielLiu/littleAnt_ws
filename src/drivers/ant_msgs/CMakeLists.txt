@@ -16,6 +16,7 @@ add_message_files(
    FILES
    ControlCmd1.msg
    ControlCmd2.msg
+   State.msg
    State1.msg
    State2.msg
    State3.msg

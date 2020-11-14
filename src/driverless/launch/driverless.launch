@@ -3,6 +3,8 @@
 
 	<arg name="roadnet_file" default=""/>     <!--默认为空-->
 	<arg name="max_speed" default="10.0" />
+	<arg name="use_extern_controller" default="true"/>
+	<arg name="which_extern_controller" default="wan_controller"/>
 	
 	<!-- 底层控制 -->
 	<arg name="can_port" default="/dev/U4"/>   <!--底层can分析仪-->
@@ -19,7 +21,7 @@
 	
 	<!-- 上层控制 -->
 	<node name="driverless" pkg="driverless" type="driverless_node" output="screen">
-		<rosparam file="$(find driverless)/config/params.yaml" command="load"/>
+		<rosparam file="$(find driverless)/config/vehicle_params.yaml" command="load"/>
 		<!-- main -->
 		<param name="is_offline_debug" value="true"/>
 		<param name="max_speed" value="$(arg max_speed)"/>
@@ -35,8 +37,15 @@
 		<param name="target_repeat_threshold" value="5"/>   <!-- 目标重复出现阈值，超出此阈值开始跟车 -->
 		
 		<!-- extern_control -->
-		<param name="extern_ip" value=""/>
-		<param name="extern_port" value="5000"/>
+		<param name="use_extern_controller" value="true"/>
+		<param name="which_extern_controller" value="$(arg which_extern_controller)"/>
+		<param name="lan_control/local_ip" value=""/>
+		<param name="lan_control/local_port" value="5000"/>
+		<param name="wan_control/image" value="/usb_cam/image_raw"/>
+		<param name="wan_control/server_ip" value="192.168.0.109"/>
+		<param name="wan_control/sever_port" value="8617"/>
+		<param name="wan_control/image_cut_h" value="0"/>
+		<param name="wan_control/image_quality" value="90"/>
 
 		<!-- reverse control test-->
 		<param name="reverse_test" value="false"/>
@@ -54,6 +63,9 @@
 	
 	<!-- 毫米波雷达 -->
 	<include file="$(find esr_radar)/launch/esr_radar.launch" />
+
+	<!-- 摄像头 -->
+	<include file="$(find driverless)/launch/usb_cam.launch" if="$(arg use_extern_controller)"/>
 	
 
 </launch>

@@ -10,6 +10,11 @@ void AutoDrive::workingThread()
 	is_running_ = true;
 	while(ros::ok() && is_running_)
 	{
+		/*使用条件变量挂起工作线程，等待其他线程请求唤醒，
+		 *为防止虚假唤醒(系统等原因)，带有谓词参数的wait函数，唤醒的同时判断谓词是否满足，否则继续挂起
+		 *条件变量与独占指针搭配使用，首先使用独占指针加锁，wait函数内部进行解锁并等待唤醒信号，线程唤醒后再次加锁
+		 *当前线程被唤醒并开始工作且任务结束前，其他线程无法获得锁，当新任务到达
+		 */
 		std::unique_lock<std::mutex> lock(work_cv_mutex_);
 		work_cv_.wait(lock, [&](){return has_new_task_;});
 		has_new_task_ = false;
@@ -42,8 +47,6 @@ void AutoDrive::doDriveWork()
 	tracker_.start();//路径跟踪控制器
 	//配置跟车控制器
 	car_follower_.start(); //跟车控制器
-	//配置外部控制器
-	extern_controler_.start();
 
 	ros::Rate loop_rate(20);
 	
@@ -51,7 +54,6 @@ void AutoDrive::doDriveWork()
 	{
 		tracker_cmd_ = tracker_.getControlCmd();
 		follower_cmd_= car_follower_.getControlCmd();
-		extern_cmd_ = extern_controler_.getControlCmd();
 		
 		auto cmd = this->decisionMaking();
 
@@ -87,7 +89,6 @@ void AutoDrive::doDriveWork()
 	ROS_INFO("[%s] drive work  completed...", __NAME__); 
 	tracker_.stop();
 	car_follower_.stop();
-	extern_controler_.stop();
 	if(as_->isActive())
 	{
 		as_->setSucceeded(driverless::DoDriverlessTaskResult(), "drive work  completed");
@@ -159,9 +160,7 @@ void AutoDrive::doReverseWork()
 ant_msgs::ControlCmd2 AutoDrive::decisionMaking()
 {
 	std::lock_guard<std::mutex> lock2(cmd2_mutex_);
-//	showCmd(extern_cmd_,"extern_cmd");
-//	showCmd(follower_cmd_,"follower_cmd");
-//	showCmd(tracker_cmd_,"tracker_cmd");
+//	follower_cmd_.display("follower_cmd");
 
 	if(extern_cmd_.validity && extern_cmd_.speed < tracker_cmd_.speed)
 		controlCmd2_.set_speed = extern_cmd_.speed;

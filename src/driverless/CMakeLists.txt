@@ -23,7 +23,13 @@ find_package(catkin REQUIRED COMPONENTS
   actionlib
   actionlib_msgs
   tf
+  cv_bridge 
+  image_transport 
+  sensor_msgs
 )
+
+find_package(OpenCV REQUIRED)
+include_directories(  ${catkin_INCLUDE_DIRS}  ${OpenCV_INCLUDE_DIRS} )
 
 ## Generate messages in the 'msg' folder
 add_message_files(
@@ -56,8 +62,7 @@ catkin_package(
 )
 
 include_directories(
-  include ${catkin_INCLUDE_DIRS}
-  include
+  include 
   ${catkin_INCLUDE_DIRS}
 )
 
@@ -71,7 +76,8 @@ add_executable(${PROJECT_NAME}_node src/auto_drive_base.cpp
                                     src/reverse_drive.cpp)
 
 add_dependencies(${PROJECT_NAME}_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
-target_link_libraries(${PROJECT_NAME}_node ${catkin_LIBRARIES} /usr/local/lib/libtinyxml2.a)
+target_include_directories(${PROJECT_NAME}_node PRIVATE ${OpenCV_INCLUDE_DIR})
+target_link_libraries(${PROJECT_NAME}_node ${catkin_LIBRARIES} ${OpenCV_LIBRARIES} /usr/local/lib/libtinyxml2.a)
 
 
 add_executable(actionlib_client_node src/actionlib_client.cpp)

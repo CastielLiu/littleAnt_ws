@@ -68,14 +68,6 @@ public:
 		cmd_ = cmd;
 	}
 
-
-	virtual void showCmd(const std::string& name)
-	{
-		std::lock_guard<std::mutex> lock(cmd_mutex_);
-		std::cout << name << "\t< valid:" << cmd_.validity << "\tspeed:" << cmd_.speed <<
-				"\tangle:" << cmd_.roadWheelAngle << ">" << std::endl; 
-	}
-
 	virtual bool init(ros::NodeHandle nh,ros::NodeHandle nh_private) = 0;
 	virtual bool start() {is_running_ = true;}
 	virtual void stop() {is_running_=false;}

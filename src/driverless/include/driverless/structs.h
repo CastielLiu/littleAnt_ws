@@ -23,8 +23,21 @@ typedef struct ControlCmd
 	bool  validity;
 	float speed;
 	float roadWheelAngle;
+
+	uint8_t gear;
+	uint8_t brake;
 	uint8_t turnLight; // 0 关灯,1左转,2右转
-	uint8_t stopLight; // 0 关灯,
+	uint8_t stopLight; // 0 关灯
+
+	void display(const std::string& prefix)
+	{
+		std::cout << prefix << "\t["
+			<< "valid:" << validity << "\t" 
+			<< "speed:" << speed << "\t"
+			<< "brake:" << int(brake) << "\t"
+			<< "angle:" << roadWheelAngle 
+			<< "]\r\n"; 
+	}
 	
 } controlCmd_t;
 

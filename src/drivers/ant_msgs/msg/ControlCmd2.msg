@@ -1,5 +1,6 @@
 #IDM_2  0x1C5
 
+uint8 GEAR_INITIAL = 0
 uint8 GEAR_DRIVE   = 1
 uint8 GEAR_REVERSE = 9
 uint8 GEAR_NEUTRAL = 10

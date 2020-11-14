@@ -4,7 +4,6 @@
 
 /*@function 在此文件中定义AutoDrive初始化成员函数、功能函数等
  *          在driverless_node.cpp对关键函数进行定义，分布存储以提高可读性
-
 */
 
 AutoDrive::AutoDrive():
@@ -46,6 +45,7 @@ bool AutoDrive::init(ros::NodeHandle nh,ros::NodeHandle nh_private)
 	nh_private_.param<bool>("use_car_following",use_car_following_,false);
 	nh_private_.param<bool>("use_avoiding",use_avoiding_,false);
 	nh_private_.param<bool>("is_offline_debug",is_offline_debug_,false);
+	nh_private_.param<bool>("use_extern_controller", use_extern_controller_, true);
 	std::string odom_topic = nh_private_.param<std::string>("odom_topic","/ll2utm_odom");
 	
 	initDiagnosticPublisher(nh_,__NAME__);
@@ -110,8 +110,18 @@ bool AutoDrive::init(ros::NodeHandle nh,ros::NodeHandle nh_private)
 	}
     ROS_INFO("[%s] car follower init ok",__NAME__);
     //初始化外部控制器
-    extern_controler_.init(nh_, nh_private_);
-    ROS_INFO("[%s] extern controller init ok",__NAME__);
+	if(use_extern_controller_)
+	{
+		if(extern_controler_.init(nh_, nh_private_) && extern_controler_.start())
+			ROS_INFO("[%s] extern controller init and start ok",__NAME__);
+		else
+		{
+			ROS_ERROR("[%s] Initial or Start extern controller failed!", __NAME__);
+			return false;
+		}
+		capture_extern_cmd_timer_ = nh_.createTimer(ros::Duration(0.05), &AutoDrive::captureExernCmd_callback, this);
+	}
+
     //初始化倒车控制器
     if(!reverse_controler_.init(nh_, nh_private_))
 	{
@@ -121,6 +131,9 @@ bool AutoDrive::init(ros::NodeHandle nh,ros::NodeHandle nh_private)
     ROS_INFO("[%s] reverse controller init ok",__NAME__);
 
     switchSystemState(State_Idle);
+	//启动工作线程，等待新任务唤醒
+	std::thread t(&AutoDrive::workingThread, this);
+	t.detach();
 
 	if(nh_private_.param<bool>("reverse_test", false))   //倒车测试
 	{
@@ -133,6 +146,7 @@ bool AutoDrive::init(ros::NodeHandle nh,ros::NodeHandle nh_private)
 
         switchSystemState(State_Reverse);
 		has_new_task_ = true;
+		work_cv_.notify_one();
 	}
 	else if(nh_private_.param<bool>("drive_test", false)) //前进测试
 	{
@@ -144,11 +158,9 @@ bool AutoDrive::init(ros::NodeHandle nh,ros::NodeHandle nh_private)
 
         switchSystemState(State_Drive);
 		has_new_task_ = true;
+		work_cv_.notify_one();
 	}
 	
-	std::thread t(&AutoDrive::workingThread, this);
-	t.detach();
-
 	is_initialed_ = true;
 	return true;
 }
@@ -174,14 +186,14 @@ void AutoDrive::executeDriverlessCallback(const driverless::DoDriverlessTaskGoal
 
 void AutoDrive::handleNewGoal(const driverless::DoDriverlessTaskGoalConstPtr& goal)
 {
-	switchSystemState(State_Stop); //新请求，无论如何先停止, 暂未解决现任务文件覆盖旧文件导致的自动驾驶异常问题，
+	switchSystemState(State_Stop); //新请求，无论如何先停止, 暂未解决新任务文件覆盖旧文件导致的自动驾驶异常问题，
                                    //因此只能停车后开始新任务
                                    //实则，若新任务与当前任务驾驶方向一致，只需合理的切换路径文件即可！
                                    //已经预留了切换接口，尚未解决运行中清空历史文件带来的隐患 
 
 	std::unique_lock<std::mutex> lock(work_cv_mutex_);  //只有当前正在执行的任务退出后，此处才能获得锁
 
-	//ROS_INFO("[%s] new task received, vehicle has speed zero now.", __NAME__);
+	ROS_INFO("[%s] new task received, vehicle has speed zero now.", __NAME__);
 	this->expect_speed_ = goal->expect_speed;
 	if(goal->task == goal->DRIVE_TASK)  //前进任务
     {
@@ -475,6 +487,17 @@ void AutoDrive::sendCmd2_callback(const ros::TimerEvent&)
 {
 	std::lock_guard<std::mutex> lock(cmd2_mutex_);
 	pub_cmd2_.publish(controlCmd2_);
+}
+
+void AutoDrive::captureExernCmd_callback(const ros::TimerEvent&)
+{
+	extern_cmd_mutex_.lock();
+	extern_cmd_ = extern_controler_.getControlCmd();
+	if(extern_cmd_.validity)
+	{
+		//extern_cmd_.display("Extern Cmd ");
+	}
+	extern_cmd_mutex_.unlock();
 }
 
 void AutoDrive::odom_callback(const nav_msgs::Odometry::ConstPtr& msg)

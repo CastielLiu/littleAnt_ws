@@ -3,8 +3,8 @@
 #include <memory>
 #include "path_tracking.h"
 #include "car_following.h"
-#include "extern_control.h"
 #include "reverse_drive.h"
+#include "extern_control/extern_control.h"
 
 #include <ant_msgs/ControlCmd1.h>
 #include <ant_msgs/ControlCmd2.h>
@@ -58,6 +58,7 @@ private:
     void odom_callback(const nav_msgs::Odometry::ConstPtr& msg);
     void sendCmd1_callback(const ros::TimerEvent&);
 	void sendCmd2_callback(const ros::TimerEvent&);
+    void captureExernCmd_callback(const ros::TimerEvent&);
     void setSendControlCmdEnable(bool flag);
     void executeDriverlessCallback(const driverless::DoDriverlessTaskGoalConstPtr& goal);
     void handleNewGoal(const driverless::DoDriverlessTaskGoalConstPtr& goal);
@@ -83,13 +84,13 @@ private:
     bool  is_offline_debug_;
 
     std::atomic<int> system_state_;
-    std::mutex current_work_mutex_;
+    std::atomic<bool> task_processing_;
     bool has_new_task_;
     std::mutex work_cv_mutex_;
     std::condition_variable work_cv_;
 
-
 	ros::Timer cmd1_timer_, cmd2_timer_;
+    ros::Timer capture_extern_cmd_timer_;
     ros::Subscriber sub_odom_;
     ros::Subscriber sub_vehicleState1_;
 	ros::Subscriber sub_vehicleState2_;
@@ -110,8 +111,10 @@ private:
     CarFollowing car_follower_;
     controlCmd_t follower_cmd_;
  
+    bool use_extern_controller_;
     ExternControl extern_controler_;
     controlCmd_t  extern_cmd_;
+    std::mutex extern_cmd_mutex_;
 
     ReverseDrive reverse_controler_;
     controlCmd_t  reverse_cmd_;
