@@ -49,7 +49,10 @@ bool AutoDrive::handleNewGoal(const driverless::DoDriverlessTaskGoalConstPtr& go
 {
 	std::cout << "goal->type: " << int(goal->type)  << "\t"
 			      << "goal->task: " << int(goal->task)  << "\t"
-				  << "goal->file: " << goal->roadnet_file <<std::endl;
+				  << "goal->file: " << goal->roadnet_file << "\t" 
+				  << "expect_speed: " << goal->expect_speed << "\t"
+				  << "path_resolution: " << goal->path_resolution << "\t"     
+				  << std::endl;
 	switchSystemState(State_Stop); //新请求，无论如何先停止, 暂未解决新任务文件覆盖旧文件导致的自动驾驶异常问题，
                                    //因此只能停车后开始新任务
                                    //实则，若新任务与当前任务驾驶方向一致，只需合理的切换路径文件即可！
@@ -209,7 +212,7 @@ void AutoDrive::workingThread()
 		std::unique_lock<std::mutex> lck(listen_cv_mutex_);
 		request_listen_ = true;
 		listen_cv_.notify_one(); //唤醒监听线程
-		
+
 		//Can not call switchSystemState(State_Stop) here !!!
 		//Because the expect state has set by doDriveWork/doReverseWork
 		/*此处不可切换系统状态，而需要在上述子任务函数(doDriveWork/doReverseWork)中进行切换,

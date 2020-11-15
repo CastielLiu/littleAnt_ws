@@ -64,6 +64,7 @@ bool AutoDrive::init(ros::NodeHandle nh,ros::NodeHandle nh_private)
 	sub_vehicleState1_ = nh_.subscribe("/vehicleState1",1,&AutoDrive::vehicleState1_callback,this);
 	sub_vehicleState2_ = nh_.subscribe("/vehicleState2",1,&AutoDrive::vehicleSpeed_callback,this);
 	sub_vehicleState4_ = nh_.subscribe("/vehicleState4",1,&AutoDrive::vehicleState4_callback,this);
+	sub_new_goal_      = nh_.subscribe("/driverless/expect_path",1,&AutoDrive::goal_callback,this);
 
 	//发布
 	pub_cmd1_ = nh_.advertise<ant_msgs::ControlCmd1>("/controlCmd1",1);
@@ -391,6 +392,23 @@ void AutoDrive::odom_callback(const nav_msgs::Odometry::ConstPtr& msg)
 	pose.yaw = msg->pose.covariance[0];
 	
 	vehicle_state_.setPose(pose);
+}
+
+void AutoDrive::goal_callback(const pathplaning_msgs::expected_path::ConstPtr& msg)
+{
+	driverless::DoDriverlessTaskActionGoal::Ptr  actionGoal = 
+		driverless::DoDriverlessTaskActionGoal::Ptr(new driverless::DoDriverlessTaskActionGoal);
+	actionGoal->header.stamp = ros::Time::now();
+
+	driverless::DoDriverlessTaskGoal& goal = actionGoal->goal;
+	if(msg->direction == msg->DIRECTION_DRIVE)
+		goal.task = goal.DRIVE_TASK;
+	else if(msg->direction == msg->DIRECTION_REVERSE)
+		goal.task = goal.REVERSE_TASK;
+	goal.target_path = msg->points;
+	goal.expect_speed = msg->expect_speed;
+	goal.path_resolution = msg->path_resolution;
+	pub_new_goal_.publish(actionGoal);
 }
 
 void AutoDrive::vehicleSpeed_callback(const ant_msgs::State2::ConstPtr& msg)

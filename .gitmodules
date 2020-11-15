@@ -28,3 +28,6 @@
 [submodule "src/msgs/rs_sdk_percept_msg_v2.0"]
 	path = src/msgs/rs_sdk_percept_msg_v2.0
 	url = https://github.com/shangjie-li/rs_sdk_percept_msg_v2.0.git
+[submodule "src/msgs/pathplan_msgs"]
+	path = src/msgs/pathplan_msgs
+	url = https://github.com/CastielLiu/pathplan_msgs.git

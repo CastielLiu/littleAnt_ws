@@ -26,6 +26,7 @@ find_package(catkin REQUIRED COMPONENTS
   cv_bridge 
   image_transport 
   sensor_msgs
+  pathplaning_msgs
 )
 
 find_package(OpenCV REQUIRED)
