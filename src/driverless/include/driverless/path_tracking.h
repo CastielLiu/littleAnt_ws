@@ -6,6 +6,7 @@
 #include <mutex>
 #include <atomic>
 
+#include <nav_msgs/Path.h>
 #include "auto_drive_base.h"
 #include <std_msgs/UInt32.h>
 #include <nav_msgs/Odometry.h>
@@ -38,11 +39,13 @@ private:
 											float max_side_accel);
 	float generateMaxTolarateSpeedByCurvature(const float& curvature, const float& max_accel);
 	float limitSpeedByCurrentRoadwheelAngle(float speed,float angle);
+	void publishLocalPath();
 	
 private:
 	ros::Timer timer_;
 	ros::Publisher pub_tracking_state_;
 	ros::Publisher pub_nearest_index_;
+	ros::Publisher pub_local_path_;
 
 	driverless::TrackingState tracking_state_;
 	

@@ -70,7 +70,7 @@ bool AutoDrive::init(ros::NodeHandle nh,ros::NodeHandle nh_private)
 	pub_cmd1_ = nh_.advertise<ant_msgs::ControlCmd1>("/controlCmd1",1);
 	pub_cmd2_ = nh_.advertise<ant_msgs::ControlCmd2>("/controlCmd2",1);
 	pub_diagnostic_ = nh_.advertise<diagnostic_msgs::DiagnosticStatus>("/driverless/diagnostic",1);
-	pub_new_goal_ = nh_.advertise<driverless::DoDriverlessTaskActionGoal>("/driverless/do_driverless_task/goal", 1);
+	pub_new_goal_ = nh_.advertise<driverless::DoDriverlessTaskActionGoal>("/do_driverless_task/goal", 1);
 	
 	//定时器                                                                           one_shot, auto_start
 	cmd1_timer_ = nh_.createTimer(ros::Duration(0.02), &AutoDrive::sendCmd1_callback,this, false, false);
@@ -92,7 +92,7 @@ bool AutoDrive::init(ros::NodeHandle nh,ros::NodeHandle nh_private)
 	}
 
 	/*+初始化自动驾驶请求服务器*/
-	as_  = new DoDriverlessTaskServer(nh_private_, "do_driverless_task", 
+	as_  = new DoDriverlessTaskServer(nh_, "do_driverless_task", 
                               boost::bind(&AutoDrive::executeDriverlessCallback,this, _1), false);
     as_->start();
 	/*-初始化自动驾驶请求服务器*/
@@ -405,6 +405,7 @@ void AutoDrive::goal_callback(const pathplaning_msgs::expected_path::ConstPtr& m
 		goal.task = goal.DRIVE_TASK;
 	else if(msg->direction == msg->DIRECTION_REVERSE)
 		goal.task = goal.REVERSE_TASK;
+	goal.type = goal.PATH_TYPE;
 	goal.target_path = msg->points;
 	goal.expect_speed = msg->expect_speed;
 	goal.path_resolution = msg->path_resolution;
@@ -429,7 +430,7 @@ void AutoDrive::vehicleState4_callback(const ant_msgs::State4::ConstPtr& msg)
 {
 	vehicle_state_.setSteerAngle(msg->roadwheelAngle);
 	vehicle_state_.steer_validity = true;
-	ROS_INFO("[%s] vehicleState4_callback.", __NAME__);
+	//ROS_INFO("[%s] vehicleState4_callback.", __NAME__);
 }
 
 void AutoDrive::vehicleState1_callback(const ant_msgs::State1::ConstPtr& msg)
@@ -546,6 +547,7 @@ bool AutoDrive::setDriveTaskPathPoints(const driverless::DoDriverlessTaskGoalCon
 		point.x = pose.x;
 		point.y = pose.y;
 		point.yaw = pose.theta;
+		point.curvature = 0.0;
 		global_path_.points.push_back(point);
 	}
     global_path_.resolution = goal->path_resolution;

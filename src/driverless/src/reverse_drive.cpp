@@ -22,7 +22,7 @@ bool ReverseDrive::init(ros::NodeHandle nh,ros::NodeHandle nh_private)
     nh_ = nh;
     nh_private_ = nh_private;
 
-    pub_local_path_ = nh_private_.advertise<nav_msgs::Path>("/reverse/local_path",2);
+    pub_local_path_ = nh_private_.advertise<nav_msgs::Path>("/local_path",2);
 
     nh_private_.param<float>("max_speed", max_speed_, 3.0);//km/h
     if(max_speed_ > MAX_SPEED)

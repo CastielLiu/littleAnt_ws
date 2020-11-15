@@ -21,8 +21,8 @@ bool PathTracking::init(ros::NodeHandle nh,ros::NodeHandle nh_private)
 {
 	std::string tracking_info_topic = 
 	nh_private.param<std::string>("tracking_info_topic","/tracking_state");
-	nh_private.param<float>("foreSightDis_speedCoefficient", foreSightDis_speedCoefficient_,1.0);
-	nh_private.param<float>("foreSightDis_latErrCoefficient", foreSightDis_latErrCoefficient_,-3.0);
+	nh_private.param<float>("foreSightDis_speedCoefficient", foreSightDis_speedCoefficient_,1.8);
+	nh_private.param<float>("foreSightDis_latErrCoefficient", foreSightDis_latErrCoefficient_,-1.0);
 	nh_private.param<float>("min_foresight_distance",min_foresight_distance_,5.0);
 	nh_private.param<float>("max_side_accel",max_side_accel_,1.0);
 	
@@ -30,6 +30,7 @@ bool PathTracking::init(ros::NodeHandle nh,ros::NodeHandle nh_private)
 
 	pub_tracking_state_ = nh.advertise<driverless::TrackingState>(tracking_info_topic,1);
 	pub_nearest_index_  = nh.advertise<std_msgs::UInt32>("/driverless/nearest_index",1);
+	pub_local_path_ = nh_private_.advertise<nav_msgs::Path>("/local_path",2);
 
 	initDiagnosticPublisher(nh,__NAME__);
 
@@ -117,7 +118,8 @@ void PathTracking::trackingThread()
 		{
 			target_point = global_path_[++target_index];
 			dis_yaw = getDisAndYaw(target_point, pose);
-			//ROS_INFO("global_path_:%d\t target_index:%d",global_path_.size(),target_index);
+//			std::cout << target_point.x << "\t" << target_point.y << "\n"
+//						<< pose.x << "\t" << pose.y << "\t" << dis_yaw.first << std::endl;
 		}
 		float theta = dis_yaw.second - pose.yaw;
 		float sin_theta = sin(theta);
@@ -146,18 +148,22 @@ void PathTracking::trackingThread()
 		
 		publishPathTrackingState();
 		publishNearestIndex();
-
+		
+		
 		if((++cnt)%50==1)
 		{
 			ROS_INFO("final_index: %lu",global_path_.final_index);
 			ROS_INFO("min_r:%.3f\t max_speed:%.1f",1.0/max_curvature, max_speed);
-			ROS_INFO("set_speed:%f\t speed:%f",cmd_.speed ,vehicle_speed*3.6);
-			ROS_INFO("speed:%.2f\t max:%.2f\t ex:%.2f",cmd_.speed,max_speed,expect_speed_);
+			ROS_INFO("max_v: expect:%.1f curve:%.1f  park:%.1f",expect_speed_, max_speed_by_curve, max_speed_by_park);
+			ROS_INFO("set_v:%f\t true_v:%f",cmd_.speed ,vehicle_speed*3.6);
 			ROS_INFO("yaw: %.2f\t targetYaw:%.2f", pose.yaw*180.0/M_PI , dis_yaw.second *180.0/M_PI);
 			ROS_INFO("dis2target:%.2f\t yaw_err:%.2f\t lat_err:%.2f",dis_yaw.first,yaw_err_*180.0/M_PI,lat_err);
 			ROS_INFO("disThreshold:%f\t expect roadwheel angle:%.2f",disThreshold_,t_roadWheelAngle);
-			ROS_INFO("nearest_point_index:%lu",nearest_index);
 			publishDiagnosticMsg(diagnostic_msgs::DiagnosticStatus::OK,"Running");
+			publishLocalPath();
+			ROS_INFO("near_index:%lu\t goal_index:%lu\t final_index:%lu",
+				nearest_index,target_index, global_path_.final_index);
+
 		}
 		loop_rate.sleep();
 	}
@@ -353,4 +359,34 @@ float PathTracking::limitSpeedByCurrentRoadwheelAngle(float speed,float angle)
 	float max_speed =  sqrt(steering_radius*max_side_accel_);
 	
 	return (speed>max_speed? max_speed: speed)*3.6;
+}
+
+void PathTracking::publishLocalPath()
+{
+    nav_msgs::Path path;
+    path.header.stamp=ros::Time::now();
+    path.header.frame_id="base_link";
+	size_t startIndex = global_path_.pose_index;
+	size_t endIndex   = global_path_.final_index;
+	if(endIndex <= startIndex)
+		return;
+
+	Pose origin_point = vehicle_state_.getPose(LOCK);
+
+	path.poses.reserve(endIndex-startIndex+1);
+	
+	for(size_t i=startIndex; i<endIndex; ++i)
+	{
+		const auto& global_point = global_path_[i];
+		std::pair<float,float> local_point = 
+			global2local(origin_point.x,origin_point.y,origin_point.yaw, global_point.x,global_point.y);
+		
+		geometry_msgs::PoseStamped poseStamped;
+        poseStamped.pose.position.x = local_point.first;
+        poseStamped.pose.position.y = local_point.second;
+
+        poseStamped.header.frame_id="base_link";
+        path.poses.push_back(poseStamped);
+	}
+	pub_local_path_.publish(path);
 }
