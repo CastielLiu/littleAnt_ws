@@ -13,7 +13,7 @@
 #include<exception>
 #include<fstream>
 
-/*@param 从文件载入路径点
+/*@param 从文件载入路径点,包括位置，航向，以及路径曲率
  *@return false: 载入失败
  */
 static bool loadPathPoints(std::string file_path,Path& path)
@@ -21,24 +21,34 @@ static bool loadPathPoints(std::string file_path,Path& path)
 	std::ifstream in_file(file_path.c_str());
 	if(!in_file.is_open())
 	{
-		ROS_ERROR("open %s failed",file_path.c_str());
+		ROS_ERROR("LoadPathPoints: Open %s failed",file_path.c_str());
 		return false;
 	}
 	GpsPoint point;
 	std::string line;
-	path.points.clear();
+	path.clear();  //首先清除历史路径点信息
 	while(in_file.good())
 	{
 		getline(in_file,line);
+		if(line.length() == 0)  //处理当文件为空或者末尾空行的情况
+			break;
+
 		std::stringstream ss(line);
 		ss >> point.x >> point.y >> point.yaw >> point.curvature;
 		path.points.push_back(point);
 	}
-	
 	in_file.close();
-	float resolution = 0.1;
+
+	if(path.points.size() == 0)
+		return false;
+
+	float resolution = 0.1;   //实则应从文件读取
 	path.resolution  = resolution;
-	path.final_index = path.points.size() - 1 ;
+	path.final_index = path.points.size() - 1 ;  //设置终点索引为最后一个点
+
+	//算法根据停车点距离控制车速，若没有附加路径信息将导致到达终点前无法减速停车！
+	//因此，此处将终点设为一个永久停车点，
+	path.park_points.points.emplace_back(path.final_index, 0.0); 
 	return true;
 }
 
@@ -48,7 +58,7 @@ static bool loadPathPoints(std::string file_path,Path& path)
  *@3. 
 */
 #include <tinyxml2.h>
-static bool loadPathInfos(const std::string& file, Path& global_path, const std::string& user)
+static bool loadPathAppendInfos(const std::string& file, Path& global_path, const std::string& user)
 {
 	if(global_path.size() == 0)
 	{
@@ -135,6 +145,7 @@ static bool loadPathInfos(const std::string& file, Path& global_path, const std:
 }
 
 /*@brief 拓展路径,防止车辆临近终点时无法预瞄
+ *@param path  需要拓展的路径
  *@param extendDis 拓展长度，保证实际终点距离虚拟终点大于等于extendDis
  */
 static bool extendPath(Path& path, float extendDis)

@@ -168,183 +168,6 @@ bool AutoDrive::init(ros::NodeHandle nh,ros::NodeHandle nh_private)
 	return true;
 }
 
-void AutoDrive::executeDriverlessCallback(const driverless::DoDriverlessTaskGoalConstPtr& goal)
-{
-	handleNewGoal(goal);
-	/*handleNewGoal 将处理目标信息并唤醒工作线程开始工作，
-	 *工作开始后work_cv_mutex_将被加锁，当任务完成后锁被释放，
-	 *此处等待任务完成后再退出当前函数，否则actionlib将认为任务已完成而向客户端反馈完成！
-	 *等待work_cv_mutex_被解锁后即任务任务完成，
-	 *然而需要等待工作线程完成加锁后再尝试加锁，否则当前线程立刻获得锁而直接退出！
-	 */
-	
-	std::unique_lock<std::mutex> lock(listen_cv_mutex_);
-	listen_cv_.wait(lock, [&](){return request_listen_;});
-	request_listen_ = false;
-	listen_cv_mutex_.unlock();
-	
-	while(ros::ok())
-	{
-		if(as_->isNewGoalAvailable())
-		{
-			//if we're active and a new goal is available, we'll accept it, but we won't shut anything down
-			ROS_INFO("[%s] The current work was interrupted by new request!", __NAME__);
-			driverless::DoDriverlessTaskGoalConstPtr new_goal = as_->acceptNewGoal();
-			handleNewGoal(new_goal);
-			
-			std::unique_lock<std::mutex> lock(listen_cv_mutex_);
-			listen_cv_.wait(lock, [&](){return request_listen_;});
-			request_listen_ = false;
-		}
-	}
-}
-
-/*@brief 处理新目标，对新目标进行预处理/载入相关文件/切换系统状态/唤醒工作线程
- *@param goal 目标信息
-*/
-void AutoDrive::handleNewGoal(const driverless::DoDriverlessTaskGoalConstPtr& goal)
-{
-	std::cout << "goal->type: " << int(goal->type)  << "\t"
-			      << "goal->task: " << int(goal->task)  << "\t"
-				  << "goal->file: " << goal->roadnet_file <<std::endl;
-	switchSystemState(State_Stop); //新请求，无论如何先停止, 暂未解决新任务文件覆盖旧文件导致的自动驾驶异常问题，
-                                   //因此只能停车后开始新任务
-                                   //实则，若新任务与当前任务驾驶方向一致，只需合理的切换路径文件即可！
-                                   //已经预留了切换接口，尚未解决运行中清空历史文件带来的隐患 
-
-	ROS_INFO("[%s] new task received, vehicle has speed zero now.", __NAME__);
-	this->expect_speed_ = goal->expect_speed;
-	if(goal->task == goal->DRIVE_TASK)  //前进任务
-    {
-        //给定目标点位置，调用路径规划
-        if(goal->type == goal->POSE_TYPE) 
-        {
-        }
-        //指定驾驶路径
-        else if(goal->type == goal->PATH_TYPE)
-        {/*
-        global_path_.clear(); //此处清空全局路径，是否会导致其他使用该路径的进程出错？
-                              //任务切换时，应暂停其他所有任务
-        size_t len = goal->target_path.size();
-        global_path_.points.reserve(len);
-
-        for(const geometry_msgs::Pose2D& pose : goal->target_path)
-        {
-            GpsPoint point;
-            point.x = pose.x;
-            point.y = pose.y;
-            point.yaw = pose.theta;
-
-            global_path_.points.push_back(point);
-        }
-        global_path_.resolution = goal->path_resolution;*/
-        }
-        //指定路径文件
-        else if(goal->type == goal->FILE_TYPE)
-        {
-            if(!loadDriveTaskFile(goal->roadnet_file))
-            {
-                ROS_ERROR("[%s] Load drive path file failed!", __NAME__);
-                driverless::DoDriverlessTaskResult res;
-                res.success = false;
-                as_->setSucceeded(res, "Aborting on drive task, because load drive path file failed! ");
-                return ;
-            }
-        }
-        else
-        {
-            ROS_ERROR("[%s] Request type error!", __NAME__);
-			as_->setAborted(driverless::DoDriverlessTaskResult(), "Aborting on unknown goal type! ");
-            return ;
-        }
-        
-        //切换系统状态为: 切换到前进
-        switchSystemState(State_SwitchToDrive);
-        std::unique_lock<std::mutex> lck(work_cv_mutex_);
-        has_new_task_ = true;
-		work_cv_.notify_one(); //唤醒工作线程
-		return;
-    }
-    else if(goal->task == goal->REVERSE_TASK)  //倒车任务
-    {
-        //给定目标点位置，调用路径规划
-        if(goal->type == goal->POSE_TYPE) 
-        {
-			//目标点位置
-            Pose target_pose;
-            target_pose.x = goal->target_pose.x;
-            target_pose.y = goal->target_pose.y;
-            target_pose.yaw = goal->target_pose.theta;
-			//获取车辆当前点位置
-			Pose vehicle_pose = vehicle_state_.getPose(LOCK);
-
-            if(!reverse_controler_.reversePathPlan(vehicle_pose, target_pose))
-            {
-                driverless::DoDriverlessTaskResult res;
-                res.success = false;
-                as_->setAborted(res, "Aborting on reverse goal, because it is invalid ");
-                return;
-            }
-            ROS_INFO("[%s] plan reverse path complete.", __NAME__);
-        }
-        //指定驾驶路径
-        else if(goal->type == goal->PATH_TYPE)
-        {
-            size_t len = goal->target_path.size();
-
-            Path reverse_path;
-            reverse_path.points.reserve(len);
-
-            for(const geometry_msgs::Pose2D& pose : goal->target_path)
-            {
-                GpsPoint point;
-                point.x = pose.x;
-                point.y = pose.y;
-                point.yaw = pose.theta;
-
-                reverse_path.points.push_back(point);
-            }
-            //reverse_controler_.setPath(reverse_path);
-			//?
-
-        }
-        //指定路径文件
-        else if(goal->type == goal->FILE_TYPE)
-        {
-            if(!reverse_controler_.loadReversePath(goal->roadnet_file, goal->path_filp))
-            {
-                ROS_ERROR("[%s] load reverse path failed!", __NAME__);
-                driverless::DoDriverlessTaskResult res;
-                res.success = false;
-                as_->setAborted(res, "Aborting on reverse task, because load reverse path file failed! ");
-                return ;
-            }
-			ROS_INFO("[%s] load reverse path ok!", __NAME__);
-        }
-        else
-        {
-            ROS_ERROR("[%s] Request type error!", __NAME__);
-			as_->setAborted(driverless::DoDriverlessTaskResult(), "Aborting on unknown goal type! ");
-            return ;
-        }
-        this->expect_speed_ = goal->expect_speed;
-        
-        //切换系统状态为: 切换到倒车
-        switchSystemState(State_SwitchToReverse);
-        std::unique_lock<std::mutex> lck(work_cv_mutex_);
-        has_new_task_ = true;
-		work_cv_.notify_one(); //唤醒工作线程
-		return;
-    }
-	else
-	{
-		ROS_ERROR("[%s] Unknown task type!", __NAME__);
-		as_->setAborted(driverless::DoDriverlessTaskResult(), "Aborting on unknown task! ");
-		return;
-	}
-	as_->setAborted(driverless::DoDriverlessTaskResult(), "Aborting on unknown error! ");
-}
-
 
 /* @brief 切换系统状态
  * 根据系统状态设置档位，直到档位设置成功。
@@ -664,7 +487,8 @@ bool AutoDrive::loadVehicleParams()
 	return ok;
 }
 
-/*@brief 载入任务文件
+/*@brief 载入前进任务文件，路径点位信息/停车点信息/拓展路径
+		 若路径附加信息文件不存在，不返回错误，以应对非常规路线
 */
 bool AutoDrive::loadDriveTaskFile(const std::string& file)
 {
@@ -676,15 +500,39 @@ bool AutoDrive::loadDriveTaskFile(const std::string& file)
 		return false;
 	}
 
-	//载入路径信息
+	//载入路径附加信息
 	std::string path_infos_file = file.substr(0,file.find_last_of(".")) + "_info.xml";
-	if(!loadPathInfos(path_infos_file, global_path_, __NAME__))
+	if(!loadPathAppendInfos(path_infos_file, global_path_, __NAME__))
 	{
 		ROS_ERROR("[%s] Load path infomation failed!",__NAME__);
 		publishDiagnosticMsg(diagnostic_msgs::DiagnosticStatus::ERROR,"Load path infomation failed!");
-		return false;
+		//return false;
 	}
 	return extendPath(global_path_, 20.0); //路径拓展延伸
+}
+
+bool AutoDrive::setDriveTaskPathPoints(const driverless::DoDriverlessTaskGoalConstPtr& goal)
+{
+	size_t len = goal->target_path.size();
+	if(len == 0) 
+		return false;
+		
+	global_path_.clear();
+	global_path_.points.reserve(len);
+	for(const geometry_msgs::Pose2D& pose : goal->target_path)
+	{
+		GpsPoint point;
+		point.x = pose.x;
+		point.y = pose.y;
+		point.yaw = pose.theta;
+		global_path_.points.push_back(point);
+	}
+    global_path_.resolution = goal->path_resolution;
+	global_path_.final_index = global_path_.points.size() - 1 ;  //设置终点索引为最后一个点
+	//算法根据停车点距离控制车速，若没有附加路径信息将导致到达终点前无法减速停车！
+	//因此，此处将终点设为一个永久停车点，
+	global_path_.park_points.points.emplace_back(global_path_.final_index, 0.0); 
+	return true;
 }
 
 /*@brief 等待车速减为0

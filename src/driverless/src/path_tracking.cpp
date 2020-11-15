@@ -46,8 +46,6 @@ bool PathTracking::start()
 		ROS_ERROR("[%s] System is not ready!",__NAME__);
 		return false;
 	}
-
-	is_running_ = false;
 	if(global_path_.size()==0)
 	{
 		ROS_ERROR("[%s] No global path!",__NAME__);
@@ -65,6 +63,7 @@ bool PathTracking::start()
 		return false;
 	}
 
+	is_running_ = true;
 	std::thread t(&PathTracking::trackingThread,this);
 	t.detach();
 	return true;
@@ -84,30 +83,26 @@ void PathTracking::trackingThread()
 		return ;
 	}
 
-	size_t i =0;
 	ros::Rate loop_rate(30);
-	float yaw_err, lat_err;
 
-	is_running_ = true;
-
+	size_t cnt =0;
 	while(ros::ok() && is_running_ && !global_path_.finish())
 	{
-		//创建基类数据拷贝
-		VehicleState vehicle = vehicle_state_;
-		const Pose&  pose   = vehicle.pose;
+		const Pose pose = vehicle_state_.getPose(LOCK);
+		const float vehicle_speed = vehicle_state_.getSpeed(LOCK);
 		
 		//横向偏差,左偏为负,右偏为正
-		lat_err = calculateDis2path(pose.x, pose.y, global_path_, nearest_index, &nearest_index);
+		float lat_err = calculateDis2path(pose.x, pose.y, global_path_, nearest_index, &nearest_index);
 		global_path_.pose_index = nearest_index; //更新到基类公用变量
 		//航向偏差,左偏为正,右偏为负
-		yaw_err = global_path_[nearest_index].yaw - pose.yaw;
+		float yaw_err = global_path_[nearest_index].yaw - pose.yaw;
 		if(yaw_err > M_PI)       yaw_err -= 2*M_PI;
 		else if(yaw_err < -M_PI) yaw_err += 2*M_PI;
 
 		yaw_err_ = yaw_err; //update the member var
 		lat_err_ = lat_err; //update the member var
 		
-		disThreshold_ = foreSightDis_speedCoefficient_ * vehicle.speed + foreSightDis_latErrCoefficient_ * fabs(lat_err);
+		disThreshold_ = foreSightDis_speedCoefficient_ * vehicle_speed + foreSightDis_latErrCoefficient_ * fabs(lat_err);
 	
 		if(disThreshold_ < min_foresight_distance_) 
 			disThreshold_  = min_foresight_distance_;
@@ -133,14 +128,15 @@ void PathTracking::trackingThread()
 
 		float t_roadWheelAngle = generateRoadwheelAngleByRadius(vehicle_params_.wheel_base, turning_radius);
 		
-		t_roadWheelAngle = limitRoadwheelAngleBySpeed(t_roadWheelAngle, vehicle.speed);
+		t_roadWheelAngle = limitRoadwheelAngleBySpeed(t_roadWheelAngle, vehicle_speed);
 		
 		//float curvature_search_distance = disThreshold_ + 13; //曲率搜索距离
-		float curvature_search_distance = vehicle.speed * vehicle.speed/(2 * 1);
+		float curvature_search_distance = vehicle_speed * vehicle_speed/(2 * 1);
 		float max_curvature = maxCurvatureInRange(global_path_, nearest_index, curvature_search_distance);
 
-		float max_speed = generateMaxTolarateSpeedByCurvature(max_curvature, max_side_accel_);
-		max_speed = limitSpeedByParkingPoint(max_speed);
+		float max_speed_by_curve = generateMaxTolarateSpeedByCurvature(max_curvature, max_side_accel_);
+		float max_speed_by_park =  limitSpeedByParkingPoint(max_speed_by_curve);
+		float max_speed = max_speed_by_park;
 
 		cmd_mutex_.lock();
 		cmd_.validity = true;
@@ -151,11 +147,11 @@ void PathTracking::trackingThread()
 		publishPathTrackingState();
 		publishNearestIndex();
 
-		if((i++)%50==0)
+		if((++cnt)%50==1)
 		{
 			ROS_INFO("final_index: %lu",global_path_.final_index);
 			ROS_INFO("min_r:%.3f\t max_speed:%.1f",1.0/max_curvature, max_speed);
-			ROS_INFO("set_speed:%f\t speed:%f",cmd_.speed ,vehicle.speed*3.6);
+			ROS_INFO("set_speed:%f\t speed:%f",cmd_.speed ,vehicle_speed*3.6);
 			ROS_INFO("speed:%.2f\t max:%.2f\t ex:%.2f",cmd_.speed,max_speed,expect_speed_);
 			ROS_INFO("yaw: %.2f\t targetYaw:%.2f", pose.yaw*180.0/M_PI , dis_yaw.second *180.0/M_PI);
 			ROS_INFO("dis2target:%.2f\t yaw_err:%.2f\t lat_err:%.2f",dis_yaw.first,yaw_err_*180.0/M_PI,lat_err);
@@ -163,7 +159,6 @@ void PathTracking::trackingThread()
 			ROS_INFO("nearest_point_index:%lu",nearest_index);
 			publishDiagnosticMsg(diagnostic_msgs::DiagnosticStatus::OK,"Running");
 		}
-		
 		loop_rate.sleep();
 	}
 	
@@ -182,15 +177,14 @@ void PathTracking::publishPathTrackingState()
 {
 	if(pub_tracking_state_.getNumSubscribers())
 	{
-		const VehicleState vehicle = vehicle_state_;
-		const Pose& pose = vehicle.pose;
-
+		const Pose pose = vehicle_state_.getPose(LOCK);
+		const float speed = vehicle_state_.getSpeed(LOCK);
 		tracking_state_.header.stamp = ros::Time::now();
 		tracking_state_.position_x = pose.x;
 		tracking_state_.position_y = pose.y;
 		tracking_state_.yaw = pose.yaw;
-		tracking_state_.vehicle_speed =  vehicle.speed;
-		tracking_state_.roadwheel_angle = vehicle.steer_angle;
+		tracking_state_.vehicle_speed =  speed;
+		tracking_state_.roadwheel_angle = vehicle_state_.getSteerAngle(LOCK);
 		tracking_state_.lateral_error = lat_err_;
 		tracking_state_.yaw_error = yaw_err_;
 	
@@ -240,19 +234,19 @@ float PathTracking::limitSpeedByParkingPoint(const float& speed,const float& acc
 	//程序初始化时,应将停车点由近及远排序,并将位于当前位置之后的停车点复位
 	if(parking_points.size() == 0)
 	{
-		ROS_ERROR("[%s] No Parking Points!",__NAME__);
+		ROS_DEBUG("[%s] No Parking Points, Speed prohibition!",__NAME__);
 		return 0.0;
 	}
 	
 	//无可用停车点,已经到达终点
 	if(!parking_points.available())
 	{
-		ROS_ERROR("[%s] No Next Parking Point!",__NAME__);
+		ROS_DEBUG("[%s] No Next Parking Point, destination reached!",__NAME__);
 		return 0.0;
 	}
 	
 	while(parking_points.next().index < global_path_.pose_index)
-	{
+	{//更新停车点
 		++ parking_points.next_index;
 		if(!parking_points.available())
 			return 0.0;

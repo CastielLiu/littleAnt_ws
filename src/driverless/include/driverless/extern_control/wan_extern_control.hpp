@@ -37,7 +37,7 @@ typedef struct
 	
 	uint8_t is_manual :1;
 	uint8_t speed_grade :3;
-    uint8_t steer_grade :2;
+    uint8_t steer_grade :3;
 }) StateFeedback_t;
 
 class WanExternControl : public ExternControlBase
@@ -83,8 +83,8 @@ public:
         image_cut_h_ = nh_private.param<int>("wan_control/image_cut_h",0);
         image_quality_ = nh_private.param<int>("wan_control/image_quality",50);
         joy_cmd_.max_steer_angle = nh_private.param<float>("vehicle/max_roadwheel_angle",25.0);
-        joy_cmd_.max_speed  = nh_private.param<float>("vehicle/max_speed",40.0);
-        joy_cmd_.steer_grade_cnt = 2;
+        joy_cmd_.max_speed  = 30.0; //nh_private.param<float>("vehicle/max_speed",40.0);
+        joy_cmd_.steer_grade_cnt = 4;
         joy_cmd_.speed_grade_cnt = 6;
         joy_cmd_.steer_grade = joy_cmd_.speed_grade = 1;
         joy_cmd_.speed_increment = joy_cmd_.max_speed/joy_cmd_.speed_grade_cnt;
@@ -423,7 +423,7 @@ private:
                                 0, (struct sockaddr*)&sockaddr_, sizeof(sockaddr_));
         if(send_ret < 0)
             printf("send image to server failed!");
-        ROS_INFO("[%s] %d : send image.", name_.c_str(), ++cnt);
+        ROS_INFO("[%s] %d : image size: %lu, send size: %d.", name_.c_str(), ++cnt, image_data.size(), send_ret);
     }
 
     void closeSocket()

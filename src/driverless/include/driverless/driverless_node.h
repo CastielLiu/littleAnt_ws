@@ -50,6 +50,7 @@ public:
 private:
     bool loadVehicleParams();
     bool loadDriveTaskFile(const std::string& file);
+    bool setDriveTaskPathPoints(const driverless::DoDriverlessTaskGoalConstPtr& goal);
 	void publishPathTrackingState();
     bool isGpsPointValid(const GpsPoint& point);
     void vehicleSpeed_callback(const ant_msgs::State2::ConstPtr& msg);
@@ -62,7 +63,7 @@ private:
     void captureExernCmd_callback(const ros::TimerEvent&);
     void setSendControlCmdEnable(bool flag);
     void executeDriverlessCallback(const driverless::DoDriverlessTaskGoalConstPtr& goal);
-    void handleNewGoal(const driverless::DoDriverlessTaskGoalConstPtr& goal);
+    bool handleNewGoal(const driverless::DoDriverlessTaskGoalConstPtr& goal);
 
     ant_msgs::ControlCmd2 driveDecisionMaking();
     ant_msgs::ControlCmd2 reverseDecisionMaking();
