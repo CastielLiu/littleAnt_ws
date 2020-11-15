@@ -409,6 +409,8 @@ void AutoDrive::goal_callback(const pathplaning_msgs::expected_path::ConstPtr& m
 	goal.expect_speed = msg->expect_speed;
 	goal.path_resolution = msg->path_resolution;
 	pub_new_goal_.publish(actionGoal);
+
+	ROS_INFO("[%s] Receive expect path from extern path planner.", __NAME__);
 }
 
 void AutoDrive::vehicleSpeed_callback(const ant_msgs::State2::ConstPtr& msg)
@@ -427,6 +429,7 @@ void AutoDrive::vehicleState4_callback(const ant_msgs::State4::ConstPtr& msg)
 {
 	vehicle_state_.setSteerAngle(msg->roadwheelAngle);
 	vehicle_state_.steer_validity = true;
+	ROS_INFO("[%s] vehicleState4_callback.", __NAME__);
 }
 
 void AutoDrive::vehicleState1_callback(const ant_msgs::State1::ConstPtr& msg)

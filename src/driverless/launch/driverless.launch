@@ -3,7 +3,7 @@
 
 	<arg name="roadnet_file" default=""/>     <!--默认为空-->
 	<arg name="max_speed" default="10.0" />
-	<arg name="use_extern_controller" default="false"/>
+	<arg name="use_extern_controller" default="true"/>
 	<arg name="which_extern_controller" default="wan_controller"/>
 	
 	<!-- 底层控制 -->
@@ -20,7 +20,7 @@
 	</node>
 	
 	<!-- 上层控制 -->
-	<node name="driverless_node" pkg="driverless" type="driverless_node" output="screen" required="true">
+	<node name="driverless_node" pkg="driverless" type="driverless_node" output="screen" > <!-- required="true" -->
 		<rosparam file="$(find driverless)/config/vehicle_params.yaml" command="load"/>
 		<!-- main -->
 		<param name="is_offline_debug" value="true"/>
