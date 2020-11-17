@@ -9,8 +9,8 @@
 #include "driverless/structs.h"
 #include "driverless/utils.hpp"
 #include "driverless/auto_drive_base.h"
-#include "lan_extern_control.hpp" 
-#include "wan_extern_control.hpp" 
+#include "lan_control/lan_extern_control.hpp" 
+#include "wan_control/wan_extern_control.hpp" 
 
 class ExternControl : public AutoDriveBase
 {

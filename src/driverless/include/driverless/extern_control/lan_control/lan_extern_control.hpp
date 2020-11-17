@@ -8,7 +8,7 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
-#include "extern_control_base.hpp"
+#include "driverless/extern_control/extern_control_base.hpp"
 
 /*本地局域网socket通讯外部控制器
  *为避免自动驾驶过程中出现意外情况，可在必要时对车速进行干预

@@ -13,12 +13,13 @@
 #include "opencv2/imgproc/imgproc.hpp"
 #include "opencv2/calib3d/calib3d.hpp"
 #include <ant_msgs/ControlCmd2.h>
-#include "extern_control_base.hpp"
+#include "driverless/extern_control/extern_control_base.hpp"
 #include <ant_msgs/State.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include "joy_stick.h"
+#include "steering_guidance.hpp"
 
 #ifndef PACK
 #define PACK( __Declaration__ ) __Declaration__ __attribute__((__packed__))
@@ -58,15 +59,20 @@ private:
     std::mutex udp_fd_mutex_;
     std::mutex working_mutex_;
 
-	int image_cut_h_;
+	int image_cut_up_, image_cut_down_;
 	int image_quality_;
     JoyCmd joy_cmd_;
     std::mutex joy_cmd_mutex_;
 
+    SteeringGuidance* steering_guider_;
+    float steering_angle_;
+
 public:
     WanExternControl():
         ExternControlBase("WanControler"),
-        connect_code_("move0")
+        connect_code_("move0"),
+        steering_guider_(nullptr),
+        steering_angle_(0.0)
     {
         udp_fd_ = -1; 
     }
@@ -80,8 +86,10 @@ public:
         image_topic_ = nh_private.param<std::string>("wan_control/image", "/image_raw");
         socket_ip_   = nh_private.param<std::string>("wan_control/server_ip","");
         socket_port_ = nh_private.param<int>("wan_control/sever_port",-1);
-        image_cut_h_ = nh_private.param<int>("wan_control/image_cut_h",0);
-        image_quality_ = nh_private.param<int>("wan_control/image_quality",50);
+        image_cut_up_ = nh_private.param<int>("wan_control/image_cut_up",0); //图像上部裁剪高度
+        image_cut_down_  = nh_private.param<int>("wan_control/image_cut_down",0);  //图像下部裁剪高度
+        image_quality_ = nh_private.param<int>("wan_control/image_quality",50);  //图像压缩质量
+
         joy_cmd_.max_steer_angle = nh_private.param<float>("vehicle/max_roadwheel_angle",25.0);
         joy_cmd_.max_speed  = 30.0; //nh_private.param<float>("vehicle/max_speed",40.0);
         joy_cmd_.steer_grade_cnt = 4;
@@ -100,6 +108,8 @@ public:
 
         if(!initSocket()) return false;
         if(!connectToServer()) return false;
+
+        steering_guider_ = new SteeringGuidance(nh);
             
         sub_image_ = nh.subscribe(image_topic_, 1, &WanExternControl::imageCallback, this);
         sub_vehicle_state_ = nh.subscribe("/vehicleState",1,&WanExternControl::vehicleStateCallback, this);
@@ -236,7 +246,8 @@ private:
                 
                 //if(joy_msg.axes != last_joy_msg.axes || joy_msg.buttons != last_joy_msg.buttons)
                 {
-                    if(parseJoyMsgs(joy_msg))
+                    std::lock_guard<std::mutex> lck(joy_cmd_mutex_);
+                    if(parseJoyMsgs(joy_msg, joy_cmd_))
                     {
                         cmd_mutex_.lock();
                         cmd_.validity = true;
@@ -274,78 +285,10 @@ private:
         delete [] recvbuf;
     }
 
-    bool parseJoyMsgs(const sensor_msgs::Joy& joy_msg)
-    {
-        std::lock_guard<std::mutex> lck(joy_cmd_mutex_);
-        if (joy_msg.buttons[button_isManual] == 1)
-            joy_cmd_.is_manual = ! joy_cmd_.is_manual;
-        if(!joy_cmd_.is_manual)
-            return false;
-
-        if(joy_msg.buttons[button_hand_brake] == 1)  //手刹
-            joy_cmd_.set_hand_brake = !joy_cmd_.set_hand_brake;
-        
-        if (joy_msg.buttons[button_setGear] == 1)      //档位切换
-        {
-            //I->D->N->R->I
-            if(joy_cmd_.set_gear == ant_msgs::ControlCmd2::GEAR_INITIAL)
-                joy_cmd_.set_gear = ant_msgs::ControlCmd2::GEAR_DRIVE;
-            else if(joy_cmd_.set_gear == ant_msgs::ControlCmd2::GEAR_DRIVE)
-                joy_cmd_.set_gear = ant_msgs::ControlCmd2::GEAR_NEUTRAL;
-            else if(joy_cmd_.set_gear == ant_msgs::ControlCmd2::GEAR_NEUTRAL) 
-                joy_cmd_.set_gear = ant_msgs::ControlCmd2::GEAR_REVERSE;
-            else if(joy_cmd_.set_gear == ant_msgs::ControlCmd2::GEAR_REVERSE)
-                joy_cmd_.set_gear = ant_msgs::ControlCmd2::GEAR_INITIAL;
-        }
-
-        //角度档位切换
-        if (joy_msg.buttons[button_angleGradeChange] == 1)
-        {
-            ++joy_cmd_.steer_grade;
-            if(joy_cmd_.steer_grade > joy_cmd_.steer_grade_cnt)
-                joy_cmd_.steer_grade = 1;
-        }
-
-        joy_cmd_.set_steer = joy_msg.axes[axes_steeringAngle] * joy_cmd_.steer_grade * joy_cmd_.steer_increment; 
-        
-        if(joy_msg.buttons[button_speedRangeAdd] == 1) //速度增档
-        {
-            if (++joy_cmd_.speed_grade > joy_cmd_.speed_grade_cnt) 
-                joy_cmd_.speed_grade = joy_cmd_.speed_grade_cnt;
-        }
-        if(joy_msg.buttons[button_speedRangeDec] == 1) //速度减档
-        {
-            if (--joy_cmd_.speed_grade < 1) 
-                joy_cmd_.speed_grade = 1;
-        }
-
-        if(joy_cmd_.set_gear == ant_msgs::ControlCmd2::GEAR_DRIVE) //D档
-            joy_cmd_.set_speed = (joy_cmd_.speed_grade-1)*joy_cmd_.speed_increment + 
-                                joy_msg.axes[axes_setSpeed] * joy_cmd_.speed_increment;
-        else if(joy_cmd_.set_gear == ant_msgs::ControlCmd2::GEAR_REVERSE) //R档
-            joy_cmd_.set_speed = joy_msg.axes[axes_setSpeed] * 3.0; //max reverse speed 3.0km/h
-        else
-            joy_cmd_.set_speed = 0.0;
-
-        if(joy_cmd_.set_speed < 0) joy_cmd_.set_speed = 0;
-        if(joy_msg.axes[axes_setSpeed] < -0.2)
-            joy_cmd_.set_brake = -100*joy_msg.axes[axes_setSpeed];
-        else
-            joy_cmd_.set_brake = 0.0;
-    /*
-        if(joy_msg.axes[axes_leftOffset] != 1)
-            offsetVal = (joy_msg.axes[axes_leftOffset] - 1)*offsetMax_/2;
-            
-        else if(joy_msg.axes[axes_rightOffset] != 1)
-                offsetVal = -(joy_msg.axes[axes_rightOffset] - 1)*offsetMax_/2;
-        else
-            offsetVal = 0.0;
-    */
-        return true;
-    }
-
     void vehicleStateCallback(const ant_msgs::State::ConstPtr &msg)
     {
+        steering_angle_ = msg->roadwheelAngle;
+
         if(!is_running_) return ;
 
         static uint8_t * vehicle_state_buf_ = nullptr;
@@ -392,38 +335,34 @@ private:
         if(!is_running_) return ;
         static int cnt = 0;
 
-        cv_bridge::CvImageConstPtr cv_image = cv_bridge::toCvShare(msg, "bgr8");
+        cv_bridge::CvImagePtr cv_img_ptr = cv_bridge::toCvCopy(msg, "bgr8");
 
-        cv::line(cv_image->image, cv::Point(240,312), cv::Point(344,183), cv::Scalar(0, 255, 0), 2); //lane left 0.5m
-        cv::line(cv_image->image, cv::Point(280,316), cv::Point(350,182), cv::Scalar(255, 255, 0), 3); // car left
-        
-        cv::line(cv_image->image, cv::Point(456,313), cv::Point(377,181), cv::Scalar(255, 255, 0), 3); //car right
-        cv::line(cv_image->image, cv::Point(456,313), cv::Point(383,181), cv::Scalar(0, 255, 0), 2); //lane right 0.5m
-//					
-//	    cv::line(cv_image->image, cv::Point(439,624), cv::Point(715,345), cv::Scalar(0, 255, 0), 3); //lane left 1.0m
-//					
-        cv::line(cv_image->image, cv::Point(320,241), cv::Point(320+15,241), cv::Scalar(0, 0, 255), 3);
-        cv::line(cv_image->image, cv::Point(337,209), cv::Point(337+17,209), cv::Scalar(0, 0, 255), 3);
-        cv::line(cv_image->image, cv::Point(343,196), cv::Point(343+19,196), cv::Scalar(0, 0, 255), 2);
-        cv::line(cv_image->image, cv::Point(347,189), cv::Point(347+21,189), cv::Scalar(0, 0, 255), 2);
-        cv::line(cv_image->image, cv::Point(350,185), cv::Point(350+23,185), cv::Scalar(0, 0, 255), 2);
-        cv::line(cv_image->image, cv::Point(352,181), cv::Point(352+25,181), cv::Scalar(0, 0, 255), 2);
+        steering_guider_->drawGuideCurveLines(cv_img_ptr->image, steering_angle_);
+        //cv::imshow("image", cv_img_ptr->image);
+        //cv::waitKey(5);
 
-        cv::Size size = cv_image->image.size();
-        //cv::Mat dstImage;
-        //cv::resize(cv_image->image,dstImage, size);
-        
-        cv::Rect rect(0,image_cut_h_,size.width ,size.height-image_cut_h_);
+        cv::Size size = cv_img_ptr->image.size();
         std::vector<uint8_t> image_data;
         std::vector<int> param= {cv::IMWRITE_JPEG_QUALITY, image_quality_};
-        cv::imencode(".jpg", cv_image->image(rect), image_data, param);
-        
+
+        if(image_cut_up_ + image_cut_down_  >= size.height)
+        {
+            ROS_ERROR("[%s] img size is (%dx%d), but expect cut up(%d) down(%d)", 
+                     name_.c_str(), size.width, size.height, image_cut_up_, image_cut_down_);
+            cv::imencode(".jpg", cv_img_ptr->image, image_data, param);
+        }
+        else
+        {
+            cv::Rect rect(0,image_cut_up_,size.width ,size.height-image_cut_up_-image_cut_down_);
+            cv::imencode(".jpg", cv_img_ptr->image(rect), image_data, param);
+        }
+
         std::lock_guard<std::mutex> lock(udp_fd_mutex_);
         int send_ret   = sendto(udp_fd_, image_data.data(), image_data.size(),
                                 0, (struct sockaddr*)&sockaddr_, sizeof(sockaddr_));
         if(send_ret < 0)
             printf("send image to server failed!");
-        ROS_INFO("[%s] %d : image size: %lu, send size: %d.", name_.c_str(), ++cnt, image_data.size(), send_ret);
+        //ROS_INFO("[%s] %d : image bytes size: %lu, send size: %d.", name_.c_str(), ++cnt, image_data.size(), send_ret);
     }
 
     void closeSocket()
