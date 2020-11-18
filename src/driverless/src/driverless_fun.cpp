@@ -48,6 +48,7 @@ bool AutoDrive::init(ros::NodeHandle nh,ros::NodeHandle nh_private)
 	nh_private_.param<bool>("use_avoiding",use_avoiding_,false);
 	nh_private_.param<bool>("is_offline_debug",is_offline_debug_,false);
 	nh_private_.param<bool>("use_extern_controller", use_extern_controller_, true);
+	nh_private_.param<bool>("use_car_follower", use_car_follower_, false);
 	std::string odom_topic = nh_private_.param<std::string>("odom_topic","/ll2utm_odom");
 	
 	initDiagnosticPublisher(nh_,__NAME__);
@@ -106,13 +107,17 @@ bool AutoDrive::init(ros::NodeHandle nh,ros::NodeHandle nh_private)
 	}
     ROS_INFO("[%s] path tracker init ok",__NAME__);
     //初始化跟车行驶控制器
-    if(!car_follower_.init(nh_, nh_private_))
+    if(use_car_follower_)
 	{
-		ROS_ERROR("[%s] car follower init false!",__NAME__);
-		publishDiagnosticMsg(diagnostic_msgs::DiagnosticStatus::ERROR,"Init car follower failed!");
-		return false;
+		if(!car_follower_.init(nh_, nh_private_))
+		{
+			ROS_ERROR("[%s] car follower init false!",__NAME__);
+			publishDiagnosticMsg(diagnostic_msgs::DiagnosticStatus::ERROR,"Init car follower failed!");
+			return false;
+		}
+		else
+    		ROS_INFO("[%s] car follower init ok",__NAME__);
 	}
-    ROS_INFO("[%s] car follower init ok",__NAME__);
     //初始化外部控制器
 	if(use_extern_controller_)
 	{
@@ -175,6 +180,8 @@ bool AutoDrive::init(ros::NodeHandle nh,ros::NodeHandle nh_private)
 */
 void AutoDrive::switchSystemState(int state)
 {
+	if(system_state_ == state) return; //防止重复操作
+
 	ROS_INFO("[%s] switchSystemState: %d", __NAME__, state);
 	last_system_state_ = system_state_;
     system_state_ = state;
@@ -264,7 +271,8 @@ void AutoDrive::switchSystemState(int state)
         cmd2_mutex_.lock(); //指令预设为N档
 		controlCmd2_.set_gear = controlCmd2_.GEAR_NEUTRAL;
         cmd2_mutex_.unlock();
-
+		//等待正在执行的任务彻底退出后，将系统置为空闲
+		while(task_running_) ros::Duration(0.05).sleep();
         switchSystemState(State_Idle); //递归调用， 状态置为空闲  !!!!
 	}
     //准备切换到前进状态

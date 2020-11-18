@@ -24,16 +24,20 @@ bool ReverseDrive::init(ros::NodeHandle nh,ros::NodeHandle nh_private)
 
     pub_local_path_ = nh_private_.advertise<nav_msgs::Path>("/local_path",2);
 
-    nh_private_.param<float>("max_speed", max_speed_, 3.0);//km/h
-    if(max_speed_ > MAX_SPEED)
-    {
-        ROS_ERROR("[%s] The max_speed is fast! Use the defaut value: %.2f.", __NAME__, MAX_SPEED);
-        max_speed_ = MAX_SPEED;
-    }
-    exp_speed_ = max_speed_;
+    exp_speed_ = 3.0; //km/h
     //启动actionlib 服务器，监听外部请求并执行相应操作
     is_initialed_ = true;
     return true;
+}
+
+void ReverseDrive::setExpectSpeed(float val)
+{
+    if(val > MAX_SPEED)
+    {
+        ROS_ERROR("[%s] The max_speed is fast! Use the defaut value: %.2f.", __NAME__, MAX_SPEED);
+        val = MAX_SPEED;
+    }
+    exp_speed_ = val;
 }
 
 bool ReverseDrive::start()

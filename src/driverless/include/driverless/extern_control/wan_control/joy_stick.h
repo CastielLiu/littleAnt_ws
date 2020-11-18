@@ -95,14 +95,14 @@ static bool parseJoyMsgs(const sensor_msgs::Joy& joy_msg, JoyCmd& joy_cmd)
         if (--joy_cmd.speed_grade < 1) 
             joy_cmd.speed_grade = 1;
     }
-    if(joy_cmd.is_cruise) //定速巡航, 速度恒定，不受摇杆控制
+    if(joy_cmd.is_cruise) //定速巡航, 速度恒定, 不受摇杆控制
         joy_cmd.set_speed = (joy_cmd.speed_grade-1)*joy_cmd.speed_increment;
-    if(joy_cmd.set_gear == ant_msgs::ControlCmd2::GEAR_DRIVE &&
-    		!joy_cmd.is_cruise) //D档,非巡航
+
+    if(joy_cmd.set_gear == ant_msgs::ControlCmd2::GEAR_DRIVE && !joy_cmd.is_cruise) //D档,非巡航
         joy_cmd.set_speed = (joy_cmd.speed_grade-1)*joy_cmd.speed_increment + 
                             joy_msg.axes[axes_setSpeed] * joy_cmd.speed_increment;
     
-    if(joy_cmd.set_gear == ant_msgs::ControlCmd2::GEAR_REVERSE) //R档
+    if(joy_cmd.set_gear == ant_msgs::ControlCmd2::GEAR_REVERSE) //R档, 按照倒车速度覆盖之前所有速度值
         joy_cmd.set_speed = joy_msg.axes[axes_setSpeed] * 3.0; //max reverse speed 3.0km/h
         
     if(joy_cmd.set_speed < 0) joy_cmd.set_speed = 0;
@@ -110,9 +110,9 @@ static bool parseJoyMsgs(const sensor_msgs::Joy& joy_msg, JoyCmd& joy_cmd)
         joy_cmd.set_brake = -100*joy_msg.axes[axes_setSpeed];
     else
         joy_cmd.set_brake = 0.0;
-    joy_cmd.display();
-    std::cout << "is_cruise: " << joy_cmd.is_cruise << "\t" << "speed: " << joy_cmd.set_speed << "\r\n";
-    std::cout << "speed_increment: " << joy_cmd.speed_increment << "\t speed_grade:" << joy_cmd.speed_grade<< "\r\n";
+    //joy_cmd.display();
+    //std::cout << "is_cruise: " << joy_cmd.is_cruise << "\t" << "speed: " << joy_cmd.set_speed << "\r\n";
+    //std::cout << "speed_increment: " << joy_cmd.speed_increment << "\t speed_grade:" << joy_cmd.speed_grade<< "\r\n";
 /*
     if(joy_msg.axes[axes_leftOffset] != 1)
         offsetVal = (joy_msg.axes[axes_leftOffset] - 1)*offsetMax_/2;

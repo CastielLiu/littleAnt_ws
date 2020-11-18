@@ -56,7 +56,9 @@ bool AutoDrive::handleNewGoal(const driverless::DoDriverlessTaskGoalConstPtr& go
 	switchSystemState(State_Stop); //新请求，无论如何先停止, 暂未解决新任务文件覆盖旧文件导致的自动驾驶异常问题，
                                    //因此只能停车后开始新任务
                                    //实则，若新任务与当前任务驾驶方向一致，只需合理的切换路径文件即可！
-                                   //已经预留了切换接口，尚未解决运行中清空历史文件带来的隐患 
+                                   //已经预留了切换接口，尚未解决运行中清空历史文件带来的隐患
+	//等待正在执行的任务彻底退出
+	while(task_running_) ros::Duration(0.05).sleep();
 
 	ROS_INFO("[%s] new task received, vehicle has speed zero now.", __NAME__);
 	this->expect_speed_ = goal->expect_speed;
@@ -234,7 +236,9 @@ void AutoDrive::doDriveWork()
 
 	ros::Rate loop_rate(20);
 	
-	while(ros::ok() && system_state_ == State_Drive && tracker_.isRunning())
+	task_running_ = true;
+
+	while(ros::ok() && system_state_ != State_Stop && tracker_.isRunning())
 	{
 		tracker_cmd_ = tracker_.getControlCmd();
 		follower_cmd_= car_follower_.getControlCmd();
@@ -265,6 +269,7 @@ void AutoDrive::doDriveWork()
 	{
 		as_->setSucceeded(driverless::DoDriverlessTaskResult(), "drive work  completed");
 	}
+	task_running_ = false;
 	switchSystemState(State_Stop);
 }
 
@@ -274,7 +279,8 @@ void AutoDrive::doReverseWork()
 	reverse_controler_.start();
 	
 	ros::Rate loop_rate(20);
-	while(ros::ok() && system_state_ == State_Reverse && reverse_controler_.isRunning())
+	task_running_ = true;
+	while(ros::ok() && system_state_ != State_Stop && reverse_controler_.isRunning())
 	{
 		//ROS_INFO("[%s] new cycle.", __NAME__);
 		reverse_cmd_ = reverse_controler_.getControlCmd();
@@ -309,6 +315,7 @@ void AutoDrive::doReverseWork()
 	{
 		as_->setSucceeded(driverless::DoDriverlessTaskResult(), "drive work  completed");
 	}
+	task_running_ = false;
 	switchSystemState(State_Stop);
 }
 

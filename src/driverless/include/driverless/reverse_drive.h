@@ -17,7 +17,8 @@ public:
     virtual bool start() override;
     virtual void stop()  override;
     bool loadReversePath(const std::string& file, bool reverse);
-    void setExpectSpeed(float speed) {exp_speed_ = speed;}
+    void setExpectSpeed(float val);
+
     bool reversePathPlan(const Pose& origin_pose,  const Pose& target_pose);
     void publishLocalPath();
     void reverseControlThread();

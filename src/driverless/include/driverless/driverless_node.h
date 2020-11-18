@@ -31,23 +31,6 @@ public:
     virtual bool init(ros::NodeHandle nh,ros::NodeHandle nh_private) override;
     void run(){};
 
-    enum State
-    {
-        State_Stop    = 0,  //停止,速度置零/切空挡/拉手刹/车辆停止后跳转到空闲模式
-        State_Drive   = 1,  //前进,前进档
-        State_Reverse = 2,  //后退,后退档
-        State_Idle    = 3,  //空闲, 停止控制指令发送，退出自动驾驶模式
-        State_SwitchToDrive  = 4,  //任务切换为前进，
-                                   //①若当前为R挡，速度置零->切N挡->切D档
-                                   //②若当前为D档，不进行其他操作
-                                   //跳转到前进模式
-        State_SwitchToReverse= 5,  //任务切换为倒车
-                                   //①若当前为R档，不进行其他操作
-                                   //②若当前为D档，速度置零->切N档->切R档
-                                   //跳转到后退模式
-        State_ForceExternControl=6, //强制使用外部控制器状态
-    };
-
 private:
     bool loadVehicleParams();
     bool loadDriveTaskFile(const std::string& file);
@@ -78,10 +61,27 @@ private:
     void workingThread();
     void doDriveWork();
     void doReverseWork();
-    void switchSystemState(int state);
 
     void waitGearOk(int gear);
     void waitSpeedZero();
+
+    enum State
+    {
+        State_Stop    = 0,  //停止,速度置零/切空挡/拉手刹/车辆停止后跳转到空闲模式
+        State_Drive   = 1,  //前进,前进档
+        State_Reverse = 2,  //后退,后退档
+        State_Idle    = 3,  //空闲, 停止控制指令发送，退出自动驾驶模式
+        State_SwitchToDrive  = 4,  //任务切换为前进，
+                                   //①若当前为R挡，速度置零->切N挡->切D档
+                                   //②若当前为D档，不进行其他操作
+                                   //跳转到前进模式
+        State_SwitchToReverse= 5,  //任务切换为倒车
+                                   //①若当前为R档，不进行其他操作
+                                   //②若当前为D档，速度置零->切N档->切R档
+                                   //跳转到后退模式
+        State_ForceExternControl=6, //强制使用外部控制器状态
+    };
+    void switchSystemState(int state);
     
 private:
     float expect_speed_;
@@ -97,6 +97,7 @@ private:
     bool has_new_task_;
     std::mutex work_cv_mutex_;
     std::condition_variable work_cv_;
+    std::atomic<bool> task_running_;  //任务正在执行？
     
     //任务监听线程条件变量
     bool request_listen_;
@@ -126,6 +127,7 @@ private:
     PathTracking tracker_;
     controlCmd_t tracker_cmd_;
 
+    bool use_car_follower_;
     CarFollowing car_follower_;
     controlCmd_t follower_cmd_;
  
