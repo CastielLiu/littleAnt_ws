@@ -95,15 +95,21 @@ static bool parseJoyMsgs(const sensor_msgs::Joy& joy_msg, JoyCmd& joy_cmd)
         if (--joy_cmd.speed_grade < 1) 
             joy_cmd.speed_grade = 1;
     }
-    if(joy_cmd.is_cruise) //定速巡航, 速度恒定, 不受摇杆控制
-        joy_cmd.set_speed = (joy_cmd.speed_grade-1)*joy_cmd.speed_increment;
-
-    if(joy_cmd.set_gear == ant_msgs::ControlCmd2::GEAR_DRIVE && !joy_cmd.is_cruise) //D档,非巡航
-        joy_cmd.set_speed = (joy_cmd.speed_grade-1)*joy_cmd.speed_increment + 
-                            joy_msg.axes[axes_setSpeed] * joy_cmd.speed_increment;
     
-    if(joy_cmd.set_gear == ant_msgs::ControlCmd2::GEAR_REVERSE) //R档, 按照倒车速度覆盖之前所有速度值
-        joy_cmd.set_speed = joy_msg.axes[axes_setSpeed] * 3.0; //max reverse speed 3.0km/h
+    if(joy_cmd.validity) //manual
+    {
+    	if(joy_cmd.set_gear == ant_msgs::ControlCmd2::GEAR_DRIVE ) //D档
+		    joy_cmd.set_speed = (joy_cmd.speed_grade-1)*joy_cmd.speed_increment + 
+		                        joy_msg.axes[axes_setSpeed] * joy_cmd.speed_increment;
+		else if(joy_cmd.set_gear == ant_msgs::ControlCmd2::GEAR_REVERSE) //R档, 按照倒车速度覆盖之前所有速度值
+		    joy_cmd.set_speed = joy_msg.axes[axes_setSpeed] * 3.0; //max reverse speed 3.0km/h
+	}
+	else
+	{
+		if(joy_cmd.is_cruise) //定速巡航, 速度恒定, 不受摇杆控制
+		    joy_cmd.set_speed = (joy_cmd.speed_grade-1)*joy_cmd.speed_increment;
+	}
+		
         
     if(joy_cmd.set_speed < 0) joy_cmd.set_speed = 0;
     if(joy_msg.axes[axes_setSpeed] < -0.2)
