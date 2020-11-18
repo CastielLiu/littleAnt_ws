@@ -136,4 +136,8 @@ private:
 
     ReverseDrive reverse_controler_;
     controlCmd_t  reverse_cmd_;
+
+    //AvoidObstacle avoider_;
+    controlCmd_t avoid_cmd_;
 };
+

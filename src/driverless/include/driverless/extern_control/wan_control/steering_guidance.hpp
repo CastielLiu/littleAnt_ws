@@ -210,7 +210,7 @@ public:
             nh_private.param<double>("cam_fx", cam_fx_, 581.0/2);
             nh_private.param<double>("cam_fy", cam_fy_, 604.0/2);
             nh_private.param<double>("cam_u0", cam_u0_, 605.0/2);
-            nh_private.param<double>("cam_v0", cam_v0_, 332.0)/2;
+            nh_private.param<double>("cam_v0", cam_v0_, 332.0/2);
             
             nh_private.param<int>("image_width", image_width_, 640);
             nh_private.param<int>("image_height", image_height_, 360);

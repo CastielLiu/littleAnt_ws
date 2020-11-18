@@ -16,11 +16,17 @@ typedef struct ControlCmd
 	ControlCmd()
 	{
 		validity = false;
+		speed_validity = false;
 		speed = 0.0;
 		roadWheelAngle = 0.0;
+		hand_brake = false;
 		turnLight = 0;
 	}
-	bool  validity;
+
+	//当validity有效时,无需在对speed_validity进行判断
+	//当validity无效时，需判断speed_validity是否有效!
+	bool  validity;       //指令的全局有效性
+	bool  speed_validity; //仅速度指令的有效性
 	float speed;
 	float roadWheelAngle;
 
@@ -39,7 +45,6 @@ typedef struct ControlCmd
 			<< "angle:" << roadWheelAngle 
 			<< "]\r\n"; 
 	}
-	
 } controlCmd_t;
 
 /*@brief 停车点信息*/

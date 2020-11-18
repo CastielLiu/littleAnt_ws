@@ -36,9 +36,10 @@ typedef struct
 	uint16_t speed;
 	uint16_t roadwheelAngle;
 	
-	uint8_t is_manual :1;
-	uint8_t speed_grade :3;
-    uint8_t steer_grade :3;
+	uint8_t validity :1;     //指令有效性
+    uint8_t is_cruise :1;    //定速巡航
+	uint8_t speed_grade :3;  //速度等级
+    uint8_t steer_grade :3;  //转向等级
 }) StateFeedback_t;
 
 class WanExternControl : public ExternControlBase
@@ -247,25 +248,18 @@ private:
                 //if(joy_msg.axes != last_joy_msg.axes || joy_msg.buttons != last_joy_msg.buttons)
                 {
                     std::lock_guard<std::mutex> lck(joy_cmd_mutex_);
-                    if(parseJoyMsgs(joy_msg, joy_cmd_))
-                    {
-                        cmd_mutex_.lock();
-                        cmd_.validity = true;
-                        cmd_.speed    = joy_cmd_.set_speed;
-                        cmd_.brake    = joy_cmd_.set_brake;
-                        cmd_.gear     = joy_cmd_.set_gear;
-                        cmd_.roadWheelAngle = joy_cmd_.set_steer;
-                        cmd_.hand_brake = joy_cmd_.set_hand_brake;
-                        cmd_mutex_.unlock();
-                    }
-                    else
-                    {
-                        cmd_mutex_.lock();
-                        cmd_.validity = false;
-                        cmd_mutex_.unlock();
-                    }
-                        
-                    joy_cmd_.display();
+                    parseJoyMsgs(joy_msg, joy_cmd_);
+
+                    cmd_mutex_.lock();
+                    cmd_.validity = joy_cmd_.validity;
+                    cmd_.speed_validity = joy_cmd_.is_cruise;
+                    cmd_.speed    = joy_cmd_.set_speed;
+                    cmd_.brake    = joy_cmd_.set_brake;
+                    cmd_.gear     = joy_cmd_.set_gear;
+                    cmd_.roadWheelAngle = joy_cmd_.set_steer;
+                    cmd_.hand_brake = joy_cmd_.set_hand_brake;
+                    cmd_mutex_.unlock();
+                    //joy_cmd_.display();
 
                     /*
                     pub_joy_.publish(joy_msg);
@@ -308,7 +302,8 @@ private:
         state.roadwheelAngle = msg->roadwheelAngle *100 + 5000;
 
         joy_cmd_mutex_.lock();
-        state.is_manual = joy_cmd_.is_manual;
+        state.is_cruise = joy_cmd_.is_cruise;
+        state.validity = joy_cmd_.validity;
         state.speed_grade = joy_cmd_.speed_grade;
         state.steer_grade = joy_cmd_.steer_grade;
         joy_cmd_mutex_.unlock();

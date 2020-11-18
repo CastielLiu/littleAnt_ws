@@ -17,8 +17,6 @@ public:
 		is_initialed_ = false;
 		is_running_ = false;
 		name_ = name;
-		cmd_.speed = cmd_.roadWheelAngle = 0.0;
-		cmd_.validity = false;
 	}
 	virtual ~ExternControlBase()
 	{

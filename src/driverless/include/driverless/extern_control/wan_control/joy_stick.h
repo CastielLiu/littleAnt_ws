@@ -9,10 +9,11 @@ enum JoyFunction
     //button
     button_angleGradeChange = 0,
     button_setDriverless = 1,
-    button_setGear = 2 ,
+    button_setGear = 2,
     button_hand_brake = 3,
     button_speedRangeDec = 4,
     button_speedRangeAdd = 5,
+    button_isCruise =7,
     button_isManual = 8,
     //axes
     axes_setSpeed = 1,
@@ -34,7 +35,8 @@ public:
     int  steer_grade = 1;  //角度级别
     float steer_increment; //角度增量
 
-    bool  is_manual = false;
+    bool  validity  = false; //指令有效性
+    bool  is_cruise = false; //是否定速巡航
 
     bool set_hand_brake = false; //手刹,默认false
     uint8_t set_gear = ant_msgs::ControlCmd2::GEAR_NEUTRAL; //档位默认为N
@@ -47,15 +49,15 @@ public:
         printf("v_grade:%d  a_grade:%d  v_inc:%2.2f  a_inc:%2.2f  v:%2.2f  a:%2.2f  gear:%d  brake:%d\r\n",
             speed_grade, steer_grade, steer_increment, speed_increment, set_speed, set_steer, set_gear, set_brake);
     }
-
 };
 
 static bool parseJoyMsgs(const sensor_msgs::Joy& joy_msg, JoyCmd& joy_cmd)
 {
     if (joy_msg.buttons[button_isManual] == 1)
-        joy_cmd.is_manual = ! joy_cmd.is_manual;
-    if(!joy_cmd.is_manual)
-        return false;
+        joy_cmd.validity = ! joy_cmd.validity;
+    
+    if(joy_msg.buttons[button_isCruise] == 1)
+        joy_cmd.is_cruise = ! joy_cmd.is_cruise;
 
     if(joy_msg.buttons[button_hand_brake] == 1)  //手刹
         joy_cmd.set_hand_brake = !joy_cmd.set_hand_brake;
@@ -95,8 +97,13 @@ static bool parseJoyMsgs(const sensor_msgs::Joy& joy_msg, JoyCmd& joy_cmd)
     }
 
     if(joy_cmd.set_gear == ant_msgs::ControlCmd2::GEAR_DRIVE) //D档
-        joy_cmd.set_speed = (joy_cmd.speed_grade-1)*joy_cmd.speed_increment + 
+    {
+        if(joy_cmd.is_cruise) //定速巡航, 速度恒定，不受摇杆控制
+            joy_cmd.set_speed = (joy_cmd.speed_grade-1)*joy_cmd.speed_increment;
+        else
+            joy_cmd.set_speed = (joy_cmd.speed_grade-1)*joy_cmd.speed_increment + 
                             joy_msg.axes[axes_setSpeed] * joy_cmd.speed_increment;
+    }
     else if(joy_cmd.set_gear == ant_msgs::ControlCmd2::GEAR_REVERSE) //R档
         joy_cmd.set_speed = joy_msg.axes[axes_setSpeed] * 3.0; //max reverse speed 3.0km/h
     else
@@ -116,6 +123,6 @@ static bool parseJoyMsgs(const sensor_msgs::Joy& joy_msg, JoyCmd& joy_cmd)
     else
         offsetVal = 0.0;
 */
-    return true;
+    return joy_cmd.validity;
 }
 #endif

@@ -312,24 +312,30 @@ void AutoDrive::doReverseWork()
 	switchSystemState(State_Stop);
 }
 
+/*@brief 前进控制指令决策
+ * 指令源包括: 避障控速/跟车控速/路径跟踪控转向和速度
+ * 控制指令优先级 ①外部控制指令
+                ②避障速度控制
+				③跟车速度控制
+ */
 ant_msgs::ControlCmd2 AutoDrive::driveDecisionMaking()
 {
 	std::lock_guard<std::mutex> lock2(cmd2_mutex_);
-
+	//若当前状态为强制使用外部控制指令，则忽悠其他指令源
 	if(system_state_ == State_ForceExternControl)
 		return controlCmd2_;
-	
-//	follower_cmd_.display("follower_cmd");
 
-	if(extern_cmd_.validity && extern_cmd_.speed < tracker_cmd_.speed)
-		controlCmd2_.set_speed = extern_cmd_.speed;
-	else if(follower_cmd_.validity && follower_cmd_.speed < tracker_cmd_.speed)
-		controlCmd2_.set_speed = follower_cmd_.speed;
-	else
-		controlCmd2_.set_speed = tracker_cmd_.speed;
-	
 	controlCmd2_.set_roadWheelAngle = tracker_cmd_.roadWheelAngle;
+	controlCmd2_.set_speed = tracker_cmd_.speed; //优先使用跟踪器速度指令
 	
+	std::lock_guard<std::mutex> lock_extern_cmd(extern_cmd_mutex_);
+	if(extern_cmd_.speed_validity)     //如果外部速度指令有效,则使用外部速度
+		controlCmd2_.set_speed = extern_cmd_.speed;
+	if(avoid_cmd_.speed_validity)      //如果避障速度有效，选用最小速度
+		controlCmd2_.set_speed = std::min(controlCmd2_.set_speed, avoid_cmd_.speed);
+	if(follower_cmd_.speed_validity)   //如果跟车速度有效，选用最小速度
+		controlCmd2_.set_speed = std::min(controlCmd2_.set_speed, avoid_cmd_.speed);
+/*
 	std::lock_guard<std::mutex> lock1(cmd1_mutex_);
 	//转向灯
 	if(extern_cmd_.turnLight == 1)
@@ -341,12 +347,17 @@ ant_msgs::ControlCmd2 AutoDrive::driveDecisionMaking()
 		controlCmd1_.set_turnLight_R = false;
 		controlCmd1_.set_turnLight_L = false;
 	}
+*/
 	return controlCmd2_;
 }
 
+/*@brief 倒车指令决策
+ */
 ant_msgs::ControlCmd2 AutoDrive::reverseDecisionMaking()
 {
 	std::lock_guard<std::mutex> lock2(cmd2_mutex_);
+
+	//若当前状态为强制使用外部控制指令，则忽悠其他指令源
 	if(system_state_ == State_ForceExternControl)
 		return controlCmd2_;
 

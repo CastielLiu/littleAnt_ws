@@ -354,15 +354,24 @@ void AutoDrive::sendCmd2_callback(const ros::TimerEvent&)
 	pub_cmd2_.publish(controlCmd2_);
 }
 
+
+/*@brief 定时捕获外部控制指令,  
+  -当系统正在执行前进任务时，由driveDecisionMaking更新终端控制指令
+  -当系统正在执行后退任务时，由reverseDecisionMaking更新终端控制指令
+  -而当系统处于其他状态时由captureExernCmd_callback定时更新终端控制指令,以确保外部控制器随时生效
+
+ - 当外部控制指令有效时，将系统状态置为强制使用外部指令，并将指令更新到终端控制指令
+ - 当外部控制指令失效时，将系统状态切换到原来的状态
+ */
 void AutoDrive::captureExernCmd_callback(const ros::TimerEvent&)
 {
 	static bool last_validity = false;
 	extern_cmd_mutex_.lock();
 	extern_cmd_ = extern_controler_.getControlCmd();
 	//std::cout << "extern_cmd_.validity: " << extern_cmd_.validity << std::endl;
-	if(extern_cmd_.validity)
-	{
-		setSendControlCmdEnable(true);
+	if(extern_cmd_.validity) //当前外部指令有效
+ 	{
+		setSendControlCmdEnable(true); //使能控制指令发送
 		if(system_state_ != State_ForceExternControl)
 			switchSystemState(State_ForceExternControl);
 		//extern_cmd_.display("Extern Cmd ");
@@ -377,10 +386,10 @@ void AutoDrive::captureExernCmd_callback(const ros::TimerEvent&)
 		controlCmd2_.set_roadWheelAngle = extern_cmd_.roadWheelAngle;
 		cmd2_mutex_.unlock();
 	}
-	else if(last_validity == true)
+	if(!extern_cmd_.validity && last_validity) //当前无效，上次有效，切换为历史状态
 		switchSystemState(last_system_state_);
+
 	last_validity = extern_cmd_.validity;
-	
 	extern_cmd_mutex_.unlock();
 }
 
