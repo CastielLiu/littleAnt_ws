@@ -100,7 +100,7 @@ class SteeringGuidance
                 }
             }
             
-            else if (angle_ < 0)
+            else if (angle_ > 0)
             {
                 theta = fabs(angle_ * PI / 180);
                 theta_min = 0 * PI / 180;
@@ -127,7 +127,7 @@ class SteeringGuidance
                 }
             }
             
-            else if (angle_ > 0)
+            else if (angle_ < 0)
             {
                 theta = fabs(angle_ * PI / 180);
                 theta_min = 90 * PI / 180;
@@ -187,8 +187,10 @@ public:
             cv::line(image, cv::Point(280,316), cv::Point(350,182), cv::Scalar(255, 255, 0), 3); // car left
             
             cv::line(image, cv::Point(456,313), cv::Point(377,181), cv::Scalar(255, 255, 0), 3); //car right
-            cv::line(image, cv::Point(456,313), cv::Point(383,181), cv::Scalar(0, 255, 0), 2); //lane right 0.5m				
-    //	    cv::line(image, cv::Point(439,624), cv::Point(715,345), cv::Scalar(0, 255, 0), 3); //lane left 1.0m		
+            cv::line(image, cv::Point(456,313), cv::Point(383,181), cv::Scalar(0, 255, 0), 2); //lane right 0.5m
+    //					
+    //	    cv::line(image, cv::Point(439,624), cv::Point(715,345), cv::Scalar(0, 255, 0), 3); //lane left 1.0m
+    //					
             cv::line(image, cv::Point(320,241), cv::Point(320+15,241), cv::Scalar(0, 0, 255), 3);
             cv::line(image, cv::Point(337,209), cv::Point(337+17,209), cv::Scalar(0, 0, 255), 3);
             cv::line(image, cv::Point(343,196), cv::Point(343+19,196), cv::Scalar(0, 0, 255), 2);
@@ -202,22 +204,23 @@ public:
         SteeringGuidance(ros::NodeHandle &nh)
         {
             ros::NodeHandle nh_private("steering_guidance");
-            nh_private.param<double>("length_b", length_b_, 1.6);
+            nh_private.param<double>("length_b", length_b_, 2.0);
             nh_private.param<double>("length_l", length_l_, 2.3);
-            nh_private.param<double>("length_offset", length_offset_, 1.0);
+            nh_private.param<double>("length_offset", length_offset_, 1.5);
             nh_private.param<double>("height_of_camera", height_of_camera_, 1.8);
             
-            nh_private.param<double>("cam_fx", cam_fx_, 581.0/2);
-            nh_private.param<double>("cam_fy", cam_fy_, 604.0/2);
-            nh_private.param<double>("cam_u0", cam_u0_, 605.0/2);
-            nh_private.param<double>("cam_v0", cam_v0_, 332.0/2);
+            nh_private.param<double>("cam_fx", cam_fx_, 300);
+            nh_private.param<double>("cam_fy", cam_fy_, 300);
+            nh_private.param<double>("cam_u0", cam_u0_, 320);
+            nh_private.param<double>("cam_v0", cam_v0_, 180);
             
             nh_private.param<int>("image_width", image_width_, 640);
             nh_private.param<int>("image_height", image_height_, 360);
             
             nh_private.param<int>("num_points", num_points_, 100);
-            nh_private.param<double>("min_distance", min_distance_, 5);
-            nh_private.param<double>("max_distance", max_distance_, 50);
+            nh_private.param<double>("min_distance", min_distance_, 1);
+            nh_private.param<double>("max_distance", max_distance_, 20);
+
         }
 };
 
