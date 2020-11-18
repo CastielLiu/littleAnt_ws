@@ -5,6 +5,7 @@
 	<arg name="max_speed" default="10.0" />
 	<arg name="use_extern_controller" default="true"/>
 	<arg name="which_extern_controller" default="wan_controller"/>
+	<arg name="use_car_follower" default="false"/>
 	
 	<!-- 底层控制 -->
 	<arg name="can_port" default="/dev/U4"/>   <!--底层can分析仪-->
@@ -32,7 +33,7 @@
 		<param name="max_target_yaw_err" value="25.0"/>
 		
 		<!-- car_following -->
-		<param name="use_car_follower" value="false"/>
+		<param name="use_car_follower" value="$(arg use_car_follower)"/>
 		<param name="mm_radar_objects_topic" value="/esr_objects"/>
 		<param name="base_link_frame" value="/base_link"/>
 		<param name="target_repeat_threshold" value="5"/>   <!-- 目标重复出现阈值，超出此阈值开始跟车 -->
@@ -64,7 +65,7 @@
 	<include file="$(find novatel)/launch/novatel.launch"/>
 	
 	<!-- 毫米波雷达 -->
-	<include file="$(find esr_radar)/launch/esr_radar.launch" />
+	<include file="$(find esr_radar)/launch/esr_radar.launch" if="$(arg use_car_follower)"/>
 
 	<!-- 摄像头 -->
 	<include file="$(find driverless)/launch/usb_cam.launch" if="$(arg use_extern_controller)"/>
