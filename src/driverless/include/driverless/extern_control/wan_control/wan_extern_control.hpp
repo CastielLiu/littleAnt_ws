@@ -82,6 +82,22 @@ public:
     {
     }
 
+    void setMaxSpeed(float val) 
+    {
+        joy_cmd_.max_speed  = fabs(val);
+        joy_cmd_.speed_grade_cnt = 6;
+        joy_cmd_.speed_increment = joy_cmd_.max_speed/joy_cmd_.speed_grade_cnt; 
+        joy_cmd_.speed_grade = 1; 
+    }
+
+    void setMaxSteerAngle(float val)
+    {
+        joy_cmd_.max_steer_angle = fabs(val);
+        joy_cmd_.steer_grade_cnt = 4;
+        joy_cmd_.steer_increment = joy_cmd_.max_steer_angle/joy_cmd_.steer_grade_cnt;
+        joy_cmd_.steer_grade = 1;
+    }
+
     virtual bool init(ros::NodeHandle nh,ros::NodeHandle nh_private) override
     {
         image_topic_ = nh_private.param<std::string>("wan_control/image", "/image_raw");
@@ -91,13 +107,8 @@ public:
         image_cut_down_  = nh_private.param<int>("wan_control/image_cut_down",0);  //图像下部裁剪高度
         image_quality_ = nh_private.param<int>("wan_control/image_quality",50);  //图像压缩质量
 
-        joy_cmd_.max_steer_angle = nh_private.param<float>("vehicle/max_roadwheel_angle",25.0);
-        joy_cmd_.max_speed  = 30.0; //nh_private.param<float>("vehicle/max_speed",40.0);
-        joy_cmd_.steer_grade_cnt = 4;
-        joy_cmd_.speed_grade_cnt = 6;
-        joy_cmd_.steer_grade = joy_cmd_.speed_grade = 1;
-        joy_cmd_.speed_increment = joy_cmd_.max_speed/joy_cmd_.speed_grade_cnt;
-        joy_cmd_.steer_increment = joy_cmd_.max_steer_angle/joy_cmd_.steer_grade_cnt;
+        this->setMaxSpeed(30.0);
+        this->setMaxSteerAngle(24.0);
 
         ROS_INFO("[%s] ip:%s, port:%d", name_.c_str(), socket_ip_.c_str(),socket_port_);
         
@@ -272,7 +283,6 @@ private:
                     }
                     */
                 }
-                    
                 last_joy_msg = joy_msg;
             }
         }

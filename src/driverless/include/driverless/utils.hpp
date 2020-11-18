@@ -44,6 +44,11 @@ static std::pair<float, float> getDisAndYaw(const Pose& point1, const Pose& poin
 	return dis_yaw;
 }
 
+static double max(double val_1, double val_2)
+{
+	return val_1 > val_2 ? val_1 : val_2;
+}
+
 /*@brief 获取两点间的航向
  *@param point1 终点
  *@param point2 起点

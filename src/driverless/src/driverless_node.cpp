@@ -327,14 +327,21 @@ ant_msgs::ControlCmd2 AutoDrive::driveDecisionMaking()
 
 	controlCmd2_.set_roadWheelAngle = tracker_cmd_.roadWheelAngle;
 	controlCmd2_.set_speed = tracker_cmd_.speed; //优先使用跟踪器速度指令
+	controlCmd2_.set_brake = tracker_cmd_.brake;
 	
 	std::lock_guard<std::mutex> lock_extern_cmd(extern_cmd_mutex_);
-	if(extern_cmd_.speed_validity)     //如果外部速度指令有效,则使用外部速度
+	if(extern_cmd_.speed_validity){     //如果外部速度指令有效,则使用外部速度
 		controlCmd2_.set_speed = extern_cmd_.speed;
-	if(avoid_cmd_.speed_validity)      //如果避障速度有效，选用最小速度
+		controlCmd2_.set_brake = extern_cmd_.brake;
+	}
+	if(avoid_cmd_.speed_validity){      //如果避障速度有效，选用最小速度
 		controlCmd2_.set_speed = std::min(controlCmd2_.set_speed, avoid_cmd_.speed);
-	if(follower_cmd_.speed_validity)   //如果跟车速度有效，选用最小速度
-		controlCmd2_.set_speed = std::min(controlCmd2_.set_speed, avoid_cmd_.speed);
+		controlCmd2_.set_brake = max(controlCmd2_.set_brake, avoid_cmd_.brake);
+	}
+	if(follower_cmd_.speed_validity){   //如果跟车速度有效，选用最小速度
+		controlCmd2_.set_speed = std::min(controlCmd2_.set_speed, follower_cmd_.speed);
+		controlCmd2_.set_brake = max(controlCmd2_.set_brake, follower_cmd_.brake);
+	}
 /*
 	std::lock_guard<std::mutex> lock1(cmd1_mutex_);
 	//转向灯
