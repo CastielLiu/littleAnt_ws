@@ -13,7 +13,81 @@
 #include<exception>
 #include<fstream>
 
+/*@brief 角度归一化，(-pi, pi]
+ */
+static double normalizeRadAngle(double angle)
+{
+	double res = angle;
+	while(res <= -M_PI)
+		res += 2*M_PI;
+
+	while(res > M_PI)
+		res -= 2*M_PI;
+	return res;
+}
+
+/*@brief 获取两点间的距离以及航向
+ *@param point1 终点
+ *@param point2 起点
+ */
+static std::pair<float, float> getDisAndYaw(const Pose& point1, const Pose& point2)
+{
+	float x = point1.x - point2.x;
+	float y = point1.y - point2.y;
+	
+	std::pair<float, float> dis_yaw;
+	dis_yaw.first = sqrt(x * x + y * y);
+	dis_yaw.second = atan2(y,x);
+	
+	if(dis_yaw.second <0)
+		dis_yaw.second += 2*M_PI;
+	return dis_yaw;
+}
+
+/*@brief 获取两点间的航向
+ *@param point1 终点
+ *@param point2 起点
+ */
+static float getYaw(const Point& point1, const Point& point2)
+{
+	float yaw = atan2(point1.y - point2.y, point1.x - point2.x);
+	
+	if(yaw <0) yaw += 2*M_PI;
+	return yaw;
+}
+
+/*@brief 获取两点间的距离
+ *@param point1 终点
+ *@param point2 起点
+ */
+static float getDistance(const Point& point1, const Point& point2)
+{
+	float x = point1.x - point2.x;
+	float y = point1.y - point2.y;
+	return sqrt(x * x + y * y);
+}
+
+/*@brief 计算路径各离散点处的曲率
+ *@param path 引用原始路径
+ */
+static bool calPathCurvature(Path& path)
+{
+	if(path.has_curvature) //路径已经包含曲率信息，无需重复计算
+		return true;
+	auto& points = path.points;
+	size_t size = points.size();
+	for(int i=0; i<size-1; ++i)
+	{
+		float delta_theta = normalizeRadAngle(points[i+1].yaw - points[i].yaw); //旋转角
+		float arc_length  = getDistance(points[i+1], points[i]); //利用两点间距近似弧长
+		points[i].curvature = delta_theta/arc_length; //绝对值偏大
+	}
+	path.has_curvature = true;
+	return true;
+}
+
 /*@param 从文件载入路径点,包括位置，航向，以及路径曲率
+ *       若文件中不包含曲率信息，则调用曲率计算函数进行计算
  *@return false: 载入失败
  */
 static bool loadPathPoints(std::string file_path,Path& path)
@@ -27,6 +101,8 @@ static bool loadPathPoints(std::string file_path,Path& path)
 	GpsPoint point;
 	std::string line;
 	path.clear();  //首先清除历史路径点信息
+
+	bool has_curvature = false;
 	while(in_file.good())
 	{
 		getline(in_file,line);
@@ -35,6 +111,8 @@ static bool loadPathPoints(std::string file_path,Path& path)
 
 		std::stringstream ss(line);
 		ss >> point.x >> point.y >> point.yaw >> point.curvature;
+		if(!has_curvature && point.curvature!=0)
+			has_curvature = true;
 		path.points.push_back(point);
 	}
 	in_file.close();
@@ -45,6 +123,9 @@ static bool loadPathPoints(std::string file_path,Path& path)
 	float resolution = 0.1;   //实则应从文件读取
 	path.resolution  = resolution;
 	path.final_index = path.points.size() - 1 ;  //设置终点索引为最后一个点
+	path.has_curvature = has_curvature;
+	if(!has_curvature)
+		calPathCurvature(path);
 
 	//算法根据停车点距离控制车速，若没有附加路径信息将导致到达终点前无法减速停车！
 	//因此，此处将终点设为一个永久停车点，
@@ -512,36 +593,6 @@ static Point global2local(const Pose& origin, const Point& global)
 	return local;
 }
 
-/*@brief 获取两点间的距离以及航向
- *@param point1 终点
- *@param point2 起点
- */
-static std::pair<float, float> getDisAndYaw(const Pose& point1, const Pose& point2)
-{
-	float x = point1.x - point2.x;
-	float y = point1.y - point2.y;
-	
-	std::pair<float, float> dis_yaw;
-	dis_yaw.first = sqrt(x * x + y * y);
-	dis_yaw.second = atan2(y,x);
-	
-	if(dis_yaw.second <0)
-		dis_yaw.second += 2*M_PI;
-	return dis_yaw;
-}
-
-/*@brief 获取两点间的航向
- *@param point1 终点
- *@param point2 起点
- */
-static float getYaw(const Point& point1, const Point& point2)
-{
-	float yaw = atan2(point1.y - point2.y, point1.x - point2.x);
-	
-	if(yaw <0) yaw += 2*M_PI;
-	
-	return yaw;
-}
 
 /*@brief 利用转弯半径计算前轮转角
  *@param radius 转弯半径
@@ -553,7 +604,5 @@ static float generateRoadwheelAngleByRadius(float wheel_base, float radius)
 	//return asin(vehicle_params_.wheelbase /radius)*180/M_PI;  //the angle larger
 	return atan(wheel_base/radius)*180/M_PI;    //correct algorithm 
 }
-
-
 
 #endif

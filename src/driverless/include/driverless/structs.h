@@ -182,12 +182,13 @@ class Path
 public:
 	std::vector<GpsPoint> points;
 	float resolution;
+	bool  has_curvature;               //是否包含路径曲率
 
 	std::atomic<size_t> pose_index;    //距离车辆最近路径点的索引
 	size_t final_index;                //终点索引
 
 	ParkingPoints park_points;         //停车点信息
-	TurnRanges    turn_ranges;		   //转向取件信息
+	TurnRanges    turn_ranges;		   //转向区间信息
 
 public:
 	size_t size() const {return points.size();}
@@ -197,6 +198,7 @@ public:
 	{
 		points.clear();
 		resolution = 0.0;
+		has_curvature = false;
 		pose_index = 0;
 		final_index = 0;
 		park_points.clear();

@@ -187,10 +187,8 @@ public:
             cv::line(image, cv::Point(280,316), cv::Point(350,182), cv::Scalar(255, 255, 0), 3); // car left
             
             cv::line(image, cv::Point(456,313), cv::Point(377,181), cv::Scalar(255, 255, 0), 3); //car right
-            cv::line(image, cv::Point(456,313), cv::Point(383,181), cv::Scalar(0, 255, 0), 2); //lane right 0.5m
-    //					
-    //	    cv::line(image, cv::Point(439,624), cv::Point(715,345), cv::Scalar(0, 255, 0), 3); //lane left 1.0m
-    //					
+            cv::line(image, cv::Point(456,313), cv::Point(383,181), cv::Scalar(0, 255, 0), 2); //lane right 0.5m				
+    //	    cv::line(image, cv::Point(439,624), cv::Point(715,345), cv::Scalar(0, 255, 0), 3); //lane left 1.0m		
             cv::line(image, cv::Point(320,241), cv::Point(320+15,241), cv::Scalar(0, 0, 255), 3);
             cv::line(image, cv::Point(337,209), cv::Point(337+17,209), cv::Scalar(0, 0, 255), 3);
             cv::line(image, cv::Point(343,196), cv::Point(343+19,196), cv::Scalar(0, 0, 255), 2);
@@ -220,7 +218,6 @@ public:
             nh_private.param<int>("num_points", num_points_, 100);
             nh_private.param<double>("min_distance", min_distance_, 5);
             nh_private.param<double>("max_distance", max_distance_, 50);
-
         }
 };
 

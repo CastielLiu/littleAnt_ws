@@ -533,6 +533,8 @@ bool AutoDrive::loadDriveTaskFile(const std::string& file)
 	return extendPath(global_path_, 20.0); //路径拓展延伸
 }
 
+/*@brief 设置前进任务目标路径点集， 自行计算路径曲率信息
+ */
 bool AutoDrive::setDriveTaskPathPoints(const driverless::DoDriverlessTaskGoalConstPtr& goal)
 {
 	size_t len = goal->target_path.size();
@@ -540,16 +542,16 @@ bool AutoDrive::setDriveTaskPathPoints(const driverless::DoDriverlessTaskGoalCon
 		return false;
 		
 	global_path_.clear();
-	global_path_.points.reserve(len);
-	for(const geometry_msgs::Pose2D& pose : goal->target_path)
+	global_path_.points.resize(len);
+	for(size_t i=0; i<len; ++i)
 	{
-		GpsPoint point;
+		const geometry_msgs::Pose2D& pose = goal->target_path[i];
+		GpsPoint& point = global_path_.points[i];
 		point.x = pose.x;
 		point.y = pose.y;
 		point.yaw = pose.theta;
-		point.curvature = 0.0;
-		global_path_.points.push_back(point);
 	}
+	calPathCurvature(global_path_); //计算路径曲率
     global_path_.resolution = goal->path_resolution;
 	global_path_.final_index = global_path_.points.size() - 1 ;  //设置终点索引为最后一个点
 	//算法根据停车点距离控制车速，若没有附加路径信息将导致到达终点前无法减速停车！
