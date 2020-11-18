@@ -57,8 +57,6 @@ bool AutoDrive::handleNewGoal(const driverless::DoDriverlessTaskGoalConstPtr& go
                                    //因此只能停车后开始新任务
                                    //实则，若新任务与当前任务驾驶方向一致，只需合理的切换路径文件即可！
                                    //已经预留了切换接口，尚未解决运行中清空历史文件带来的隐患
-	//等待正在执行的任务彻底退出
-	while(task_running_) ros::Duration(0.05).sleep();
 
 	ROS_INFO("[%s] new task received, vehicle has speed zero now.", __NAME__);
 	this->expect_speed_ = goal->expect_speed;
