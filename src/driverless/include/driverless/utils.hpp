@@ -85,8 +85,27 @@ static bool calPathCurvature(Path& path)
 	{
 		float delta_theta = normalizeRadAngle(points[i+1].yaw - points[i].yaw); //旋转角
 		float arc_length  = getDistance(points[i+1], points[i]); //利用两点间距近似弧长
-		points[i].curvature = delta_theta/arc_length; //绝对值偏大
+		if(arc_length == 0)
+			points[i].curvature = 0.0; //绝对值偏大
+		else
+			points[i].curvature = delta_theta/arc_length; //绝对值偏大
 	}
+	
+	//均值滤波
+	int n = 10;
+	float curvature_n_sum = 0.0;
+	for(int i=0; i < size; ++i)
+	{
+		if(i<n)
+			curvature_n_sum+=points[i].curvature;
+		else
+		{
+			points[i-n/2].curvature = curvature_n_sum/n;
+			curvature_n_sum += (points[i].curvature - points[i-n].curvature);
+			//std::cout << std::fixed << std::setprecision(2) << points[i].curvature << std::endl;
+		}
+	}
+	
 	path.has_curvature = true;
 	return true;
 }
