@@ -150,7 +150,7 @@ void PathTracking::trackingThread()
 		publishNearestIndex();
 		
 		
-		if((++cnt)%50==1)
+		if((++cnt)%100==1)
 		{
 			ROS_INFO("final_index: %lu",global_path_.final_index);
 			ROS_INFO("min_r:%.3f\t max_speed:%.1f",1.0/max_curvature, max_speed);

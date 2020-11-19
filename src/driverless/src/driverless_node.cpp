@@ -28,7 +28,7 @@ void AutoDrive::executeDriverlessCallback(const driverless::DoDriverlessTaskGoal
 		if(as_->isNewGoalAvailable())
 		{
 			//if we're active and a new goal is available, we'll accept it, but we won't shut anything down
-			ROS_INFO("[%s] The current work was interrupted by new request!", __NAME__);
+			ROS_ERROR("[%s] NOT ERROR. The current work was interrupted by new request!", __NAME__);
 			driverless::DoDriverlessTaskGoalConstPtr new_goal = as_->acceptNewGoal();
 
 			if(!handleNewGoal(new_goal)) return;
@@ -58,7 +58,7 @@ bool AutoDrive::handleNewGoal(const driverless::DoDriverlessTaskGoalConstPtr& go
                                    //实则，若新任务与当前任务驾驶方向一致，只需合理的切换路径文件即可！
                                    //已经预留了切换接口，尚未解决运行中清空历史文件带来的隐患
 
-	ROS_INFO("[%s] new task received, vehicle has speed zero now.", __NAME__);
+	ROS_ERROR("[%s] NOT ERROR. new task ready, vehicle has speed zero now.", __NAME__);
 	this->expect_speed_ = goal->expect_speed;
 	if(goal->task == goal->DRIVE_TASK)  //前进任务
     {

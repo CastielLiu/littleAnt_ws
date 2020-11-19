@@ -180,16 +180,22 @@ bool AutoDrive::init(ros::NodeHandle nh,ros::NodeHandle nh_private)
 */
 void AutoDrive::switchSystemState(int state)
 {
+	ROS_ERROR("[%s] NOT ERROR switchSystemState: %d", __NAME__, state);
 	if(system_state_ == state) return; //防止重复操作
-
-	ROS_INFO("[%s] switchSystemState: %d", __NAME__, state);
+	
 	last_system_state_ = system_state_;
     system_state_ = state;
 
     //状态为前进，自动驾驶模式开，档位置D
 	if(state == State_Drive) 
 	{
-		if(isDriveGear()) return;
+		if(isDriveGear())
+		{
+			cmd2_mutex_.lock(); //确保指令正确，防止指令已更改状态未更新
+			controlCmd2_.set_gear = controlCmd2_.GEAR_DRIVE;
+			cmd2_mutex_.unlock();
+			return;
+		}
 
 		cmd1_mutex_.lock();
 		controlCmd1_.set_driverlessMode = true;
@@ -213,7 +219,13 @@ void AutoDrive::switchSystemState(int state)
     //状态为后退，自动驾驶模式开，档位置R
 	else if(state == State_Reverse) 
 	{
-		if(isReverseGear()) return;
+		if(isReverseGear()) 
+		{
+			cmd2_mutex_.lock(); //确保指令正确，防止指令已更改状态未更新
+			controlCmd2_.set_gear = controlCmd2_.GEAR_REVERSE;
+			cmd2_mutex_.unlock();
+			return;
+		}
 
 		cmd1_mutex_.lock();
 		controlCmd1_.set_driverlessMode = true;
@@ -271,6 +283,7 @@ void AutoDrive::switchSystemState(int state)
         cmd2_mutex_.lock(); //指令预设为N档
 		controlCmd2_.set_gear = controlCmd2_.GEAR_NEUTRAL;
         cmd2_mutex_.unlock();
+        ROS_ERROR("[%s] NOT ERROR. set_gear: GEAR_NEUTRAL", __NAME__);
 		//等待正在执行的任务彻底退出后，将系统置为空闲
 		while(task_running_) ros::Duration(0.05).sleep();
         switchSystemState(State_Idle); //递归调用， 状态置为空闲  !!!!
@@ -280,8 +293,11 @@ void AutoDrive::switchSystemState(int state)
     {
     	setSendControlCmdEnable(true);  //启动控制指令发送
         //已经D档，直接退出
-        if(isDriveGear()) 
+        if(isDriveGear())
         {
+        	cmd2_mutex_.lock(); //确保指令正确，防止指令已更改状态未更新
+			controlCmd2_.set_gear = controlCmd2_.GEAR_DRIVE;
+			cmd2_mutex_.unlock();
         	system_state_ = State_Drive;
         	return;
         }
@@ -307,6 +323,9 @@ void AutoDrive::switchSystemState(int state)
         //已经为R档，直接返回
         if(isReverseGear())
         {
+        	cmd2_mutex_.lock(); //确保指令正确，防止指令已更改状态未更新
+			controlCmd2_.set_gear = controlCmd2_.GEAR_REVERSE;
+			cmd2_mutex_.unlock();
         	system_state_ = State_Reverse;
         	return;
         }
@@ -462,7 +481,7 @@ bool AutoDrive::isReverseGear()
 
 bool AutoDrive::isDriveGear()
 {
-	return vehicle_state_.getGear() == ant_msgs::State1::GEAR_DRIVE;
+	return (vehicle_state_.getGear() == ant_msgs::State1::GEAR_DRIVE);
 }
 
 bool AutoDrive::isNeutralGear()

@@ -3,7 +3,7 @@
 
 	<arg name="roadnet_file" default=""/>     <!--默认为空-->
 	<arg name="max_speed" default="10.0" />
-	<arg name="use_extern_controller" default="true"/>
+	<arg name="use_extern_controller" default="false"/>
 	<arg name="which_extern_controller" default="wan_controller"/>
 	<arg name="use_car_follower" default="false"/>
 	
@@ -44,7 +44,7 @@
 		<param name="lan_control/local_ip" value="0.0.0.0"/>
 		<param name="lan_control/local_port" value="5000"/>
 		<param name="wan_control/image" value="/usb_cam/image_raw"/>
-		<param name="wan_control/server_ip" value="36.155.113.13"/>  <!--192.168.0.109   192.168.8.115  xhw36.155.113.13   wd62.234.114.48-->
+		<param name="wan_control/server_ip" value="192.168.8.101"/>  <!--192.168.8.101  192.168.8.115  xhw36.155.113.13   wd62.234.114.48-->
 		<param name="wan_control/sever_port" value="8617"/>
 		<param name="wan_control/image_cut_up" value="100"/>
 		<param name="wan_control/image_cut_down" value="30"/>
