@@ -150,9 +150,8 @@ void PathTracking::trackingThread()
 		publishNearestIndex();
 		
 		
-		if((++cnt)%100==1)
+		if((++cnt)%50==1)
 		{
-			ROS_INFO("final_index: %lu",global_path_.final_index);
 			ROS_INFO("min_r:%.3f\t max_speed:%.1f",1.0/max_curvature, max_speed);
 			ROS_INFO("max_v: expect:%.1f curve:%.1f  park:%.1f",expect_speed_, max_speed_by_curve, max_speed_by_park);
 			ROS_INFO("set_v:%f\t true_v:%f",cmd_.speed ,vehicle_speed*3.6);
@@ -163,7 +162,8 @@ void PathTracking::trackingThread()
 			publishLocalPath();
 			ROS_INFO("near_index:%lu\t goal_index:%lu\t final_index:%lu",
 				nearest_index,target_index, global_path_.final_index);
-
+			printf("now:(%.2f,%.2f)\tnear:(%.2f,%.2f)\tgoal:(%.2f,%.2f)",
+				pose.x, pose.y, global_path_[nearest_index].x, global_path_[nearest_index].y, target_point.x, target_point.y);
 		}
 		loop_rate.sleep();
 	}

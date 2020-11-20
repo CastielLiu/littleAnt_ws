@@ -304,6 +304,11 @@ static float dis2Points(const Pose& point1, const Pose& point2,bool is_sqrt)
 	return x*x+y*y;
 }
 
+/*@brief 在目标路径path中查找距离pose最近的点，返回该点的索引值
+	滤除与当前航向偏差大于90度的点，当未查找到最近点或最近点过远时返回路径最大索引值
+ *@param path 目标路径
+ *@param pose 目标点
+*/
 static size_t findNearestPoint(const Path& path, const Pose& pose)
 {
 	size_t index = 0;
@@ -330,8 +335,8 @@ static size_t findNearestPoint(const Path& path, const Pose& pose)
 	}
 	if(min_dis2 > 15*15)
 	{
-		ROS_ERROR("pose x:%f\ty:%f",pose.x,pose.y);
-		ROS_ERROR("find correct nearest point failed! the nearest point distance over 15 meters");
+		ROS_ERROR("[findNearestPoint] current_pose x:%f\ty:%f",pose.x,pose.y);
+		ROS_ERROR("[findNearestPoint] find correct nearest point failed! the nearest point distance over 15 meters");
 		return path_points.size();
 	}
 		std::cout <<index << std::endl;
