@@ -21,7 +21,7 @@
 	</node>
 	
 	<!-- 上层控制 -->
-	<node name="driverless_node" pkg="driverless" type="driverless_node" output="screen" required="true"> <!--  -->
+	<node name="driverless_node" pkg="driverless" type="driverless_node" output="screen" required="true" launch-prefix="gnome-terminal -x"> <!--  -->
 		<rosparam file="$(find driverless)/config/vehicle_params.yaml" command="load"/>
 		<!-- main -->
 		<param name="is_offline_debug" value="false"/>
