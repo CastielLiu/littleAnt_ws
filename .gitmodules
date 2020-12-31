@@ -19,9 +19,6 @@
 [submodule "src/lidar_detect"]
 	path = src/lidar_detect
 	url = https://github.com/CastielLiu/lidar_detect.git
-[submodule "src/av_console_app"]
-	path = src/av_console_app
-	url = https://github.com/CastielLiu/av_console_app.git
 [submodule "src/av_console"]
 	path = src/av_console
 	url = https://github.com/CastielLiu/av_console

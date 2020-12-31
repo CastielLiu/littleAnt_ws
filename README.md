@@ -12,3 +12,6 @@ cd tinyxml2 && sudo make install
 - GPS 坐标系 xyz(右-前-上)
 - 禾赛雷达姿标系 xyz(左-后-上)
 - 德尔福毫米波雷达 xy(右-前)
+
+## memorandum
+- 可将rtk封装到ROS包，便于监控节点运行状态
