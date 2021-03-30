@@ -9,6 +9,7 @@
 AutoDrive::AutoDrive():
 	AutoDriveBase(__NAME__),
     avoid_offset_(0.0),
+    task_running_(false),
 	system_state_(State_Idle),
 	last_system_state_(State_Idle),
 	has_new_task_(false),
@@ -180,7 +181,7 @@ bool AutoDrive::init(ros::NodeHandle nh,ros::NodeHandle nh_private)
 */
 void AutoDrive::switchSystemState(int state)
 {
-	ROS_ERROR("[%s] NOT ERROR switchSystemState: %d", __NAME__, state);
+	ROS_ERROR("[%s] NOT ERROR switchSystemState: %s", __NAME__, StateName[state].c_str());
 	if(system_state_ == state) return; //防止重复操作
 	
 	last_system_state_ = system_state_;
@@ -285,7 +286,11 @@ void AutoDrive::switchSystemState(int state)
         cmd2_mutex_.unlock();
         ROS_ERROR("[%s] NOT ERROR. set_gear: GEAR_NEUTRAL", __NAME__);
 		//等待正在执行的任务彻底退出后，将系统置为空闲
-		while(task_running_) ros::Duration(0.05).sleep();
+		while(task_running_) 
+		{
+			ROS_INFO("Waiting %s exit...", StateName[system_state_].c_str());
+			ros::Duration(0.05).sleep();
+		}
         switchSystemState(State_Idle); //递归调用， 状态置为空闲  !!!!
 	}
     //准备切换到前进状态

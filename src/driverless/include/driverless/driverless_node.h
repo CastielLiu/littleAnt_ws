@@ -81,6 +81,11 @@ private:
                                    //跳转到后退模式
         State_ForceExternControl=6, //强制使用外部控制器状态
     };
+    
+    std::vector<std::string> StateName = {"State_Stop", "State_Drive", "State_Reverse",
+    									  "State_Idle", "State_SwitchToDrive", "State_SwitchToReverse",
+    									  "State_ForceExternControl"};
+    
     void switchSystemState(int state);
     
 private:

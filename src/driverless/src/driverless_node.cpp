@@ -234,6 +234,7 @@ void AutoDrive::doDriveWork()
 
 	ros::Rate loop_rate(20);
 	
+	ROS_ERROR("NOT ERROR: doDriveWork-> task_running_= true");
 	task_running_ = true;
 
 	while(ros::ok() && system_state_ != State_Stop && tracker_.isRunning())
@@ -277,6 +278,8 @@ void AutoDrive::doReverseWork()
 	reverse_controler_.start();
 	
 	ros::Rate loop_rate(20);
+	
+	ROS_ERROR("NOT ERROR: doReverseWork-> task_running_= true");
 	task_running_ = true;
 	while(ros::ok() && system_state_ != State_Stop && reverse_controler_.isRunning())
 	{
