@@ -19,7 +19,7 @@ class Points:
 			self.y.append(float(msg[1]))
 			self.yaw.append(float(msg[2]))
 	def plot(self):
-		plt.plot(self.x, self.y);
+		plt.plot(self.x, self.y, 'b*');
 		plt.show()
 	
 	def dump(self,file_name):
