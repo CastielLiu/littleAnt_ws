@@ -401,16 +401,22 @@ static float calculateDis2path(const double& x,const double& y,
 
 		ref_point_index += searchDir;
 	}
-	float anchor_x,anchor_y, anchor_yaw; //锚点的位置和航向
+
+	//锚点(距离最近的路径点)的位置和航向
+	float anchor_x,anchor_y, anchor_yaw; 
 	anchor_x = path_points[ref_point_index].x;
 	anchor_y = path_points[ref_point_index].y;
 	anchor_yaw = path_points[ref_point_index].yaw;
 
+	//将最近点通过形参指针传递出去
 	if(nearest_point_index_ptr != NULL)
 		*nearest_point_index_ptr = ref_point_index;
-	//float dis2anchor = sqrt((x-anchor_x)*(x-anchor_x)+(y-anchor_y)*(y-anchor_y));
-	float dx = (x-anchor_x)*cos(anchor_yaw) - (y-anchor_y) * sin(anchor_yaw);
-	return dx;
+	
+	//利用坐标转换的方式求取目标点到路径的距离
+	//float dx = (x-anchor_x)*cos(anchor_yaw) + (y-anchor_y) * sin(anchor_yaw);
+	float dy = -(x-anchor_x)*sin(anchor_yaw) + (y-anchor_y) * cos(anchor_yaw);
+	
+	return dy;  //由于anchor_yaw是与x轴正向的夹角，因此横向的距离为dy
 }
 
 /*@brief 计算目标点到达路径的距离,点在路径左侧为负,右侧为正
@@ -491,8 +497,11 @@ static float calculateDis2path(const double& x,const double& y,
 	}
 	
 	//printf("dx:%.2f\tdy:%.2f\tref_point_index:%d\n",dx,dy,ref_point_index);
+
+	//float dx = (x-anchor_x)*cos(anchor_yaw) + (y-anchor_y) * sin(anchor_yaw);
+	float dy = -(x-anchor_x)*sin(anchor_yaw) + (y-anchor_y) * cos(anchor_yaw);
 	
-	return (x-anchor_x)*cos(anchor_yaw) - (y-anchor_y) * sin(anchor_yaw);
+	return dy;
 }
 
 static float limitSpeedByLateralAndYawErr(float speed,float latErr,float yawErr)
