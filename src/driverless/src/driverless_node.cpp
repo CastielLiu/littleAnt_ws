@@ -14,7 +14,7 @@
 	workingThread使用listen_cv_条件变量唤醒as_callback.
  */
 
-void AutoDrive::executeDriverlessCallback(const driverless::DoDriverlessTaskGoalConstPtr& goal)
+void AutoDrive::executeDriverlessCallback(const driverless_actions::DoDriverlessTaskGoalConstPtr& goal)
 {
 	if(!handleNewGoal(goal)) return;
 	
@@ -29,7 +29,7 @@ void AutoDrive::executeDriverlessCallback(const driverless::DoDriverlessTaskGoal
 		{
 			//if we're active and a new goal is available, we'll accept it, but we won't shut anything down
 			ROS_ERROR("[%s] NOT ERROR. The current work was interrupted by new request!", __NAME__);
-			driverless::DoDriverlessTaskGoalConstPtr new_goal = as_->acceptNewGoal();
+			driverless_actions::DoDriverlessTaskGoalConstPtr new_goal = as_->acceptNewGoal();
 
 			if(!handleNewGoal(new_goal)) return;
 			
@@ -45,7 +45,7 @@ void AutoDrive::executeDriverlessCallback(const driverless::DoDriverlessTaskGoal
 	②无效目标 返回false
  *@param goal 目标信息
 */
-bool AutoDrive::handleNewGoal(const driverless::DoDriverlessTaskGoalConstPtr& goal)
+bool AutoDrive::handleNewGoal(const driverless_actions::DoDriverlessTaskGoalConstPtr& goal)
 {
 	std::cout << "goal->type: " << int(goal->type)  << "\t"
 			      << "goal->task: " << int(goal->task)  << "\t"
@@ -66,7 +66,7 @@ bool AutoDrive::handleNewGoal(const driverless::DoDriverlessTaskGoalConstPtr& go
         if(goal->type == goal->POSE_TYPE) 
         {
 			ROS_ERROR("[%s] The forward path planning function has not been developed!", __NAME__);
-			as_->setSucceeded(driverless::DoDriverlessTaskResult(), 
+			as_->setSucceeded(driverless_actions::DoDriverlessTaskResult(), 
 				"Aborting on drive task, because The forward path planning function has not been developed!");
 			return false;
         }
@@ -76,7 +76,7 @@ bool AutoDrive::handleNewGoal(const driverless::DoDriverlessTaskGoalConstPtr& go
 			if(!setDriveTaskPathPoints(goal))
 			{
 				ROS_ERROR("[%s] The target path is invalid!", __NAME__);
-                as_->setSucceeded(driverless::DoDriverlessTaskResult(), "Aborting on drive task, because The target path is invalid!");
+                as_->setSucceeded(driverless_actions::DoDriverlessTaskResult(), "Aborting on drive task, because The target path is invalid!");
 				return false;
 			}
         }
@@ -86,7 +86,7 @@ bool AutoDrive::handleNewGoal(const driverless::DoDriverlessTaskGoalConstPtr& go
             if(!loadDriveTaskFile(goal->roadnet_file))
             {
                 ROS_ERROR("[%s] Load drive path file failed!", __NAME__);
-                driverless::DoDriverlessTaskResult res;
+                driverless_actions::DoDriverlessTaskResult res;
                 res.success = false;
                 as_->setSucceeded(res, "Aborting on drive task, because load drive path file failed! ");
                 return false;
@@ -95,7 +95,7 @@ bool AutoDrive::handleNewGoal(const driverless::DoDriverlessTaskGoalConstPtr& go
         else
         {
             ROS_ERROR("[%s] Request type error!", __NAME__);
-			as_->setAborted(driverless::DoDriverlessTaskResult(), "Aborting on unknown goal type! ");
+			as_->setAborted(driverless_actions::DoDriverlessTaskResult(), "Aborting on unknown goal type! ");
             return false;
         }
         //切换系统状态为: 切换到前进
@@ -120,7 +120,7 @@ bool AutoDrive::handleNewGoal(const driverless::DoDriverlessTaskGoalConstPtr& go
 
             if(!reverse_controler_.reversePathPlan(vehicle_pose, target_pose))
             {
-                driverless::DoDriverlessTaskResult res;
+                driverless_actions::DoDriverlessTaskResult res;
                 res.success = false;
                 as_->setAborted(res, "Aborting on reverse goal, because it is invalid ");
                 return false;
@@ -152,7 +152,7 @@ bool AutoDrive::handleNewGoal(const driverless::DoDriverlessTaskGoalConstPtr& go
             if(!reverse_controler_.loadReversePath(goal->roadnet_file, goal->path_filp))
             {
                 ROS_ERROR("[%s] load reverse path failed!", __NAME__);
-                driverless::DoDriverlessTaskResult res;
+                driverless_actions::DoDriverlessTaskResult res;
                 res.success = false;
                 as_->setAborted(res, "Aborting on reverse task, because load reverse path file failed! ");
                 return false;
@@ -162,7 +162,7 @@ bool AutoDrive::handleNewGoal(const driverless::DoDriverlessTaskGoalConstPtr& go
         else
         {
             ROS_ERROR("[%s] Request type error!", __NAME__);
-			as_->setAborted(driverless::DoDriverlessTaskResult(), "Aborting on unknown goal type! ");
+			as_->setAborted(driverless_actions::DoDriverlessTaskResult(), "Aborting on unknown goal type! ");
             return false;
         }
         this->expect_speed_ = goal->expect_speed;
@@ -177,11 +177,11 @@ bool AutoDrive::handleNewGoal(const driverless::DoDriverlessTaskGoalConstPtr& go
 	else
 	{
 		ROS_ERROR("[%s] Unknown task type!", __NAME__);
-		as_->setAborted(driverless::DoDriverlessTaskResult(), "Aborting on unknown task! ");
+		as_->setAborted(driverless_actions::DoDriverlessTaskResult(), "Aborting on unknown task! ");
 		return false;
 	}
 	ROS_ERROR("[%s] Unknown error type!", __NAME__);
-	as_->setAborted(driverless::DoDriverlessTaskResult(), "Aborting on unknown error! ");
+	as_->setAborted(driverless_actions::DoDriverlessTaskResult(), "Aborting on unknown error! ");
 	return false;
 }
 
@@ -246,7 +246,7 @@ void AutoDrive::doDriveWork()
 
 		if(as_->isActive()) //判断action server是否为活动，防止函数的非服务调用导致的错误
 		{
-			driverless::DoDriverlessTaskFeedback feedback;
+			driverless_actions::DoDriverlessTaskFeedback feedback;
 			feedback.speed = cmd.set_speed;
 			feedback.steer_angle = cmd.set_roadWheelAngle;
 			as_->publishFeedback(feedback);
@@ -266,7 +266,7 @@ void AutoDrive::doDriveWork()
 	car_follower_.stop();
 	if(as_->isActive())
 	{
-		as_->setSucceeded(driverless::DoDriverlessTaskResult(), "drive work  completed");
+		as_->setSucceeded(driverless_actions::DoDriverlessTaskResult(), "drive work  completed");
 	}
 	task_running_ = false;
 	switchSystemState(State_Stop);
@@ -295,7 +295,7 @@ void AutoDrive::doReverseWork()
 		//如果actionlib服务器未active表明是其他方式请求的工作，比如测试例
 		if(as_->isActive())
 		{
-			driverless::DoDriverlessTaskFeedback feedback;
+			driverless_actions::DoDriverlessTaskFeedback feedback;
 			feedback.speed = reverse_cmd_.speed;
 			feedback.steer_angle = reverse_cmd_.roadWheelAngle;
 			as_->publishFeedback(feedback);
@@ -314,7 +314,7 @@ void AutoDrive::doReverseWork()
 	ROS_INFO("[%s] reverse work complete.", __NAME__);
 	if(as_->isActive())
 	{
-		as_->setSucceeded(driverless::DoDriverlessTaskResult(), "drive work  completed");
+		as_->setSucceeded(driverless_actions::DoDriverlessTaskResult(), "drive work  completed");
 	}
 	task_running_ = false;
 	switchSystemState(State_Stop);

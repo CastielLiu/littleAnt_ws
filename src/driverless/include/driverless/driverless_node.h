@@ -17,14 +17,14 @@
 #include <condition_variable>
 #include <actionlib/client/simple_action_client.h>
 #include <actionlib/server/simple_action_server.h>
-#include <driverless/DoDriverlessTaskAction.h>   // Note: "Action" is appended
+#include <driverless_actions/DoDriverlessTaskAction.h>   // Note: "Action" is appended
 
 
 class AutoDrive : public AutoDriveBase
 {
 public:
-    typedef actionlib::SimpleActionClient<driverless::DoDriverlessTaskAction> DoDriverlessTaskClient;
-    typedef actionlib::SimpleActionServer<driverless::DoDriverlessTaskAction> DoDriverlessTaskServer;
+    typedef actionlib::SimpleActionClient<driverless_actions::DoDriverlessTaskAction> DoDriverlessTaskClient;
+    typedef actionlib::SimpleActionServer<driverless_actions::DoDriverlessTaskAction> DoDriverlessTaskServer;
 
     AutoDrive();
     ~AutoDrive();
@@ -34,7 +34,7 @@ public:
 private:
     bool loadVehicleParams();
     bool loadDriveTaskFile(const std::string& file);
-    bool setDriveTaskPathPoints(const driverless::DoDriverlessTaskGoalConstPtr& goal);
+    bool setDriveTaskPathPoints(const driverless_actions::DoDriverlessTaskGoalConstPtr& goal);
 	void publishPathTrackingState();
     bool isGpsPointValid(const GpsPoint& point);
     void vehicleSpeed_callback(const ant_msgs::State2::ConstPtr& msg);
@@ -47,8 +47,8 @@ private:
     void captureExernCmd_callback(const ros::TimerEvent&);
     void setSendControlCmdEnable(bool flag);
     void goal_callback(const pathplaning_msgs::expected_path::ConstPtr& msg);
-    void executeDriverlessCallback(const driverless::DoDriverlessTaskGoalConstPtr& goal);
-    bool handleNewGoal(const driverless::DoDriverlessTaskGoalConstPtr& goal);
+    void executeDriverlessCallback(const driverless_actions::DoDriverlessTaskGoalConstPtr& goal);
+    bool handleNewGoal(const driverless_actions::DoDriverlessTaskGoalConstPtr& goal);
 
     ant_msgs::ControlCmd2 driveDecisionMaking();
     ant_msgs::ControlCmd2 reverseDecisionMaking();

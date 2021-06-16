@@ -4,6 +4,7 @@
 #include <atomic>
 #include <boost/thread/locks.hpp>    
 #include <boost/thread/shared_mutex.hpp>    
+#include <mutex>
 
 typedef boost::shared_mutex SharedMutex;
 typedef boost::unique_lock<SharedMutex> WriteLock;
@@ -57,15 +58,22 @@ public:
 		parkingDuration = 0;
 		isParking = false;
 	}
-	ParkingPoint(size_t _index,float _duration)
+	ParkingPoint(size_t _index, float _duration)
 	{
 		index = _index;
 		parkingDuration = _duration;
 		isParking = false;
 	}
+	ParkingPoint(size_t _index, float _duration, double _time, bool _parking)
+	{
+	    index = _index;
+	    parkingDuration = _duration;
+	    parkingTime = _time;
+	    isParking = _parking;
+	}
 	
 	size_t index; //停车点在全局路径中的索引
-	float  parkingDuration; //停车时长s,若为0,则表示一直停车
+	float  parkingDuration; //停车时长，单位s，0表示不停车,-1永久停车  //此定义不得轻易改动
 	double parkingTime;     //停车时刻
 	bool   isParking;       //正在停车
 };
@@ -142,6 +150,15 @@ public:
 		start_index = _start_index;
 		end_index = _end_index;
 	}
+	uint8_t getCurrentLight() const
+	{
+		if(type == TurnType_Left) // 0 关灯,1左转,2右转
+			return 1;
+		else if(type == TurnType_Right)
+			return 2;
+		else
+			return 0;
+	}
 };
 
 class TurnRanges
@@ -154,6 +171,35 @@ public:
 	{
 		ranges.clear();
 	}
+	
+};
+
+/*@brief 路径限速区间信息*/
+class SpeedRange
+{
+public:
+    float speed;
+    size_t start_index;
+    size_t end_index;
+    
+    SpeedRange(float _speed, size_t _start_index, size_t _end_index)
+    {
+        speed = _speed;
+        start_index = _start_index;
+        end_index = _end_index;
+    }
+};
+
+class SpeedRanges
+{
+public:
+    std::vector<SpeedRange> ranges;
+    
+    size_t size() const {return ranges.size();}
+    void clear()
+    {
+        ranges.clear();
+    }
 };
 
 /*@brief 位置信息*/
@@ -180,6 +226,8 @@ public:
 	double longitude;
 	double latitude;
 	float curvature;
+	float left_width;
+	float right_width;
 };
 
 class Path
@@ -194,11 +242,41 @@ public:
 
 	ParkingPoints park_points;         //停车点信息
 	TurnRanges    turn_ranges;		   //转向区间信息
+	SpeedRanges   speed_ranges;        //限速区间信息
+	std::mutex mutex;
 
 public:
 	size_t size() const {return points.size();}
 	const GpsPoint& operator[](size_t i) const {return points[i];}
 	GpsPoint& operator[](size_t i)             {return points[i];}
+	
+	Path(){} //当定义了拷贝构造函数时，编译器将不提供默认构造函数，需显式定义
+	
+	Path(const Path& obj)
+	{
+		size_t len = obj.points.size();
+		this->points.resize(len);
+		for(size_t i = 0; i < len; i++)
+		{
+		    this->points[i].x = obj.points[i].x;
+		    this->points[i].y = obj.points[i].y;
+		    this->points[i].yaw = obj.points[i].yaw;
+		    this->points[i].curvature = obj.points[i].curvature;
+		    this->points[i].left_width = obj.points[i].left_width;
+		    this->points[i].right_width = obj.points[i].right_width;
+		}
+		this->resolution = obj.resolution;
+		this->has_curvature = obj.has_curvature;
+		
+		size_t temp_idx = obj.pose_index;
+		this->pose_index = temp_idx;
+		this->final_index = obj.final_index;
+		
+		this->park_points = obj.park_points;
+		this->turn_ranges = obj.turn_ranges;
+		this->speed_ranges = obj.speed_ranges;
+	};
+	
 	void clear()                       //清空路径信息
 	{
 		points.clear();
@@ -208,6 +286,7 @@ public:
 		final_index = 0;
 		park_points.clear();
 		turn_ranges.clear();
+		speed_ranges.clear();
 	}
 
 	bool finish() const {return pose_index>=final_index;}

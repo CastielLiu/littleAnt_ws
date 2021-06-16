@@ -17,7 +17,7 @@
 	path = src/drivers/esr_radar
 	url = https://github.com/CastielLiu/esr_radar.git
 [submodule "src/lidar_detect"]
-	path = src/lidar_detect
+	path = src/perception/lidar_detect
 	url = https://github.com/CastielLiu/lidar_detect.git
 [submodule "src/av_console"]
 	path = src/av_console
