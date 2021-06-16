@@ -15,7 +15,7 @@
 #include <vector>
 #include <thread>
 #include <mutex>
-#include "structs.h"
+#include <driverless_common/structs.h>
 #include "utils.hpp"
 
 class CarFollowing : public AutoDriveBase

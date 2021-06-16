@@ -8,6 +8,7 @@ add_compile_options(-std=c++11)
 ## if COMPONENTS list like find_package(catkin REQUIRED COMPONENTS xyz)
 ## is used, also find other catkin packages
 find_package(catkin REQUIRED COMPONENTS
+  driverless_common
   diagnostic_msgs
   gps_msgs
   jsk_recognition_msgs
@@ -26,7 +27,7 @@ find_package(catkin REQUIRED COMPONENTS
   cv_bridge 
   image_transport 
   sensor_msgs
-  driverless_common
+  
 )
 
 find_package(OpenCV REQUIRED)

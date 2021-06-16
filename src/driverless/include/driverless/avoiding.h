@@ -13,7 +13,7 @@
 #include <std_msgs/Float32.h>
 #include <vector>
 #include <assert.h>
-#include <structs.h>
+#include <driverless_common/structs.h>
 #include "utils.hpp"
 
 typedef enum

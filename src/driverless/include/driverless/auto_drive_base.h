@@ -4,7 +4,7 @@
 #include <thread>
 #include <mutex>
 #include <ros/ros.h>
-#include "structs.h"
+#include <driverless_common/structs.h>
 #include "utils.hpp"
 #include <diagnostic_msgs/DiagnosticStatus.h>
 

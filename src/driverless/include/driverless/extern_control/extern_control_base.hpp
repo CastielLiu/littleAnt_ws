@@ -1,6 +1,6 @@
 #ifndef __EXTERN_CONTROL_H_
 #define __EXTERN_CONTROL_H_
-#include "driverless/structs.h"
+#include <driverless_common/structs.h>
 
 /*自动驾驶外部控制器基类，子类继承该基类实现外部控制策略
  *为避免自动驾驶过程中出现意外情况，而设计的一种外部干预机制

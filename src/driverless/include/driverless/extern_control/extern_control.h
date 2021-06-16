@@ -6,7 +6,6 @@
 #include <vector>
 #include <thread>
 #include <mutex>
-#include "driverless/structs.h"
 #include "driverless/utils.hpp"
 #include "driverless/auto_drive_base.h"
 #include "lan_control/lan_extern_control.hpp" 

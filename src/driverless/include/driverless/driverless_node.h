@@ -52,7 +52,6 @@ private:
 
     ant_msgs::ControlCmd2 driveDecisionMaking();
     ant_msgs::ControlCmd2 reverseDecisionMaking();
-    
 
     bool isReverseGear();
     bool isDriveGear();
