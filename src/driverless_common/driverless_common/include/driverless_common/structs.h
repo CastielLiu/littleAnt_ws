@@ -128,6 +128,87 @@ public:
 
 };
 
+/*@brief 交通灯点信息*/
+class TrafficLightPoint
+{
+public:
+	TrafficLightPoint()
+	{
+		index = 0;
+		parkingDuration = 0;
+		isParking = false;
+	}
+	TrafficLightPoint(size_t _index, float _duration)
+	{
+		index = _index;
+		parkingDuration = _duration;
+		isParking = false;
+	}
+	TrafficLightPoint(size_t _index, float _duration, double _time, bool _parking)
+	{
+	    index = _index;
+	    parkingDuration = _duration;
+	    parkingTime = _time;
+	    isParking = _parking;
+	}
+	
+	size_t index; //交通灯点在全局路径中的索引
+	float  parkingDuration; //停车时长，单位s，0表示不停车,-1永久停车  //此定义不得轻易改动
+	double parkingTime;     //停车时刻
+	bool   isParking;       //正在停车
+};
+
+class TrafficLightPoints
+{
+public:
+	std::vector<TrafficLightPoint> points;
+	size_t next_index = 0;
+	bool sorted = false;
+
+	size_t size() const {return points.size();}
+	void push_back(const TrafficLightPoint& point)
+	{
+		points.push_back(point);
+	} 
+	const TrafficLightPoint& operator[](size_t i)const  {return points[i];}
+	TrafficLightPoint& operator[](size_t i)             {return points[i];}
+
+	bool available() const { return next_index  < points.size();}
+
+	void sort() //按索引由小到大排序
+	{
+		std::sort(points.begin(),points.end(),
+			[](const TrafficLightPoint& point1,const TrafficLightPoint& point2)
+			{return point1.index < point2.index;});
+		sorted = true;
+	}
+
+	bool isSorted() const {return sorted;}
+
+	void print(const std::string& prefix) const 
+	{
+		for(auto &point:points)
+			printf("[%s] traffic light point index: %lu  duration: %.1f",prefix.c_str(), point.index,point.parkingDuration);
+	}
+	
+	TrafficLightPoint& next()
+	{
+		if(!available())
+			next_index = 0;
+
+		return points[next_index];
+	}
+public:
+
+	void clear()
+	{
+		points.clear();
+		next_index = 0;
+		sorted = false;
+	}
+
+};
+
 /*@brief 路径转向区间信息 */
 class TurnRange
 {

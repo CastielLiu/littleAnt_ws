@@ -61,7 +61,7 @@ private:
     void doDriveWork();
     void doReverseWork();
 
-    void waitGearOk(int gear);
+    bool waitGearOk(int gear);
     void waitSpeedZero();
 
     enum State
@@ -85,7 +85,7 @@ private:
     									  "State_Idle", "State_SwitchToDrive", "State_SwitchToReverse",
     									  "State_ForceExternControl"};
     
-    void switchSystemState(int state);
+    bool switchSystemState(int state);
     
 private:
     float expect_speed_;

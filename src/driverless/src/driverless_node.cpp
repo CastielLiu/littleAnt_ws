@@ -47,6 +47,15 @@ void AutoDrive::executeDriverlessCallback(const driverless_actions::DoDriverless
 */
 bool AutoDrive::handleNewGoal(const driverless_actions::DoDriverlessTaskGoalConstPtr& goal)
 {
+	std::string info;
+	if(!vehicle_state_.validity(info))
+	{
+		ROS_INFO("[%s] %s",__NAME__, info.c_str());
+		publishDiagnosticMsg(diagnostic_msgs::DiagnosticStatus::WARN, info);
+		as_->setAborted(driverless_actions::DoDriverlessTaskResult(), info);
+		return false;
+	}
+
 	std::cout << "goal->type: " << int(goal->type)  << "\t"
 			      << "goal->task: " << int(goal->task)  << "\t"
 				  << "goal->file: " << goal->roadnet_file << "\t" 
@@ -99,7 +108,13 @@ bool AutoDrive::handleNewGoal(const driverless_actions::DoDriverlessTaskGoalCons
             return false;
         }
         //切换系统状态为: 切换到前进
-        switchSystemState(State_SwitchToDrive);
+        bool ok = switchSystemState(State_SwitchToDrive);
+		if(!ok)
+		{
+			as_->setAborted(driverless_actions::DoDriverlessTaskResult(), "Switch System State failed! ");
+			return false;
+		}
+
         std::unique_lock<std::mutex> lck(work_cv_mutex_);
         has_new_task_ = true;
 		work_cv_.notify_one(); //唤醒工作线程
@@ -168,7 +183,13 @@ bool AutoDrive::handleNewGoal(const driverless_actions::DoDriverlessTaskGoalCons
         this->expect_speed_ = goal->expect_speed;
         
         //切换系统状态为: 切换到倒车
-        switchSystemState(State_SwitchToReverse);
+        bool ok = switchSystemState(State_SwitchToReverse);
+		if(!ok)
+		{
+			as_->setAborted(driverless_actions::DoDriverlessTaskResult(), "Switch System State failed! ");
+			return false;
+		}
+
         std::unique_lock<std::mutex> lck(work_cv_mutex_);
         has_new_task_ = true;
 		work_cv_.notify_one(); //唤醒工作线程

@@ -11,7 +11,7 @@
 	<arg name="can_port" default="/dev/U4"/>   <!--底层can分析仪-->
 	<arg name="stm32_port" default="/dev/U6"/>          <!-- STM32-->
 
-	<node name="ant_driver_node" pkg="ant_driver" type="ant_driver" output="screen" required="true">
+	<node name="ant_driver_node" pkg="ant_driver" type="ant_driver" output="screen" >
 		<param name ="obd_can_port_name" value="$(arg can_port)"/>
 		<param name ="stm32_port_name" value="$(arg stm32_port)"/>
 		<param name ="stm32_baudrate" value="115200"/>

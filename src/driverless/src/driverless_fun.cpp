@@ -77,8 +77,13 @@ bool AutoDrive::init(ros::NodeHandle nh,ros::NodeHandle nh_private)
 	//定时器                                                                           one_shot, auto_start
 	cmd1_timer_ = nh_.createTimer(ros::Duration(0.02), &AutoDrive::sendCmd1_callback,this, false, false);
 	cmd2_timer_ = nh_.createTimer(ros::Duration(0.01), &AutoDrive::sendCmd2_callback,this, false, false);
-	
-		
+
+	/*+初始化自动驾驶请求服务器*/
+	as_  = new DoDriverlessTaskServer(nh_, "do_driverless_task", 
+                              boost::bind(&AutoDrive::executeDriverlessCallback,this, _1), false);
+    as_->start();
+	/*-初始化自动驾驶请求服务器*/
+
 	// 车辆状态检查，等待初始化
 	while(ros::ok() && !is_offline_debug_ ) //若离线调试,无需系统检查
 	{
@@ -92,12 +97,6 @@ bool AutoDrive::init(ros::NodeHandle nh,ros::NodeHandle nh_private)
 		else
 			break;
 	}
-
-	/*+初始化自动驾驶请求服务器*/
-	as_  = new DoDriverlessTaskServer(nh_, "do_driverless_task", 
-                              boost::bind(&AutoDrive::executeDriverlessCallback,this, _1), false);
-    as_->start();
-	/*-初始化自动驾驶请求服务器*/
 
     //初始化路径跟踪控制器
     if(!tracker_.init(nh_, nh_private_))
@@ -154,7 +153,8 @@ bool AutoDrive::init(ros::NodeHandle nh,ros::NodeHandle nh_private)
             return false;
         }
 
-        switchSystemState(State_Reverse);
+        if(!switchSystemState(State_Reverse))
+			return false;
 		has_new_task_ = true;
 		work_cv_.notify_one();
 	}
@@ -166,7 +166,8 @@ bool AutoDrive::init(ros::NodeHandle nh,ros::NodeHandle nh_private)
             return false;
         }
 
-        switchSystemState(State_Drive);
+		if(!switchSystemState(State_Drive))
+			return false;
 		has_new_task_ = true;
 		work_cv_.notify_one();
 	}
@@ -177,12 +178,12 @@ bool AutoDrive::init(ros::NodeHandle nh,ros::NodeHandle nh_private)
 
 
 /* @brief 切换系统状态
- * 根据系统状态设置档位，直到档位设置成功。
+ * 根据系统状态设置档位，直到档位设置成功或超时。
 */
-void AutoDrive::switchSystemState(int state)
+bool AutoDrive::switchSystemState(int state)
 {
 	ROS_ERROR("[%s] NOT ERROR switchSystemState: %s", __NAME__, StateName[state].c_str());
-	if(system_state_ == state) return; //防止重复操作
+	if(system_state_ == state) return true; //防止重复操作
 	
 	last_system_state_ = system_state_;
     system_state_ = state;
@@ -195,7 +196,7 @@ void AutoDrive::switchSystemState(int state)
 			cmd2_mutex_.lock(); //确保指令正确，防止指令已更改状态未更新
 			controlCmd2_.set_gear = controlCmd2_.GEAR_DRIVE;
 			cmd2_mutex_.unlock();
-			return;
+			return true;
 		}
 
 		cmd1_mutex_.lock();
@@ -214,8 +215,8 @@ void AutoDrive::switchSystemState(int state)
         //启动控制指令发送
 		setSendControlCmdEnable(true);
 
-		//等待档位切换成功
-        waitGearOk(ant_msgs::State1::GEAR_DRIVE);
+		//等待档位切换成功或超时
+        return waitGearOk(ant_msgs::State1::GEAR_DRIVE);
 	}
     //状态为后退，自动驾驶模式开，档位置R
 	else if(state == State_Reverse) 
@@ -225,7 +226,7 @@ void AutoDrive::switchSystemState(int state)
 			cmd2_mutex_.lock(); //确保指令正确，防止指令已更改状态未更新
 			controlCmd2_.set_gear = controlCmd2_.GEAR_REVERSE;
 			cmd2_mutex_.unlock();
-			return;
+			return true;
 		}
 
 		cmd1_mutex_.lock();
@@ -244,8 +245,8 @@ void AutoDrive::switchSystemState(int state)
         //启动控制指令发送
 		setSendControlCmdEnable(true);
 
-		//等待档位切换成功
-        waitGearOk(ant_msgs::State1::GEAR_REVERSE);
+		//等待档位切换成功或超时
+    	return waitGearOk(ant_msgs::State1::GEAR_REVERSE);
 	}
     //状态为空闲，停止发送控制指令
 	else if(state == State_Idle)  //空闲
@@ -260,6 +261,7 @@ void AutoDrive::switchSystemState(int state)
 
 		//setSendControlCmdEnable(false);
 		setSendControlCmdEnable(true);
+		return true;
 	}
     //状态为停止，自动驾驶模式开, 速度置零，拉手刹
     //车辆停止后，切换为空挡
@@ -291,7 +293,7 @@ void AutoDrive::switchSystemState(int state)
 			ROS_INFO("Waiting %s exit...", StateName[system_state_].c_str());
 			ros::Duration(0.05).sleep();
 		}
-        switchSystemState(State_Idle); //递归调用， 状态置为空闲  !!!!
+        return switchSystemState(State_Idle); //递归调用， 状态置为空闲  !!!!
 	}
     //准备切换到前进状态
     else if(state == State_SwitchToDrive)
@@ -304,7 +306,7 @@ void AutoDrive::switchSystemState(int state)
 			controlCmd2_.set_gear = controlCmd2_.GEAR_DRIVE;
 			cmd2_mutex_.unlock();
         	system_state_ = State_Drive;
-        	return;
+        	return true;
         }
         
         //非D档，速度置0，然后切D档
@@ -319,7 +321,7 @@ void AutoDrive::switchSystemState(int state)
 		cmd2_mutex_.unlock();
 
         waitSpeedZero();                //等待速度为0
-        switchSystemState(State_Drive); //递归调用，状态置为前进
+        return switchSystemState(State_Drive); //递归调用，状态置为前进
     }
     //切换到倒车状态
     else if(state == State_SwitchToReverse)
@@ -332,7 +334,7 @@ void AutoDrive::switchSystemState(int state)
 			controlCmd2_.set_gear = controlCmd2_.GEAR_REVERSE;
 			cmd2_mutex_.unlock();
         	system_state_ = State_Reverse;
-        	return;
+        	return true;
         }
         
         //非R档，速度置0，然后切R档
@@ -347,12 +349,13 @@ void AutoDrive::switchSystemState(int state)
 		cmd2_mutex_.unlock();
 
         waitSpeedZero();                //等待速度为0
-        switchSystemState(State_Reverse); //递归调用，状态置为倒车
+        return switchSystemState(State_Reverse); //递归调用，状态置为倒车
     }
 	else if(state == State_ForceExternControl)
 	{
 		//No operation
 	}
+	return true;
 }
 
 void AutoDrive::setSendControlCmdEnable(bool flag)
@@ -385,7 +388,6 @@ void AutoDrive::sendCmd2_callback(const ros::TimerEvent&)
 	std::lock_guard<std::mutex> lock(cmd2_mutex_);
 	pub_cmd2_.publish(controlCmd2_);
 }
-
 
 /*@brief 定时捕获外部控制指令,  
   -当系统正在执行前进任务时，由driveDecisionMaking更新终端控制指令
@@ -569,7 +571,7 @@ bool AutoDrive::loadDriveTaskFile(const std::string& file)
 	{
 		ROS_ERROR("[%s] Load path infomation failed!",__NAME__);
 		publishDiagnosticMsg(diagnostic_msgs::DiagnosticStatus::ERROR,"Load path infomation failed!");
-		//return false;
+		return false;
 	}
 	return extendPath(global_path_, 20.0); //路径拓展延伸
 }
@@ -611,12 +613,19 @@ void AutoDrive::waitSpeedZero()
 
 /*@brief 等待档位切换成功
  */
-void AutoDrive::waitGearOk(int gear)
+bool AutoDrive::waitGearOk(int gear)
 {
-	int try_cnt = 0;
+	float waitTime = 0.0;
     while(ros::ok() && vehicle_state_.getGear() != gear && system_state_!= State_Idle)
     {
 		ros::Duration(0.2).sleep();
+		waitTime += 0.2;
 		ROS_INFO("[%s] wait for gear: %d", __NAME__, gear);
+		if(waitTime > 3.0)
+		{
+			ROS_ERROR("[%s] wait for gear: %d timeout!", __NAME__, gear);
+			return false;
+		}
 	}
+	return true;
 }
