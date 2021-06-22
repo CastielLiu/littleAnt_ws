@@ -48,7 +48,7 @@ private:
     void setSendControlCmdEnable(bool flag);
     void goal_callback(const pathplaning_msgs::expected_path::ConstPtr& msg);
     void executeDriverlessCallback(const driverless_actions::DoDriverlessTaskGoalConstPtr& goal);
-    bool handleNewGoal(const driverless_actions::DoDriverlessTaskGoalConstPtr& goal);
+    bool handleNewGoal(const driverless_actions::DoDriverlessTaskGoalConstPtr& goal, std::string &result);
 
     ant_msgs::ControlCmd2 driveDecisionMaking();
     ant_msgs::ControlCmd2 reverseDecisionMaking();

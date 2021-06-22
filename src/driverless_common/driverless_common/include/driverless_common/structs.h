@@ -506,17 +506,17 @@ public:
 		bool ok = true;
 		if(!speed_validity)
 		{
-			info += "Vehicle speed is invalidity!\t";
+            info += "Vehicle speed invalid!  ";
 			ok = false;
 		}
 		if(!steer_validity)
 		{
-			info += "Vehicle steer angle is invalidity!\t";
+            info += "Vehicle steer angle invalid! ";
 			ok = false;
 		}
 		if(pose.x <100 || pose.y <100) //the pose from gps is invailed!
 		{
-			info += "Vehicle pose is invalidity!";
+            info += "Vehicle pose invalid!";
 			ok = false;
 			pose_validity = false;
 		}
