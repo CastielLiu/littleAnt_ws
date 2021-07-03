@@ -9,7 +9,7 @@
 	url = https://github.com/CastielLiu/gps_driver.git
 [submodule "src/drivers/ant_driver"]
 	path = src/drivers/ant_driver
-	url = https://github.com/CastielLiu/ant_driver.git
+	url = https://github.com.cnpmjs.org/CastielLiu/ant_driver.git
 [submodule "src/drivers/esr_radar"]
 	path = src/drivers/esr_radar
 	url = https://github.com/CastielLiu/esr_radar.git
@@ -18,13 +18,13 @@
 	url = https://github.com/CastielLiu/lidar_detect.git
 [submodule "src/av_console"]
 	path = src/av_console
-	url = https://github.com/CastielLiu/av_console
+	url = https://github.com.cnpmjs.org/CastielLiu/av_console
 [submodule "src/driverless_common/msgs/rs_sdk_percept_msg_v2.0"]
 	path = src/driverless_common/msgs/rs_sdk_percept_msg_v2.0
 	url = https://github.com/shangjie-li/rs_sdk_percept_msg_v2.0.git
 [submodule "src/drivers/rtcm3.2"]
 	path = src/drivers/rtcm3.2
-	url = https://github.com/CastielLiu/rtcm3.2.git
+	url = https://github.com.cnpmjs.org/CastielLiu/rtcm3.2.git
 [submodule "src/driverless_common/msgs/pathplan_msgs"]
 	path = src/driverless_common/msgs/pathplan_msgs
 	url = https://github.com/CastielLiu/pathplan_msgs.git

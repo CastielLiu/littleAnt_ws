@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE QtCreatorProject>
-<!-- Written by QtCreator 4.4.1, 2021-06-22T09:12:22. -->
+<!-- Written by QtCreator 4.4.1, 2021-07-02T22:29:27. -->
 <qtcreator>
  <data>
   <variable>EnvironmentId</variable>
@@ -130,7 +130,7 @@
       <value type="QString" key="ProjectExplorer.ProjectConfiguration.DisplayName"></value>
       <value type="QString" key="ProjectExplorer.ProjectConfiguration.Id">ROSProjectManager.ROSCatkinMakeStep</value>
       <value type="QString" key="ROSProjectManager.ROSCatkinMakeStep.CMakeArguments"></value>
-      <value type="QString" key="ROSProjectManager.ROSCatkinMakeStep.CatkinMakeArguments"> --pkg av_console </value>
+      <value type="QString" key="ROSProjectManager.ROSCatkinMakeStep.CatkinMakeArguments"> -DCATKIN_WHITELIST_PACKAGES=av_console</value>
       <value type="QString" key="ROSProjectManager.ROSCatkinMakeStep.MakeArguments"></value>
       <value type="int" key="ROSProjectManager.ROSCatkinMakeStep.Target">0</value>
      </valuemap>
