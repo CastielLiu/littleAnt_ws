@@ -20,8 +20,8 @@
 		<param name ="default_drive_gear" value="false"/> <!--默认D档 ?-->
 	</node>
 	
-	<!-- 上层控制 -->
-	<node name="driverless_node" pkg="driverless" type="driverless_node" output="screen" launch-prefix="gnome-terminal -x"> <!--  -->
+	<!-- 上层控制  launch-prefix="gnome-terminal -x" -->
+	<node name="driverless_node" pkg="driverless" type="driverless_node" output="screen">
 		<rosparam file="$(find driverless)/config/vehicle_params.yaml" command="load"/>
 		<!-- main -->
         <param name="is_offline_debug" value="true"/>

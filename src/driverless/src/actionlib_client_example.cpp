@@ -1,12 +1,12 @@
 #include <ros/ros.h>
 #include <actionlib/client/simple_action_client.h>
 #include <actionlib/server/simple_action_server.h>
-#include <driverless_actions/DoDriverlessTaskAction.h>
+#include <driverless_common/DoDriverlessTaskAction.h>
 
 class ActionlibClientTest
 {
 public:
-    typedef actionlib::SimpleActionClient<driverless_actions::DoDriverlessTaskAction> DoDriverlessTaskClient;
+    typedef actionlib::SimpleActionClient<driverless_common::DoDriverlessTaskAction> DoDriverlessTaskClient;
     ActionlibClientTest() {}
     bool init()
     {
@@ -19,13 +19,13 @@ public:
 
 
 
-    void taskFeedbackCallback(const driverless_actions::DoDriverlessTaskFeedbackConstPtr& fd)
+    void taskFeedbackCallback(const driverless_common::DoDriverlessTaskFeedbackConstPtr& fd)
     {
         std::cout << "taskFeedbackCallback \r\n";
     }
 
     void taskDoneCallback(const actionlib::SimpleClientGoalState& state,
-                                const driverless_actions::DoDriverlessTaskResultConstPtr& res)
+                                const driverless_common::DoDriverlessTaskResultConstPtr& res)
     {
         std::cout <<   "taskDoneCallback \r\n";
          
@@ -43,7 +43,7 @@ public:
         {
             std::cout << " isServerConnected: " << ac_->isServerConnected() << std::endl;
 
-            driverless_actions::DoDriverlessTaskGoal goal;
+            driverless_common::DoDriverlessTaskGoal goal;
             goal.roadnet_file = "11111";
             goal.expect_speed = 2.0;
             goal.type = goal.FILE_TYPE;

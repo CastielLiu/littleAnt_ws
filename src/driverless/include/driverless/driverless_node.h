@@ -17,14 +17,14 @@
 #include <condition_variable>
 #include <actionlib/client/simple_action_client.h>
 #include <actionlib/server/simple_action_server.h>
-#include <driverless_actions/DoDriverlessTaskAction.h>   // Note: "Action" is appended
+#include <driverless_common/DoDriverlessTaskAction.h>   // Note: "Action" is appended
 
 
 class AutoDrive : public AutoDriveBase
 {
 public:
-    typedef actionlib::SimpleActionClient<driverless_actions::DoDriverlessTaskAction> DoDriverlessTaskClient;
-    typedef actionlib::SimpleActionServer<driverless_actions::DoDriverlessTaskAction> DoDriverlessTaskServer;
+    typedef actionlib::SimpleActionClient<driverless_common::DoDriverlessTaskAction> DoDriverlessTaskClient;
+    typedef actionlib::SimpleActionServer<driverless_common::DoDriverlessTaskAction> DoDriverlessTaskServer;
 
     AutoDrive();
     ~AutoDrive();
@@ -34,7 +34,7 @@ public:
 private:
     bool loadVehicleParams();
     bool loadDriveTaskFile(const std::string& file);
-    bool setDriveTaskPathPoints(const driverless_actions::DoDriverlessTaskGoalConstPtr& goal);
+    bool setDriveTaskPathPoints(const driverless_common::DoDriverlessTaskGoalConstPtr& goal);
 	void publishPathTrackingState();
     bool isGpsPointValid(const GpsPoint& point);
     void vehicleSpeed_callback(const ant_msgs::State2::ConstPtr& msg);
@@ -47,8 +47,8 @@ private:
     void captureExernCmd_callback(const ros::TimerEvent&);
     void setSendControlCmdEnable(bool flag);
     void goal_callback(const pathplaning_msgs::expected_path::ConstPtr& msg);
-    void executeDriverlessCallback(const driverless_actions::DoDriverlessTaskGoalConstPtr& goal);
-    bool handleNewGoal(const driverless_actions::DoDriverlessTaskGoalConstPtr& goal, std::string &result);
+    void executeDriverlessCallback(const driverless_common::DoDriverlessTaskGoalConstPtr& goal);
+    bool handleNewGoal(const driverless_common::DoDriverlessTaskGoalConstPtr& goal, std::string &result);
 
     ant_msgs::ControlCmd2 driveDecisionMaking();
     ant_msgs::ControlCmd2 reverseDecisionMaking();
@@ -66,10 +66,11 @@ private:
 
     enum State
     {
-        State_Stop    = 0,  //停止,速度置零/切空挡/拉手刹/车辆停止后跳转到空闲模式
+        State_Idle    = 0,  //空闲, 停止控制指令发送，退出自动驾驶模式
         State_Drive   = 1,  //前进,前进档
         State_Reverse = 2,  //后退,后退档
-        State_Idle    = 3,  //空闲, 停止控制指令发送，退出自动驾驶模式
+        State_Stop    = 3,  //停止,速度置零/切空挡/拉手刹/车辆停止后跳转到空闲模式
+
         State_SwitchToDrive  = 4,  //任务切换为前进，
                                    //①若当前为R挡，速度置零->切N挡->切D档
                                    //②若当前为D档，不进行其他操作
@@ -81,8 +82,8 @@ private:
         State_ForceExternControl=6, //强制使用外部控制器状态
     };
     
-    std::vector<std::string> StateName = {"State_Stop", "State_Drive", "State_Reverse",
-    									  "State_Idle", "State_SwitchToDrive", "State_SwitchToReverse",
+    std::vector<std::string> StateName = {"State_Idle", "State_Drive", "State_Reverse",
+                                          "State_Stop", "State_SwitchToDrive", "State_SwitchToReverse",
     									  "State_ForceExternControl"};
     
     bool switchSystemState(int state);

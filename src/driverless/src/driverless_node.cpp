@@ -14,9 +14,9 @@
 	workingThread使用listen_cv_条件变量唤醒as_callback.
  */
 
-void AutoDrive::executeDriverlessCallback(const driverless_actions::DoDriverlessTaskGoalConstPtr& goal)
+void AutoDrive::executeDriverlessCallback(const driverless_common::DoDriverlessTaskGoalConstPtr& goal)
 {
-    driverless_actions::DoDriverlessTaskResult res;
+    driverless_common::DoDriverlessTaskResult res;
     std::string request_result;
 
     if(!handleNewGoal(goal,request_result))
@@ -42,7 +42,7 @@ void AutoDrive::executeDriverlessCallback(const driverless_actions::DoDriverless
 		{
 			//if we're active and a new goal is available, we'll accept it, but we won't shut anything down
 			ROS_ERROR("[%s] NOT ERROR. The current work was interrupted by new request!", __NAME__);
-			driverless_actions::DoDriverlessTaskGoalConstPtr new_goal = as_->acceptNewGoal();
+			driverless_common::DoDriverlessTaskGoalConstPtr new_goal = as_->acceptNewGoal();
 
             if(!handleNewGoal(new_goal, request_result))
             {
@@ -68,7 +68,7 @@ void AutoDrive::executeDriverlessCallback(const driverless_actions::DoDriverless
 	②无效目标 返回false
  *@param goal 目标信息
 */
-bool AutoDrive::handleNewGoal(const driverless_actions::DoDriverlessTaskGoalConstPtr& goal, std::string& result)
+bool AutoDrive::handleNewGoal(const driverless_common::DoDriverlessTaskGoalConstPtr& goal, std::string& result)
 {
 	std::string info;
 	if(!vehicle_state_.validity(info))
@@ -224,7 +224,7 @@ bool AutoDrive::handleNewGoal(const driverless_actions::DoDriverlessTaskGoalCons
 		return false;
 	}
     ROS_ERROR("[%s] Code Error! Please Check!", __NAME__);
-    as_->setAborted(driverless_actions::DoDriverlessTaskResult(), "Code Error! Please Check! ");
+    as_->setAborted(driverless_common::DoDriverlessTaskResult(), "Code Error! Please Check! ");
 	return false;
 }
 
@@ -289,7 +289,7 @@ void AutoDrive::doDriveWork()
 
 		if(as_->isActive()) //判断action server是否为活动，防止函数的非服务调用导致的错误
 		{
-			driverless_actions::DoDriverlessTaskFeedback feedback;
+			driverless_common::DoDriverlessTaskFeedback feedback;
 			feedback.speed = cmd.set_speed;
 			feedback.steer_angle = cmd.set_roadWheelAngle;
 			as_->publishFeedback(feedback);
@@ -309,7 +309,7 @@ void AutoDrive::doDriveWork()
 	car_follower_.stop();
 	if(as_->isActive())
 	{
-		as_->setSucceeded(driverless_actions::DoDriverlessTaskResult(), "drive work  completed");
+		as_->setSucceeded(driverless_common::DoDriverlessTaskResult(), "drive work  completed");
 	}
 	task_running_ = false;
 	switchSystemState(State_Stop);
@@ -338,7 +338,7 @@ void AutoDrive::doReverseWork()
 		//如果actionlib服务器未active表明是其他方式请求的工作，比如测试例
 		if(as_->isActive())
 		{
-			driverless_actions::DoDriverlessTaskFeedback feedback;
+			driverless_common::DoDriverlessTaskFeedback feedback;
 			feedback.speed = reverse_cmd_.speed;
 			feedback.steer_angle = reverse_cmd_.roadWheelAngle;
 			as_->publishFeedback(feedback);
@@ -357,7 +357,7 @@ void AutoDrive::doReverseWork()
 	ROS_INFO("[%s] reverse work complete.", __NAME__);
 	if(as_->isActive())
 	{
-		as_->setSucceeded(driverless_actions::DoDriverlessTaskResult(), "drive work  completed");
+		as_->setSucceeded(driverless_common::DoDriverlessTaskResult(), "drive work  completed");
 	}
 	task_running_ = false;
 	switchSystemState(State_Stop);

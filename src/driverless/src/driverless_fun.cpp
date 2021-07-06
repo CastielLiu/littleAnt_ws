@@ -72,7 +72,7 @@ bool AutoDrive::init(ros::NodeHandle nh,ros::NodeHandle nh_private)
 	pub_cmd1_ = nh_.advertise<ant_msgs::ControlCmd1>("/controlCmd1",1);
 	pub_cmd2_ = nh_.advertise<ant_msgs::ControlCmd2>("/controlCmd2",1);
 	pub_diagnostic_ = nh_.advertise<diagnostic_msgs::DiagnosticStatus>("/driverless/diagnostic",1);
-	pub_new_goal_ = nh_.advertise<driverless_actions::DoDriverlessTaskActionGoal>("/do_driverless_task/goal", 1);
+	pub_new_goal_ = nh_.advertise<driverless_common::DoDriverlessTaskActionGoal>("/do_driverless_task/goal", 1);
 	
 	//定时器                                                                           one_shot, auto_start
 	cmd1_timer_ = nh_.createTimer(ros::Duration(0.02), &AutoDrive::sendCmd1_callback,this, false, false);
@@ -439,11 +439,11 @@ void AutoDrive::odom_callback(const nav_msgs::Odometry::ConstPtr& msg)
 
 void AutoDrive::goal_callback(const pathplaning_msgs::expected_path::ConstPtr& msg)
 {
-	driverless_actions::DoDriverlessTaskActionGoal::Ptr  actionGoal = 
-		driverless_actions::DoDriverlessTaskActionGoal::Ptr(new driverless_actions::DoDriverlessTaskActionGoal);
+	driverless_common::DoDriverlessTaskActionGoal::Ptr  actionGoal = 
+		driverless_common::DoDriverlessTaskActionGoal::Ptr(new driverless_common::DoDriverlessTaskActionGoal);
 	actionGoal->header.stamp = ros::Time::now();
 
-	driverless_actions::DoDriverlessTaskGoal& goal = actionGoal->goal;
+	driverless_common::DoDriverlessTaskGoal& goal = actionGoal->goal;
 	if(msg->direction == msg->DIRECTION_DRIVE)
 		goal.task = goal.DRIVE_TASK;
 	else if(msg->direction == msg->DIRECTION_REVERSE)
@@ -578,7 +578,7 @@ bool AutoDrive::loadDriveTaskFile(const std::string& file)
 
 /*@brief 设置前进任务目标路径点集， 自行计算路径曲率信息
  */
-bool AutoDrive::setDriveTaskPathPoints(const driverless_actions::DoDriverlessTaskGoalConstPtr& goal)
+bool AutoDrive::setDriveTaskPathPoints(const driverless_common::DoDriverlessTaskGoalConstPtr& goal)
 {
 	size_t len = goal->target_path.size();
 	if(len == 0) 
