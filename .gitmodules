@@ -25,6 +25,6 @@
 [submodule "src/drivers/rtcm3.2"]
 	path = src/drivers/rtcm3.2
 	url = https://github.com.cnpmjs.org/CastielLiu/rtcm3.2.git
-[submodule "src/driverless_common/msgs/pathplan_msgs"]
-	path = src/driverless_common/msgs/pathplan_msgs
-	url = https://github.com/CastielLiu/pathplan_msgs.git
+[submodule "src/driverless_common"]
+	path = src/driverless_common
+	url = https://github.com.cnpmjs.org/CastielLiu/driverless_common
