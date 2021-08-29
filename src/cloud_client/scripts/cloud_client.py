@@ -2,6 +2,7 @@
 # coding=utf-8
 
 # from websocket import create_connection
+import shutil
 import threading
 import os
 import websocket
@@ -10,9 +11,9 @@ import time
 import rospy
 import json
 from functools import partial
-
-from driverless_common.msg import SystemState
 from requests import ConnectionError
+from av_task import RequestAvTask
+from scripts import settings
 
 ''' 
 自动驾驶与web服务器进行数据交互
@@ -57,10 +58,10 @@ class JsonResponse:
 
 
 # 自动驾驶客户端
-class DriverlessClient:
+class CloudClient:
     def __init__(self):
-        self.root_url = "36.155.113.13:8000/"
-        # self.root_url = "127.0.0.1:8000/"
+        # self.root_url = "36.155.113.13:8000/"
+        self.root_url = "127.0.0.1:8000/"
         self.http_root = "http://" + self.root_url
         # 核心数据url 用于传输车辆状态与控制指令
         self.ws_core_url = "ws://" + self.root_url + "ws/autodrive/car/core/"
@@ -69,13 +70,11 @@ class DriverlessClient:
         # 视频数据url
         self.ws_video_url = "ws://" + self.root_url + "ws/autodrive/car/video/"
 
-        # rospy.get_param("name", "default_val")
         self.session = requests.session()
-        self.core_ws = None
+        self.__core_ws = None
+        self.ws_login_cv = threading.Condition()
         self.ws_loggedin = False
-        self.timer1s = None
-        self.subSystemState = None
-        self.system_state = None
+        self.http_loggedin = False
 
         self.userid = "testcar1"
         self.username = "testcar1"
@@ -83,17 +82,31 @@ class DriverlessClient:
         self.usertoken = ''
 
         self.csrf_header = {}
-        self.pathfile_dir = "../paths/"
+        self.running = True
 
-    def init(self):
+        self.request_av_task = RequestAvTask()  # 请求自动驾驶任务
+
+    def check_login(self):
+        if self.ws_loggedin and self.http_loggedin:
+            return True
+        return False
+
+    def login(self):
         # http登录 ws登录
-        if not self.login_http() or not self.login_core_ws():
+        if not self.__login_http() or not self.__login_core_ws():
             return False
-        self.subSystemState = rospy.Subscriber('/driverless/system_state', SystemState, self.systemStateCallback)
-        self.timer1s = rospy.Timer(rospy.Duration(1), self.timerCallback_1s)
-        pathlist = self.get_navpathlist()
-        for path in pathlist:
-            self.get_navpathfile(path['id'])
+        return True
+
+    def logout(self):
+        self.__logout_http()
+        self.__core_ws.close()
+
+    def sendCoreData(self, data):
+        try:
+            self.__core_ws.send(data)
+        except Exception as e:
+            print(e)
+            return False
         return True
 
     # 获取导航路径列表
@@ -115,7 +128,8 @@ class DriverlessClient:
         return response.data["path_list"]
 
     # 获取并下载导航路径文件
-    def get_navpathfile(self, pathid):
+    # 先获取路径文件的urls, 再利用urls进行文件下载
+    def download_navpathfile(self, path_dir, pathid):
         try:
             data = {"type": "req_path_files", "data": {"pathid": pathid}}
             # self.session.post(data=data, json=json)
@@ -123,6 +137,7 @@ class DriverlessClient:
             # json=dict -> {"key1": val1, "key2": val2}
             request_navpath = self.session.post(url=self.http_url, json=data, headers=self.csrf_header)
         except Exception as e:
+            print("download_navpathfile error %s" % e)
             return False
 
         if request_navpath.status_code != 200:
@@ -140,14 +155,9 @@ class DriverlessClient:
             return False
         data = response_dict.get('data', {})
         path_urls = data.get('path_urls', [])
-        path_name = data.get('path_name')
-        if len(path_urls) == 0 or path_name is None:
-            return False
-
-        # 创建路径文件夹
-        path_dir = os.path.join(self.pathfile_dir, path_name)
-        if not os.path.exists(path_dir):
-            os.mkdir(path_dir)
+        # path_name = data.get('path_name')
+        # if len(path_urls) == 0 or path_name is None:
+        #     return False
 
         # 遍历urls进行文件下载
         for path_url in path_urls:
@@ -172,16 +182,37 @@ class DriverlessClient:
             except Exception as e:
                 print(e)
                 return False
+        return True
+
+    # 停止数据传输, 退出登录
+    def stop(self):
+        print("cloud client stop.")
+        self.running = False
+        self.logout()
+
+    def __logout_http(self):
+        http_logout_url = self.http_url + "logout/"
+        try:
+            request_logout = self.session.get(url=http_logout_url)
+            if request_logout.status_code == 200:
+                res_dict = json.loads(request_logout.text)
+                if res_dict['code'] == 0:
+                    self.http_loggedin = False
+                    return True
+        except Exception as e:
+            pass
+
+        return False
 
     # http登录
-    def login_http(self):
+    def __login_http(self):
         http_login_url = self.http_url + "login/"
-        while not rospy.is_shutdown():
+        while self.running:
             try:
                 request_login = self.session.get(url=http_login_url)  # get登录页面以获取cookies
             except ConnectionError as e:
                 print("连接服务器超时，正在重新连接")
-                rospy.sleep(rospy.Duration(1.0))
+                time.sleep(1.0)
                 continue
 
             if request_login.status_code != 200:
@@ -217,64 +248,44 @@ class DriverlessClient:
         except Exception as e:
             print(e.args)
             return False
-
+        self.http_loggedin = True
         return True
 
     # 多线程用于websocket阻塞
-    def core_ws_run_forever(self):
-        self.core_ws.run_forever()
+    def __core_ws_run_forever(self):
+        self.__core_ws.run_forever()
 
     # websocket登录
-    def login_core_ws(self):  # 必须启用多线程
-        self.core_ws = websocket.WebSocketApp(self.ws_core_url,
-                                              on_message=self.onWebSocketMessage,
-                                              on_error=self.onWebSocketError,
-                                              on_close=self.onWebSocketClose,
-                                              on_open=self.onWebSocketOpen)
+    def __login_core_ws(self):  # 必须启用多线程
+        self.__core_ws = websocket.WebSocketApp(self.ws_core_url,
+                                                on_message=self.__onWebSocketMessage,
+                                                on_error=self.__onWebSocketError,
+                                                on_close=self.__onWebSocketClose,
+                                                on_open=self.__onWebSocketOpen)
 
         # 在新线程中保持websocket运行
-        threading.Thread(target=self.core_ws_run_forever).start()
+        threading.Thread(target=self.__core_ws_run_forever).start()
 
         # 等待websocket登录成功
-        wait_cnt = 0
-        while not self.ws_loggedin and not rospy.is_shutdown():
-            wait_cnt = wait_cnt + 1
-            if wait_cnt > 3:  # 等待超时
-                print("登录websocket超时")
-                break
-            print("%d: websocket logging in..." % wait_cnt)
-            rospy.sleep(rospy.Duration(1.0))
+        # wait_cnt = 0
+        # while not self.ws_loggedin and self.running:
+        #     wait_cnt = wait_cnt + 1
+        #     if wait_cnt > 3:  # 等待超时
+        #         print("登录websocket超时")
+        #         break
+        #     print("%d: websocket logging in..." % wait_cnt)
+        #     time.sleep(1.0)
+
+        # 使用多线程条件变量唤醒
+        self.ws_login_cv.acquire()
+        self.ws_login_cv.wait(3.0)
+        self.ws_login_cv.release()
+
         if self.ws_loggedin:
             print("core websocket login ok.")
         return self.ws_loggedin
 
-    def on_login(self):
-        self.ws_loggedin = True
-
-    def on_logout(self):
-        self.ws_loggedin = False
-        rospy.signal_shutdown()
-
-    def timerCallback_1s(self, event):
-        if self.system_state:
-            data_dict = dict()
-            data_dict['speed'] = self.system_state.vehicle_speed
-            data_dict['steer_angle'] = self.system_state.roadwheel_angle
-            data_dict['task_state'] = self.system_state.task_state
-            data_dict['position_x'] = self.system_state.position_x
-            data_dict['position_y'] = self.system_state.position_y
-
-            send_dict = dict()
-            send_dict['type'] = "rep_car_state"
-            send_dict['msg'] = data_dict
-
-            try:
-                self.core_ws.send(json.dumps(send_dict))
-                self.core_ws.send()
-            except Exception as e:
-                print(e)
-
-    def onWebSocketOpen(self, ws):
+    def __onWebSocketOpen(self, ws):
         # ws启动后进行服务器登录验证
         userinfo = dict()
         userinfo["username"] = self.username
@@ -284,11 +295,12 @@ class DriverlessClient:
         login_data['type'] = "req_login"
         login_data['data'] = userinfo
         # print(json.dumps(login_data, encoding='utf-8'))
-        self.core_ws.send(json.dumps(login_data, encoding='utf-8'))
+        self.__core_ws.send(json.dumps(login_data, encoding='utf-8'))
         # print("### open ###")
 
-    def onWebSocketMessage(self, ws, message):
-        print(message)
+    # websocket消息回调函数, 上报信息/请求信息/应答信息
+    def __onWebSocketMessage(self, ws, message):
+        print("ws receive: %s" % message)
         try:
             data_dict = json.loads(message, encoding='utf-8')
             msgtype = data_dict.get('type')
@@ -296,35 +308,67 @@ class DriverlessClient:
             data = data_dict.get('data')
         except Exception as e:
             return
-        print("code: %d, msg_type: %s" %(code, msgtype))
+
         # 登录是否成功
         if not self.ws_loggedin and msgtype == "res_login":
+            self.ws_login_cv.acquire()
             if 0 == code:  # 登录成功
-                self.on_login()
-        elif msgtype == "xxxx":
-            pass
+                self.ws_loggedin = True
+            else:
+                self.ws_loggedin = False
+            self.ws_login_cv.notify()
+            self.ws_login_cv.release()
 
-    def onWebSocketError(self, ws, error):
+        elif msgtype == "req_task":  # 请求执行自动驾驶任务
+            response = {'type': "res_task", 'code': -1, 'msg': '', 'data': {}}
+            if data.get("car_id", "") != self.userid:
+                response['code'] = 1
+                response['msg'] = "I am not given car!"
+            else:
+                pathid = data.get("path_id", "")
+                speed = float(data.get("speed", ""))
+                path_dir = os.path.join(settings.NAV_PATH_DIR, str(pathid))
+                if not os.path.exists(path_dir):
+                    # 创建路径文件夹
+                    os.mkdir(path_dir)
+                    ok = self.download_navpathfile(path_dir, pathid)
+                    if not ok:  # 下载失败, 删除文件夹
+                        print("download failed. delete directory: %s" % path_dir)
+                        # os.removedirs(path_dir)
+                        shutil.rmtree(path_dir)
+
+                if not os.path.exists(path_dir):  # 路径文件不存在
+                    response['code'] = 1
+                    response['msg'] = "Download navigation path failed!"
+                else:
+                    self.request_av_task.cv.acquire()
+                    # print(threading.currentThread().ident)
+
+                    self.request_av_task.req(path_dir, speed)
+                    self.request_av_task.cv.wait(10.0)
+                    if self.request_av_task.res is None:
+                        response['code'] = 1
+                        response['msg'] = "Request timeout in car"
+                    elif self.request_av_task.res:
+                        response['code'] = 0
+                        response['msg'] = self.request_av_task.msg
+                    else:
+                        response['code'] = 1
+                        response['msg'] = self.request_av_task.msg
+                    self.request_av_task.cv.release()
+
+            print("ws send: %s" % response)
+            self.__core_ws.send(json.dumps(response))
+
+    def __onWebSocketError(self, ws, error):
         print("error", error)
 
-    def onWebSocketClose(self, ws):
+    # websocket已断开
+    def __onWebSocketClose(self, ws):
         print("### closed ###")
-        self.on_logout()
-
-    def systemStateCallback(self, state):
-        self.system_state = state
-
-    def run(self):
-        rospy.spin()
+        self.ws_loggedin = False
 
 
-def main():
-    rospy.init_node("driverless_websocket_client", anonymous=True)
-    app = DriverlessClient()
-    if not app.init():
-        return
-    app.run()
 
 
-if __name__ == "__main__":
-    main()
+
