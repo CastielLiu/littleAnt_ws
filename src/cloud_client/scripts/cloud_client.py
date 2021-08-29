@@ -318,9 +318,8 @@ class CloudClient:
                 self.ws_loggedin = False
             self.ws_login_cv.notify()
             self.ws_login_cv.release()
-
-        elif msgtype == "req_task":  # 请求执行自动驾驶任务
-            response = {'type': "res_task", 'code': -1, 'msg': '', 'data': {}}
+        elif msgtype == "req_start_task":  # 请求执行自动驾驶任务
+            response = {'type': "res_start_task", 'code': -1, 'msg': '', 'data': {}}
             if data.get("car_id", "") != self.userid:
                 response['code'] = 1
                 response['msg'] = "I am not given car!"
@@ -341,23 +340,17 @@ class CloudClient:
                     response['code'] = 1
                     response['msg'] = "Download navigation path failed!"
                 else:
-                    self.request_av_task.cv.acquire()
-                    # print(threading.currentThread().ident)
-
-                    self.request_av_task.req(path_dir, speed)
-                    self.request_av_task.cv.wait(10.0)
-                    if self.request_av_task.res is None:
-                        response['code'] = 1
-                        response['msg'] = "Request timeout in car"
-                    elif self.request_av_task.res:
-                        response['code'] = 0
-                        response['msg'] = self.request_av_task.msg
-                    else:
-                        response['code'] = 1
-                        response['msg'] = self.request_av_task.msg
-                    self.request_av_task.cv.release()
+                    res, msg = self.request_av_task.do(self.request_av_task.start, (path_dir, speed), 5.0)
+                    response['code'] = 0 if res else 1
+                    response['msg'] = msg
 
             print("ws send: %s" % response)
+            self.__core_ws.send(json.dumps(response))
+        elif msgtype == "req_stop_task":
+            response = {'type': msgtype.replace("req", "res"), 'code': -1, 'msg': '', 'data': {}}
+            res, msg = self.request_av_task.do(self.request_av_task.stop, (), 5.0)
+            response['code'] = 0 if res else 1
+            response['msg'] = msg
             self.__core_ws.send(json.dumps(response))
 
     def __onWebSocketError(self, ws, error):
