@@ -19,12 +19,12 @@
 [submodule "src/av_console"]
 	path = src/av_console
 	url = https://github.com.cnpmjs.org/CastielLiu/av_console
-[submodule "src/driverless_common/msgs/rs_sdk_percept_msg_v2.0"]
-	path = src/driverless_common/msgs/rs_sdk_percept_msg_v2.0
-	url = https://github.com/shangjie-li/rs_sdk_percept_msg_v2.0.git
 [submodule "src/drivers/rtcm3.2"]
 	path = src/drivers/rtcm3.2
 	url = https://github.com.cnpmjs.org/CastielLiu/rtcm3.2.git
-[submodule "src/driverless_common"]
-	path = src/driverless_common
+[submodule "src/common/driverless_common"]
+	path = src/common/driverless_common
 	url = https://github.com.cnpmjs.org/CastielLiu/driverless_common
+[submodule "src/common/pathplan_msgs"]
+	path = src/common/pathplan_msgs
+	url = https://github.com.cnpmjs.org/CastielLiu/pathplan_msgs.git
