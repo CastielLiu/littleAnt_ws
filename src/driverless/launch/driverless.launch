@@ -21,12 +21,12 @@
 	</node>
 	
 	<!-- 上层控制  launch-prefix="gnome-terminal -x" -->
-	<node name="driverless_node" pkg="driverless" type="driverless_node" output="screen">
+	<node name="driverless_node" pkg="driverless" type="driverless_node" output="screen" launch-prefix="gnome-terminal -x">
 		<rosparam file="$(find driverless)/config/vehicle_params.yaml" command="load"/>
 		<!-- main -->
-        <param name="is_offline_debug" value="true"/>
+        <param name="is_offline_debug" value="false"/>
 		<param name="max_speed" value="$(arg max_speed)"/>
-		<param name="odom_topic" value="/ll2utm_odom"/>
+		<param name="odom_topic" value="/gps_odom"/>
 		
 		<!-- path_tracking -->
 		<param name="max_side_accel" value="1.0"/>
@@ -63,6 +63,8 @@
 	
 	<!-- GPS -->
 	<include file="$(find novatel)/launch/novatel.launch"/>
+	<include file="$(find rtk)/launch/rtk.launch"/>
+	
 	
 	<!-- 毫米波雷达 -->
 	<include file="$(find esr_radar)/launch/esr_radar.launch" if="$(arg use_car_follower)"/>

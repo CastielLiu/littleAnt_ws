@@ -8,4 +8,4 @@ el_isolated/
 .ycm_extra_conf.py
 .ycm_extra_conf.pyc
 src/build*
-
+av_console.workspace.user.*
