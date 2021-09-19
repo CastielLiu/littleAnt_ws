@@ -14,6 +14,7 @@ from functools import partial
 from requests import ConnectionError
 from av_task import RequestAvTask
 from scripts import settings
+from driverless_common.msg import DoDriverlessTaskResult, DoDriverlessTaskFeedback
 
 ''' 
 自动驾驶与web服务器进行数据交互
@@ -84,16 +85,17 @@ class CloudClient:
         self.csrf_header = {}
         self.running = True
 
-        self.request_av_task = RequestAvTask()  # 请求自动驾驶任务
+        self.request_av_task = RequestAvTask(self.__taskDoneCallback, self.__taskFeedbackCallback)  # 请求自动驾驶任务
 
     def check_login(self):
         if self.ws_loggedin and self.http_loggedin:
             return True
         return False
 
-    def login(self):
+    def login(self, max_try_times=None):
+        self.running = True
         # http登录 ws登录
-        if not self.__login_http() or not self.__login_core_ws():
+        if not self.__login_http(max_try_times) or not self.__login_core_ws():
             return False
         return True
 
@@ -101,11 +103,14 @@ class CloudClient:
         self.__logout_http()
         self.__core_ws.close()
 
-    def sendCoreData(self, data):
+    def sendCoreData(self, text_data=None, dict_data=None):
         try:
-            self.__core_ws.send(data)
+            if text_data:
+                self.__core_ws.send(text_data)
+            else:
+                self.__core_ws.send(json.dumps(dict_data))
         except Exception as e:
-            print(e)
+            print("send core_ws error: %s" % e)
             return False
         return True
 
@@ -131,7 +136,7 @@ class CloudClient:
     # 先获取路径文件的urls, 再利用urls进行文件下载
     def download_navpathfile(self, path_dir, pathid):
         try:
-            data = {"type": "req_path_files", "data": {"pathid": pathid}}
+            data = {"type": "req_path_files", "data": {"path_id": pathid}}
             # self.session.post(data=data, json=json)
             # data=dict -> 'key1=val1&key2=val2' 与html表单相同
             # json=dict -> {"key1": val1, "key2": val2}
@@ -205,18 +210,25 @@ class CloudClient:
         return False
 
     # http登录
-    def __login_http(self):
+    def __login_http(self, max_try_times=None):
         http_login_url = self.http_url + "login/"
+
+        try_times = 0
         while self.running:
+            if max_try_times is not None and try_times == max_try_times:
+                print("达到最大重连次数")
+                return False
             try:
                 request_login = self.session.get(url=http_login_url)  # get登录页面以获取cookies
+                try_times = try_times + 1
             except ConnectionError as e:
-                print("连接服务器超时，正在重新连接")
+                print("连接服务器超时, 正在重新连接")
                 time.sleep(1.0)
                 continue
 
             if request_login.status_code != 200:
                 print("连接服务器失败")
+                time.sleep(1.0)
                 continue
             break
 
@@ -236,7 +248,7 @@ class CloudClient:
             request_login = self.session.post(url=http_login_url, data=login_dict)
             data = json.loads(request_login.text)
             if data['code'] != 0:
-                print("login http faild", data.msg)
+                print("login http faild", data.get("msg", ""))
                 return False
             request_main = self.session.get(url=self.http_url)  # get主页以获取token
 
@@ -246,7 +258,7 @@ class CloudClient:
                 print("No usertoken or userid in cookies.")
                 return False
         except Exception as e:
-            print(e.args)
+            print(e.args, "__login_http")
             return False
         self.http_loggedin = True
         return True
@@ -294,9 +306,9 @@ class CloudClient:
         login_data = dict()
         login_data['type'] = "req_login"
         login_data['data'] = userinfo
-        # print(json.dumps(login_data, encoding='utf-8'))
+        print("ws send: %s" % json.dumps(login_data, encoding='utf-8'))
         self.__core_ws.send(json.dumps(login_data, encoding='utf-8'))
-        # print("### open ###")
+        print("### open ###")
 
     # websocket消息回调函数, 上报信息/请求信息/应答信息
     def __onWebSocketMessage(self, ws, message):
@@ -319,14 +331,14 @@ class CloudClient:
             self.ws_login_cv.notify()
             self.ws_login_cv.release()
         elif msgtype == "req_start_task":  # 请求执行自动驾驶任务
-            response = {'type': "res_start_task", 'code': -1, 'msg': '', 'data': {}}
+            response = {'type': msgtype.replace("req", "res"), 'code': -1, 'msg': '', 'data': {}}
             if data.get("car_id", "") != self.userid:
                 response['code'] = 1
                 response['msg'] = "I am not given car!"
             else:
                 pathid = data.get("path_id", "")
                 speed = float(data.get("speed", ""))
-                path_dir = os.path.join(settings.NAV_PATH_DIR, str(pathid))
+                path_dir = os.path.join(settings.NAV_PATH_DIR, 'path_' + str(pathid))
                 if not os.path.exists(path_dir):
                     # 创建路径文件夹
                     os.mkdir(path_dir)
@@ -337,21 +349,19 @@ class CloudClient:
                         shutil.rmtree(path_dir)
 
                 if not os.path.exists(path_dir):  # 路径文件不存在
-                    response['code'] = 1
+                    response['code'] = 20
                     response['msg'] = "Download navigation path failed!"
                 else:
-                    res, msg = self.request_av_task.do(self.request_av_task.start, (path_dir, speed), 5.0)
-                    response['code'] = 0 if res else 1
+                    res, msg = self.request_av_task.do(self.request_av_task.start, (path_dir, speed), wait=True, timeout=5.0)
+                    response['code'] = 0 if res else 21
                     response['msg'] = msg
-
-            print("ws send: %s" % response)
-            self.__core_ws.send(json.dumps(response))
+            self.sendCoreData(dict_data=response)
         elif msgtype == "req_stop_task":
             response = {'type': msgtype.replace("req", "res"), 'code': -1, 'msg': '', 'data': {}}
-            res, msg = self.request_av_task.do(self.request_av_task.stop, (), 5.0)
+            res, msg = self.request_av_task.do(self.request_av_task.stop, ())
             response['code'] = 0 if res else 1
             response['msg'] = msg
-            self.__core_ws.send(json.dumps(response))
+            self.sendCoreData(dict_data=response)
 
     def __onWebSocketError(self, ws, error):
         print("error", error)
@@ -361,7 +371,14 @@ class CloudClient:
         print("### closed ###")
         self.ws_loggedin = False
 
+    # 自动驾驶任务完成回调函数
+    def __taskDoneCallback(self, result, msg):
+        report = {'type': "rep_taskdone", 'code': -1, 'msg': msg, 'data': {}}
+        report['code'] = 0 if result and result.success else 1
+        self.sendCoreData(dict_data=report)
 
-
-
+    # 自动驾驶任务反馈信息回调函数
+    def __taskFeedbackCallback(self, feedback):
+        report = {'type': "rep_taskfeedback", 'code': 0, 'msg': "", 'data': {'rate': feedback.percentage}}
+        self.sendCoreData(dict_data=report)
 

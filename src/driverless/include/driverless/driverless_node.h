@@ -18,7 +18,9 @@
 #include <actionlib/client/simple_action_client.h>
 #include <actionlib/server/simple_action_server.h>
 #include <driverless_common/DoDriverlessTaskAction.h>   // Note: "Action" is appended
-
+#include <driverless_common/SystemState.h>
+#include <driverless_common/VehicleCtrlCmd.h>
+#include <driverless_common/VehicleState.h>
 
 class AutoDrive : public AutoDriveBase
 {
@@ -35,7 +37,6 @@ private:
     bool loadVehicleParams();
     bool loadDriveTaskFile(const std::string& file);
     bool setDriveTaskPathPoints(const driverless_common::DoDriverlessTaskGoalConstPtr& goal);
-	void publishPathTrackingState();
     bool isGpsPointValid(const GpsPoint& point);
     void vehicleSpeed_callback(const ant_msgs::State2::ConstPtr& msg);
     void vehicleState4_callback(const ant_msgs::State4::ConstPtr& msg);
@@ -45,9 +46,12 @@ private:
     void sendCmd1_callback(const ros::TimerEvent&);
 	void sendCmd2_callback(const ros::TimerEvent&);
     void captureExernCmd_callback(const ros::TimerEvent&);
+    void publishDriverlessState(const ros::TimerEvent&);
+    
     void setSendControlCmdEnable(bool flag);
     void goal_callback(const pathplaning_msgs::expected_path::ConstPtr& msg);
     void executeDriverlessCallback(const driverless_common::DoDriverlessTaskGoalConstPtr& goal);
+    void goalPreemptCallback(){if(as_->isActive()){goal_preempt_=true;}};
     bool handleNewGoal(const driverless_common::DoDriverlessTaskGoalConstPtr& goal, std::string &result);
 
     ant_msgs::ControlCmd2 driveDecisionMaking();
@@ -60,10 +64,13 @@ private:
     void workingThread();
     void doDriveWork();
     void doReverseWork();
+    void doOfflineDebugWork();
 
     bool waitGearOk(int gear);
     void waitSpeedZero();
 
+    // 此enum务必按照数字顺序填写
+    // 否则访问StateName时将出错
     enum State
     {
         State_Idle    = 0,  //空闲, 停止控制指令发送，退出自动驾驶模式
@@ -80,13 +87,17 @@ private:
                                    //②若当前为D档，速度置零->切N档->切R档
                                    //跳转到后退模式
         State_ForceExternControl=6, //强制使用外部控制器状态
+
+
+        State_OfflineDebug = 7,   //离线调试
     };
     
     std::vector<std::string> StateName = {"State_Idle", "State_Drive", "State_Reverse",
                                           "State_Stop", "State_SwitchToDrive", "State_SwitchToReverse",
-    									  "State_ForceExternControl"};
+    									  "State_ForceExternControl", "State_OfflineDebug"};
     
     bool switchSystemState(int state);
+    
     
 private:
     float expect_speed_;
@@ -109,7 +120,7 @@ private:
     std::mutex listen_cv_mutex_;
     std::condition_variable listen_cv_;
     
-
+    std::vector<ros::Timer> timers_;
 	ros::Timer cmd1_timer_, cmd2_timer_;
     ros::Timer capture_extern_cmd_timer_;
     ros::Subscriber sub_odom_;
@@ -118,6 +129,7 @@ private:
 	ros::Subscriber sub_vehicleState4_;
 
     ros::Publisher pub_cmd1_, pub_cmd2_;
+    ros::Publisher pub_driverless_state_;
 
     ros::Subscriber sub_new_goal_;   //订阅外部目标任务请求
     ros::Publisher  pub_new_goal_;   //发布目标请求到actionlib服务 
@@ -127,6 +139,7 @@ private:
 	ant_msgs::ControlCmd2 controlCmd2_;
 
     DoDriverlessTaskServer* as_;
+    bool goal_preempt_;
     
     float avoid_offset_;
     PathTracking tracker_;

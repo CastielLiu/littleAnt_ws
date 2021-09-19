@@ -14,7 +14,8 @@ AutoDrive::AutoDrive():
 	last_system_state_(State_Idle),
 	has_new_task_(false),
 	request_listen_(false),
-	as_(nullptr)
+	as_(nullptr),
+	goal_preempt_(false)
 {
 	controlCmd1_.set_driverlessMode = true;
 	controlCmd1_.set_handBrake = false;
@@ -73,14 +74,18 @@ bool AutoDrive::init(ros::NodeHandle nh,ros::NodeHandle nh_private)
 	pub_cmd2_ = nh_.advertise<ant_msgs::ControlCmd2>("/controlCmd2",1);
 	pub_diagnostic_ = nh_.advertise<diagnostic_msgs::DiagnosticStatus>("/driverless/diagnostic",1);
 	pub_new_goal_ = nh_.advertise<driverless_common::DoDriverlessTaskActionGoal>("/do_driverless_task/goal", 1);
+	pub_driverless_state_ = nh.advertise<driverless_common::SystemState>("/driverless/system_state",1);
 	
-	//定时器                                                                           one_shot, auto_start
+	//定时器                                                                                one_shot, auto_start
 	cmd1_timer_ = nh_.createTimer(ros::Duration(0.02), &AutoDrive::sendCmd1_callback,this, false, false);
 	cmd2_timer_ = nh_.createTimer(ros::Duration(0.01), &AutoDrive::sendCmd2_callback,this, false, false);
+
+	timers_.push_back(nh_.createTimer(ros::Duration(0.1), &AutoDrive::publishDriverlessState,this));
 
 	/*+初始化自动驾驶请求服务器*/
 	as_  = new DoDriverlessTaskServer(nh_, "do_driverless_task", 
                               boost::bind(&AutoDrive::executeDriverlessCallback,this, _1), false);
+	as_->registerPreemptCallback(boost::bind(&AutoDrive::goalPreemptCallback, this)); //注册抢占回调函数
     as_->start();
 	/*-初始化自动驾驶请求服务器*/
 
@@ -128,7 +133,7 @@ bool AutoDrive::init(ros::NodeHandle nh,ros::NodeHandle nh_private)
 			ROS_ERROR("[%s] Initial or Start extern controller failed!", __NAME__);
 			return false;
 		}
-		capture_extern_cmd_timer_ = nh_.createTimer(ros::Duration(0.05), &AutoDrive::captureExernCmd_callback, this);
+		timers_.push_back(nh_.createTimer(ros::Duration(0.05), &AutoDrive::captureExernCmd_callback, this));
 	}
 
     //初始化倒车控制器
@@ -629,3 +634,28 @@ bool AutoDrive::waitGearOk(int gear)
 	}
 	return true;
 }
+
+/*@brief 发布自动驾驶状态信息
+*/
+void AutoDrive::publishDriverlessState(const ros::TimerEvent&)
+{
+	if(pub_driverless_state_.getNumSubscribers())
+	{
+		driverless_common::SystemState driverless_state;
+		const Pose pose = vehicle_state_.getPose(LOCK);
+		const float speed = vehicle_state_.getSpeed(LOCK);
+		driverless_state.header.stamp = ros::Time::now();
+		driverless_state.position_x = pose.x;
+		driverless_state.position_y = pose.y;
+		driverless_state.yaw = pose.yaw;
+		driverless_state.vehicle_speed =  speed;
+		driverless_state.roadwheel_angle = vehicle_state_.getSteerAngle(LOCK);
+		// driverless_state.lateral_error = g_lateral_err_;
+		// driverless_state.yaw_error = g_yaw_err_;
+		driverless_state.task_state = StateName[system_state_];
+		driverless_state.command_speed = controlCmd2_.set_speed;
+
+		pub_driverless_state_.publish(driverless_state);
+	}
+}
+

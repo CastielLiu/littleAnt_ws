@@ -1,6 +1,7 @@
 <!-- -->
 <launch>
-
+	<!--optenv带选项的环境变量， 如果未设置环境变量，则取默认值-->
+	<arg name="offline_debug" value="$(optenv DRIVERLESS_OFFLINE_DEBUG false)"/>
 	<arg name="roadnet_file" default=""/>     <!--默认为空-->
 	<arg name="max_speed" default="10.0" />
 	<arg name="use_extern_controller" default="false"/>
@@ -10,21 +11,13 @@
 	<!-- 底层控制 -->
 	<arg name="can_port" default="/dev/U4"/>   <!--底层can分析仪-->
 	<arg name="stm32_port" default="/dev/U6"/>          <!-- STM32-->
-
-	<node name="ant_driver_node" pkg="ant_driver" type="ant_driver" output="screen" >
-		<param name ="obd_can_port_name" value="$(arg can_port)"/>
-		<param name ="stm32_port_name" value="$(arg stm32_port)"/>
-		<param name ="stm32_baudrate" value="115200"/>
-		<param name ="max_steering_speed" value="2.0"/> <!--前后帧转角最大差值 -->
-		<param name ="steering_offset" value="20"/>  <!--左负右正 -->
-		<param name ="default_drive_gear" value="false"/> <!--默认D档 ?-->
-	</node>
+	
 	
 	<!-- 上层控制  launch-prefix="gnome-terminal -x" -->
 	<node name="driverless_node" pkg="driverless" type="driverless_node" output="screen" launch-prefix="gnome-terminal -x">
 		<rosparam file="$(find driverless)/config/vehicle_params.yaml" command="load"/>
 		<!-- main -->
-        <param name="is_offline_debug" value="false"/>
+        <param name="is_offline_debug" value="$(arg offline_debug)"/>
 		<param name="max_speed" value="$(arg max_speed)"/>
 		<param name="odom_topic" value="/gps_odom"/>
 		
@@ -58,19 +51,30 @@
 		<!-- drive control test -->
 		<param name="drive_test" value="false"/>
 		<param name="drive_path_file" value="$(arg roadnet_file)"/>
-
 	</node> 
-	
-	<!-- GPS -->
-	<include file="$(find novatel)/launch/novatel.launch"/>
-	<include file="$(find rtk)/launch/rtk.launch"/>
-	
-	
-	<!-- 毫米波雷达 -->
-	<include file="$(find esr_radar)/launch/esr_radar.launch" if="$(arg use_car_follower)"/>
 
-	<!-- 摄像头 -->
-	<include file="$(find driverless)/launch/usb_cam.launch" if="$(arg use_extern_controller)"/>
+	<group unless="$(arg offline_debug)">
+
+		<node name="ant_driver_node" pkg="ant_driver" type="ant_driver" output="screen" >
+			<param name ="obd_can_port_name" value="$(arg can_port)"/>
+			<param name ="stm32_port_name" value="$(arg stm32_port)"/>
+			<param name ="stm32_baudrate" value="115200"/>
+			<param name ="max_steering_speed" value="2.0"/> <!--前后帧转角最大差值 -->
+			<param name ="steering_offset" value="20"/>  <!--左负右正 -->
+			<param name ="default_drive_gear" value="false"/> <!--默认D档 ?-->
+		</node>
+		
+		<!-- GPS -->
+		<include file="$(find novatel)/launch/novatel.launch"/>
+		<include file="$(find rtk)/launch/rtk.launch"/>
+		
+		
+		<!-- 毫米波雷达 -->
+		<include file="$(find esr_radar)/launch/esr_radar.launch" if="$(arg use_car_follower)"/>
+
+		<!-- 摄像头 -->
+		<include file="$(find driverless)/launch/usb_cam.launch" if="$(arg use_extern_controller)"/>
+	</group>
 	
 
 </launch>

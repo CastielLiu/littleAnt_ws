@@ -24,22 +24,23 @@ class CloudClientNode(CloudClient):
         self.i = 0
 
     def init(self):
-        if not self.login():
+        if not self.login(10):
             return False
         self.subSystemState = rospy.Subscriber('/driverless/system_state', SystemState, self.systemStateCallback)
-        self.timer1s = rospy.Timer(rospy.Duration(1.0), self.timerCallback_1s)
+        self.timer1s = rospy.Timer(rospy.Duration(5.0), self.timerCallback_1s)
         return True
 
     # 停止运行
     def stop(self):
         CloudClient.stop(self)  #
-        pass
 
+    # 下载所有路径文件
     def download_allpath(self):
         pathlist = self.get_navpathlist()
         for path in pathlist:
             self.download_navpathfile(path['id'])
 
+    # 自动驾驶系统状态回调函数
     def systemStateCallback(self, state):
         self.system_state = state
         self.av_status.set(state.task_state)
@@ -47,13 +48,19 @@ class CloudClientNode(CloudClient):
         if self.av_status.changed():
             self.reportStateData()
 
+    # 定时回调函数
     def timerCallback_1s(self, event):
         if not self.check_login():
-            rospy.signal_shutdown("stop")
+            print("您已掉线, 正在尝试重新登录...")
+            self.login()  # 重新登录
+            return
+            # rospy.signal_shutdown("stop")
         self.reportStateData()
 
+    # 上报车辆状态信息
     def reportStateData(self):
         if self.system_state:
+            print ("reportStateData")
             data_dict = dict()
             data_dict['speed'] = self.system_state.vehicle_speed
             data_dict['steer_angle'] = self.system_state.roadwheel_angle
