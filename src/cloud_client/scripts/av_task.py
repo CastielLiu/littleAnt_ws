@@ -7,7 +7,6 @@ import time
 import actionlib
 import rospy
 from driverless_common.msg import DoDriverlessTaskAction, DoDriverlessTaskGoal, DoDriverlessTaskResult
-from scripts import settings
 
 
 class RequestAvTask:

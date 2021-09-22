@@ -1,0 +1,7 @@
+<!-- -->
+
+<launch>
+	<node name="cloud_client_node" pkg="cloud_client" type="cloud_client_node.py" respawn="true" output="screen">
+	    <param name="navpath_dir" value="$(find cloud_client)/paths"/>
+	</node>
+</launch>

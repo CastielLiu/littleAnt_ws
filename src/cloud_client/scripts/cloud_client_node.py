@@ -5,8 +5,8 @@ import json
 import rospy
 from driverless_common.msg import SystemState
 from cloud_client import CloudClient
-from scripts.datatypes import ChangeDataMonitor
-from scripts.utils import *
+from datatypes import ChangeDataMonitor
+from utils import *
 
 
 class CloudClientNode(CloudClient):
@@ -26,8 +26,9 @@ class CloudClientNode(CloudClient):
     def init(self):
         if not self.login(10):
             return False
+        self.navpath_dir = rospy.get_param("~navpath_dir", "paths/")
         self.subSystemState = rospy.Subscriber('/driverless/system_state', SystemState, self.systemStateCallback)
-        self.timer1s = rospy.Timer(rospy.Duration(5.0), self.timerCallback_1s)
+        self.timer1s = rospy.Timer(rospy.Duration(1.0), self.timerCallback_1s)
         return True
 
     # 停止运行
@@ -60,7 +61,7 @@ class CloudClientNode(CloudClient):
     # 上报车辆状态信息
     def reportStateData(self):
         if self.system_state:
-            print ("reportStateData")
+            # print ("reportStateData")
             data_dict = dict()
             data_dict['speed'] = self.system_state.vehicle_speed
             data_dict['steer_angle'] = self.system_state.roadwheel_angle

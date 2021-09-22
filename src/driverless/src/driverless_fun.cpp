@@ -645,6 +645,8 @@ void AutoDrive::publishDriverlessState(const ros::TimerEvent&)
 		const Pose pose = vehicle_state_.getPose(LOCK);
 		const float speed = vehicle_state_.getSpeed(LOCK);
 		driverless_state.header.stamp = ros::Time::now();
+		driverless_state.location_source = "gps";
+
 		driverless_state.position_x = pose.x;
 		driverless_state.position_y = pose.y;
 		driverless_state.yaw = pose.yaw;

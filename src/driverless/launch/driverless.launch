@@ -52,6 +52,9 @@
 		<param name="drive_test" value="false"/>
 		<param name="drive_path_file" value="$(arg roadnet_file)"/>
 	</node> 
+	
+	<!-- 连接云控制平台客户端 -->
+	<include file="$(find cloud_client)/launch/cloud_client.launch"/>
 
 	<group unless="$(arg offline_debug)">
 
@@ -74,6 +77,8 @@
 
 		<!-- 摄像头 -->
 		<include file="$(find driverless)/launch/usb_cam.launch" if="$(arg use_extern_controller)"/>
+		
+		
 	</group>
 	
 

@@ -13,7 +13,7 @@ import json
 from functools import partial
 from requests import ConnectionError
 from av_task import RequestAvTask
-from scripts import settings
+import settings
 from driverless_common.msg import DoDriverlessTaskResult, DoDriverlessTaskFeedback
 
 ''' 
@@ -84,7 +84,7 @@ class CloudClient:
 
         self.csrf_header = {}
         self.running = True
-
+        self.navpath_dir = "paths/"  # 默认在~/.ros路径下
         self.request_av_task = RequestAvTask(self.__taskDoneCallback, self.__taskFeedbackCallback)  # 请求自动驾驶任务
 
     def check_login(self):
@@ -135,6 +135,7 @@ class CloudClient:
     # 获取并下载导航路径文件
     # 先获取路径文件的urls, 再利用urls进行文件下载
     def download_navpathfile(self, path_dir, pathid):
+        print("start downloas navigation path file %s to %s" % (pathid, path_dir))
         try:
             data = {"type": "req_path_files", "data": {"path_id": pathid}}
             # self.session.post(data=data, json=json)
@@ -319,6 +320,7 @@ class CloudClient:
             code = data_dict.get('code', -1)
             data = data_dict.get('data')
         except Exception as e:
+            print("__onWebSocketMessage: %s" % e)
             return
 
         # 登录是否成功
@@ -334,14 +336,17 @@ class CloudClient:
             response = {'type': msgtype.replace("req", "res"), 'code': -1, 'msg': '', 'data': {}}
             if data.get("car_id", "") != self.userid:
                 response['code'] = 1
-                response['msg'] = "I am not given car!"
+                response['msg'] = "Not given car! Error in webServer"
             else:
                 pathid = data.get("path_id", "")
                 speed = float(data.get("speed", ""))
-                path_dir = os.path.join(settings.NAV_PATH_DIR, 'path_' + str(pathid))
+                path_dir = os.path.join(self.navpath_dir, 'path_' + str(pathid))
                 if not os.path.exists(path_dir):
                     # 创建路径文件夹
-                    os.mkdir(path_dir)
+                    # 使用makedirs递归创建目录
+                    # mkdir在父目录不存在时将创建失败且一直阻塞！
+                    os.makedirs(path_dir)
+
                     ok = self.download_navpathfile(path_dir, pathid)
                     if not ok:  # 下载失败, 删除文件夹
                         print("download failed. delete directory: %s" % path_dir)
@@ -355,6 +360,7 @@ class CloudClient:
                     res, msg = self.request_av_task.do(self.request_av_task.start, (path_dir, speed), wait=True, timeout=5.0)
                     response['code'] = 0 if res else 21
                     response['msg'] = msg
+            print("response: %s" % response)
             self.sendCoreData(dict_data=response)
         elif msgtype == "req_stop_task":
             response = {'type': msgtype.replace("req", "res"), 'code': -1, 'msg': '', 'data': {}}
@@ -362,6 +368,8 @@ class CloudClient:
             response['code'] = 0 if res else 1
             response['msg'] = msg
             self.sendCoreData(dict_data=response)
+        elif msgtype == "rep_force_offline":
+            pass
 
     def __onWebSocketError(self, ws, error):
         print("error", error)
@@ -373,8 +381,7 @@ class CloudClient:
 
     # 自动驾驶任务完成回调函数
     def __taskDoneCallback(self, result, msg):
-        report = {'type': "rep_taskdone", 'code': -1, 'msg': msg, 'data': {}}
-        report['code'] = 0 if result and result.success else 1
+        report = {'type': "rep_taskdone", 'code': 0 if result and result.success else 1, 'msg': msg, 'data': {}}
         self.sendCoreData(dict_data=report)
 
     # 自动驾驶任务反馈信息回调函数
