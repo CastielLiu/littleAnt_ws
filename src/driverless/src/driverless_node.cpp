@@ -80,6 +80,15 @@ bool AutoDrive::handleNewGoal(const driverless_common::DoDriverlessTaskGoalConst
 	// 离线调试
 	if(is_offline_debug_)
 	{
+        if(!loadDriveTaskFile(goal->roadnet_file, goal->roadnet_ext_file))
+        {
+            ROS_ERROR("[%s] Load drive path file failed!", __NAME__);
+            result = "Load Path File Failed!";
+            return false;
+        }
+        else
+            ROS_INFO("[%s] Load drive path file complete!", __NAME__);
+
 		switchSystemState(State_OfflineDebug); 
 		std::unique_lock<std::mutex> lck(work_cv_mutex_);
         has_new_task_ = true;
@@ -134,7 +143,7 @@ bool AutoDrive::handleNewGoal(const driverless_common::DoDriverlessTaskGoalConst
         //指定路径文件
         else if(goal->type == goal->FILE_TYPE)
         {
-            if(!loadDriveTaskFile(goal->roadnet_file))
+            if(!loadDriveTaskFile(goal->roadnet_file, goal->roadnet_ext_file))
             {
                 ROS_ERROR("[%s] Load drive path file failed!", __NAME__);
                 result = "Load Path File Failed!";

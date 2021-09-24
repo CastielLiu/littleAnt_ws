@@ -5,7 +5,7 @@
 #include <mutex>
 #include <ros/ros.h>
 #include <driverless_common/structs.h>
-#include "utils.hpp"
+#include <driverless_common/utils.hpp>
 #include <diagnostic_msgs/DiagnosticStatus.h>
 
 /*@brief 自动驾驶子模块基类

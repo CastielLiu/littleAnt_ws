@@ -14,7 +14,7 @@
 #include <vector>
 #include <assert.h>
 #include <driverless_common/structs.h>
-#include "utils.hpp"
+#include <driverless_common/utils.hpp>
 
 typedef enum
 {

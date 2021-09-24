@@ -560,10 +560,10 @@ bool AutoDrive::loadVehicleParams()
 /*@brief 载入前进任务文件，路径点位信息/停车点信息/拓展路径
 		 若路径附加信息文件不存在，不返回错误，以应对非常规路线
 */
-bool AutoDrive::loadDriveTaskFile(const std::string& file)
+bool AutoDrive::loadDriveTaskFile(const std::string& points_file, const std::string& extend_file)
 {
 	//载入路网文件
-	if(! loadPathPoints(file, global_path_))
+    if(! loadPathPoints(points_file, global_path_))
 	{
 	    ROS_ERROR("[%s] Load path file failed!",__NAME__);
 		publishDiagnosticMsg(diagnostic_msgs::DiagnosticStatus::ERROR,"Load path file failed!");
@@ -571,8 +571,7 @@ bool AutoDrive::loadDriveTaskFile(const std::string& file)
 	}
 
 	//载入路径附加信息
-	std::string path_infos_file = file.substr(0,file.find_last_of(".")) + "_info.xml";
-	if(!loadPathAppendInfos(path_infos_file, global_path_, __NAME__))
+    if(extend_file!="" && !loadPathAppendInfos(extend_file, global_path_, __NAME__))
 	{
 		ROS_ERROR("[%s] Load path infomation failed!",__NAME__);
 		publishDiagnosticMsg(diagnostic_msgs::DiagnosticStatus::ERROR,"Load path infomation failed!");

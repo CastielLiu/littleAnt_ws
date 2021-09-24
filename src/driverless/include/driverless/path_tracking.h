@@ -12,7 +12,7 @@
 #include <nav_msgs/Odometry.h>
 #include <geometry_msgs/Quaternion.h>
 #include <tf/transform_datatypes.h>
-#include "utils.hpp"
+#include <driverless_common/utils.hpp>
 #include <driverless/TrackingState.h>
 
 

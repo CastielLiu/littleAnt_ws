@@ -5,10 +5,11 @@
 import shutil
 import threading
 import os
+
+import rospy
 import websocket
 import requests
 import time
-import rospy
 import json
 from functools import partial
 from requests import ConnectionError
@@ -84,7 +85,7 @@ class CloudClient:
 
         self.csrf_header = {}
         self.running = True
-        self.navpath_dir = "paths/"  # 默认在~/.ros路径下
+        self.navpath_dir = "../paths/"  # 默认在~/.ros路径下
         self.request_av_task = RequestAvTask(self.__taskDoneCallback, self.__taskFeedbackCallback)  # 请求自动驾驶任务
 
     def check_login(self):
@@ -100,8 +101,11 @@ class CloudClient:
         return True
 
     def logout(self):
-        self.__logout_http()
-        self.__core_ws.close()
+        if self.http_loggedin:
+            self.__logout_http()
+
+        if self.ws_loggedin:
+            self.__core_ws.close()
 
     def sendCoreData(self, text_data=None, dict_data=None):
         try:
@@ -215,7 +219,7 @@ class CloudClient:
         http_login_url = self.http_url + "login/"
 
         try_times = 0
-        while self.running:
+        while self.running and not rospy.is_shutdown():
             if max_try_times is not None and try_times == max_try_times:
                 print("达到最大重连次数")
                 return False
@@ -252,6 +256,7 @@ class CloudClient:
                 print("login http faild", data.get("msg", ""))
                 return False
             request_main = self.session.get(url=self.http_url)  # get主页以获取token
+            print (request_main.cookies)
 
             self.usertoken = request_main.cookies.get('token')
             self.userid = request_main.cookies.get('userid')

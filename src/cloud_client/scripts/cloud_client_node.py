@@ -26,7 +26,8 @@ class CloudClientNode(CloudClient):
     def init(self):
         if not self.login(10):
             return False
-        self.navpath_dir = rospy.get_param("~navpath_dir", "paths/")
+
+        self.navpath_dir = rospy.get_param("~navpath_dir", "../paths/")
         self.subSystemState = rospy.Subscriber('/driverless/system_state', SystemState, self.systemStateCallback)
         self.timer1s = rospy.Timer(rospy.Duration(1.0), self.timerCallback_1s)
         return True
@@ -87,10 +88,13 @@ def main():
     rospy.init_node("driverless_websocket_client", anonymous=True)
     app = CloudClientNode()
     if not app.init():
-        return
-
-    rospy.spin()
-    app.stop()
+        rospy.signal_shutdown("init failed")
+    try:
+        rospy.spin()
+    except Exception as e:
+        print("main", e)
+    finally:
+        app.stop()
 
 
 if __name__ == "__main__":
