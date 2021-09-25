@@ -28,3 +28,6 @@
 [submodule "src/common/pathplan_msgs"]
 	path = src/common/pathplan_msgs
 	url = https://github.com.cnpmjs.org/CastielLiu/pathplan_msgs.git
+[submodule "src/av_cloudctrl_client"]
+	path = src/av_cloudctrl_client
+	url = https://github.com/CastielLiu/av_cloudctrl_client.git
