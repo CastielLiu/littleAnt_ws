@@ -90,7 +90,7 @@ void PathTracking::trackingThread()
 	while(ros::ok() && is_running_ && !global_path_.finish())
 	{
 		const Pose pose = vehicle_state_.getPose(LOCK);
-		const float vehicle_speed = vehicle_state_.getSpeed(LOCK);
+		const float vehicle_speed = vehicle_state_.getSpeed(LOCK) / 3.6; // m/s
 		
 		//横向偏差,左偏为负,右偏为正
 		float lat_err = calculateDis2path(pose.x, pose.y, global_path_, nearest_index, &nearest_index);
@@ -146,7 +146,7 @@ void PathTracking::trackingThread()
 		cmd_.roadWheelAngle = t_roadWheelAngle;
 		cmd_mutex_.unlock();
 		
-		publishPathTrackingState();
+		// publishPathTrackingState();
 		publishNearestIndex();
 		
 		
@@ -162,8 +162,8 @@ void PathTracking::trackingThread()
 			publishLocalPath();
 			ROS_INFO("near_index:%lu\t goal_index:%lu\t final_index:%lu",
 				nearest_index,target_index, global_path_.final_index);
-			printf("now:(%.2f,%.2f)\tnear:(%.2f,%.2f)\tgoal:(%.2f,%.2f)",
-				pose.x, pose.y, global_path_[nearest_index].x, global_path_[nearest_index].y, target_point.x, target_point.y);
+			//printf("now:(%.2f,%.2f)\tnear:(%.2f,%.2f)\tgoal:(%.2f,%.2f)",
+			//	pose.x, pose.y, global_path_[nearest_index].x, global_path_[nearest_index].y, target_point.x, target_point.y);
 		}
 		loop_rate.sleep();
 	}

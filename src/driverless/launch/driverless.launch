@@ -54,7 +54,7 @@
 	</node> 
 	
 	<!-- 连接云控制平台客户端 -->
-	<include file="$(find cloud_client)/launch/cloud_client.launch"/>
+<!--	<include file="$(find cloud_client)/launch/cloud_client.launch"/>-->
 
 	<group unless="$(arg offline_debug)">
 
@@ -62,7 +62,7 @@
 			<param name ="obd_can_port_name" value="$(arg can_port)"/>
 			<param name ="stm32_port_name" value="$(arg stm32_port)"/>
 			<param name ="stm32_baudrate" value="115200"/>
-			<param name ="max_steering_speed" value="2.0"/> <!--前后帧转角最大差值 -->
+			<param name ="max_steering_speed" value="270.0"/> <!--deg/s -->
 			<param name ="steering_offset" value="20"/>  <!--左负右正 -->
 			<param name ="default_drive_gear" value="false"/> <!--默认D档 ?-->
 		</node>

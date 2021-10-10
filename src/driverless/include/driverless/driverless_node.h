@@ -18,17 +18,6 @@
 #include <driverless_common/VehicleState.h>
 #include <driverless_common/common.h>
 
-#define LITTLE_ANT
-#ifdef LITTLE_ANT
-
-#include <ant_msgs/ControlCmd1.h>
-#include <ant_msgs/ControlCmd2.h>
-#include <ant_msgs/State1.h>  //gear
-#include <ant_msgs/State3.h>  //
-#include <ant_msgs/State2.h>  //speed
-#include <ant_msgs/State4.h>  //steerAngle
-
-#endif
 
 class AutoDrive : public AutoDriveBase
 {
@@ -59,8 +48,9 @@ private:
     void goalPreemptCallback();
     bool handleNewGoal(const driverless_common::DoDriverlessTaskGoalConstPtr& goal, std::string &result);
 
-    driverless_common::VehicleCtrlCmd driveDecisionMaking();
-    driverless_common::VehicleCtrlCmd reverseDecisionMaking();
+    void resetVehicleCtrlCmd();
+
+    const driverless_common::VehicleCtrlCmd decisionMaking(const controlCmd_t& tracker_cmd);
 
     bool isReverseGear();
     bool isDriveGear();

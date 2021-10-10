@@ -14,7 +14,7 @@ AutoDrive::AutoDrive():
 	has_new_task_(false),
 	request_listen_(false),
 	as_(nullptr),
-	goal_preempt_(false),
+	goal_preempt_(false)
 {
 	this->resetVehicleCtrlCmd();
 }
@@ -59,8 +59,8 @@ bool AutoDrive::init(ros::NodeHandle nh,ros::NodeHandle nh_private)
 	pub_new_goal_ = nh_.advertise<driverless_common::DoDriverlessTaskActionGoal>("/do_driverless_task/goal", 1);
 	pub_driverless_state_ = nh.advertise<driverless_common::SystemState>("/driverless/system_state",1);
 	
-	//定时器                                                                                one_shot, auto_start
-	cmd_timer_ = nh_.createTimer(ros::Duration(0.01), &AutoDrive::sendCmd_CB,this, false, false);
+	//定时器                                                                      one_shot, auto_start
+	cmd_timer_ = nh_.createTimer(ros::Duration(0.01), &AutoDrive::sendCmd_CB,this, false, true);
 
 	timers_.push_back(nh_.createTimer(ros::Duration(0.1), &AutoDrive::publishDriverlessState,this));
 
@@ -327,6 +327,7 @@ bool AutoDrive::handleNewGoal(const driverless_common::DoDriverlessTaskGoalConst
 		if(!ok)
 		{
             result = "Switch System State failed!";
+			switchSystemState(State_Idle);
 			return false;
 		}
 
@@ -398,9 +399,11 @@ bool AutoDrive::handleNewGoal(const driverless_common::DoDriverlessTaskGoalConst
         
         //切换系统状态为: 切换到倒车
         bool ok = switchSystemState(State_SwitchToReverse);
+		
 		if(!ok)
 		{
             result = "Switch System State failed!";
+			switchSystemState(State_Idle);
 			return false;
 		}
 
@@ -493,7 +496,7 @@ void AutoDrive::doDriveWork()
 		tracker_cmd_ = tracker_.getControlCmd();
 		follower_cmd_= car_follower_.getControlCmd();
 		
-		auto cmd = this->driveDecisionMaking();     
+		auto cmd = this->decisionMaking(tracker_cmd_);     
 
 		if(as_->isActive())
 		{
@@ -502,7 +505,6 @@ void AutoDrive::doDriveWork()
 			feedback.steer_angle = cmd.roadwheel_angle;
 			as_->publishFeedback(feedback);
 		}
-
 		loop_rate.sleep();
 	}
 	ROS_INFO("[%s] drive work  completed...", __NAME__); 
@@ -528,14 +530,13 @@ void AutoDrive::doReverseWork()
 		
 		//ROS_INFO("[%s] speed: %.2f\t angle: %.2f", __NAME__, reverse_cmd_.speed, reverse_cmd_.roadWheelAngle);
 		
-		if(reverse_cmd_.validity)
-			reverseDecisionMaking();
+		auto cmd = this->decisionMaking(reverse_cmd_);
 		
 		if(as_->isActive())
 		{
 			driverless_common::DoDriverlessTaskFeedback feedback;
-			feedback.speed = reverse_cmd_.speed;
-			feedback.steer_angle = reverse_cmd_.roadWheelAngle;
+			feedback.speed = cmd.speed;
+			feedback.steer_angle = cmd.roadwheel_angle;
 			as_->publishFeedback(feedback);
 		}
 		
@@ -573,18 +574,29 @@ void AutoDrive::doOfflineDebugWork()
                 ②避障速度控制
 				③跟车速度控制
  */
-const driverless_common::VehicleCtrlCmd AutoDrive::driveDecisionMaking()
+const driverless_common::VehicleCtrlCmd AutoDrive::decisionMaking(const controlCmd_t& tracker_cmd)
 {
-	std::lock_guard<std::mutex> lock2(cmd_msg_mutex_);
+	std::unique_lock<std::mutex> lock2(cmd_msg_mutex_);
 	//若当前状态为强制使用外部控制指令，则忽悠其他指令源
 	if(system_state_ == State_ForceExternControl)
-		return vehicleCtrlCmd_;
+	{
+		std::lock_guard<std::mutex> lock(extern_cmd_mutex_);
+		vehicleCtrlCmd_.roadwheel_angle = extern_cmd_.roadWheelAngle;
+		vehicleCtrlCmd_.speed = extern_cmd_.speed;
+		vehicleCtrlCmd_.brake = extern_cmd_.brake;
+		//转向灯
+		if(extern_cmd_.turnLight == 1) vehicleCtrlCmd_.turnlight_l = true;
+		else if(extern_cmd_.turnLight == 2) vehicleCtrlCmd_.turnlight_r = true;
+		else if(extern_cmd_.turnLight == 0)	vehicleCtrlCmd_.turnlight_r = vehicleCtrlCmd_.turnlight_l = false;
 
-	vehicleCtrlCmd_.roadwheel_angle = tracker_cmd_.roadWheelAngle;
-	vehicleCtrlCmd_.speed = tracker_cmd_.speed; //优先使用跟踪器速度指令
-	vehicleCtrlCmd_.brake = tracker_cmd_.brake;
+		return vehicleCtrlCmd_;
+	}
+		
+	vehicleCtrlCmd_.roadwheel_angle = tracker_cmd.roadWheelAngle;
+	vehicleCtrlCmd_.speed = tracker_cmd.speed; //优先使用跟踪器速度指令
+	vehicleCtrlCmd_.brake = tracker_cmd.brake;
 	
-	std::lock_guard<std::mutex> lock_extern_cmd(extern_cmd_mutex_);
+	extern_cmd_mutex_.lock();
 	if(extern_cmd_.speed_validity){     //如果外部速度指令有效,则使用外部速度
 		vehicleCtrlCmd_.speed = extern_cmd_.speed;
 		vehicleCtrlCmd_.brake = extern_cmd_.brake;
@@ -600,14 +612,15 @@ const driverless_common::VehicleCtrlCmd AutoDrive::driveDecisionMaking()
 
 	//转向灯
 	if(extern_cmd_.turnLight == 1)
-		vehicleCtrlCmd_.left_turn_light = true;
+		vehicleCtrlCmd_.turnlight_l = true;
 	else if(extern_cmd_.turnLight == 2)
-		vehicleCtrlCmd_.right_turn_light = true;
+		vehicleCtrlCmd_.turnlight_r = true;
 	else if(extern_cmd_.turnLight == 0)
 	{
-		vehicleCtrlCmd_.right_turn_light = false;
-		vehicleCtrlCmd_.left_turn_light = false;
+		vehicleCtrlCmd_.turnlight_r = false;
+		vehicleCtrlCmd_.turnlight_l = false;
 	}
+	extern_cmd_mutex_.unlock();
 
 
 	// 任务中断标志 系统需控制车速直到停车, 但转角仍由当前任务决策(否则可能出现意外)
@@ -620,24 +633,11 @@ const driverless_common::VehicleCtrlCmd AutoDrive::driveDecisionMaking()
 		vehicleCtrlCmd_.brake = max(vehicleCtrlCmd_.brake, 60); //取最大制动力
 
 		if(vehicle_state_.speedLowEnough())
+		{
+			cmd_msg_mutex_.unlock();  //务必解锁，否则switchSystemState将产生死锁
 			switchSystemState(State_Idle);
+		}
 	}
-
-	return vehicleCtrlCmd_;
-}
-
-/*@brief 倒车指令决策
- */
-const driverless_common::VehicleCtrlCmd AutoDrive::reverseDecisionMaking()
-{
-	std::lock_guard<std::mutex> lock(cmd_msg_mutex_);
-
-	//若当前状态为强制使用外部控制指令，则忽悠其他指令源
-	if(system_state_ == State_ForceExternControl)
-		return vehicleCtrlCmd_;
-
-	vehicleCtrlCmd_.speed = reverse_cmd_.speed;
-	vehicleCtrlCmd_.roadwheel_angle = reverse_cmd_.roadWheelAngle;
 
 	return vehicleCtrlCmd_;
 }
@@ -704,7 +704,6 @@ bool AutoDrive::switchSystemState(int state)
 		vehicleCtrlCmd_.driverless = true;
 		vehicleCtrlCmd_.hand_brake = true; //系统空闲, 拉上手刹,防止溜车
 		cmd_msg_mutex_.unlock();
-		//setSendControlCmdEnable(false);
 		setSendControlCmdEnable(true);
 		return true;
 	}
@@ -800,8 +799,7 @@ void AutoDrive::sendCmd_CB(const ros::TimerEvent&)
 
 
 /*@brief 定时捕获外部控制指令,  
-  -当系统正在执行前进任务时，由driveDecisionMaking更新终端控制指令
-  -当系统正在执行后退任务时，由reverseDecisionMaking更新终端控制指令
+  -当系统正在执行任务时，由decisionMaking更新终端控制指令
   -而当系统处于其他状态时由captureExernCmd_callback定时更新终端控制指令,以确保外部控制器随时生效
 
  - 当外部控制指令有效时，将系统状态置为强制使用外部指令，并将指令更新到终端控制指令
@@ -824,8 +822,7 @@ void AutoDrive::captureExernCmd_callback(const ros::TimerEvent&)
 		vehicleCtrlCmd_.hand_brake = extern_cmd_.hand_brake;
 		vehicleCtrlCmd_.speed = extern_cmd_.speed;
 		vehicleCtrlCmd_.brake = extern_cmd_.brake;
-		vehicleCtrlCmd_.roadwheel_angle = 
-		vehicleCtrlCmd_.extern_cmd_.roadWheelAngle;
+		vehicleCtrlCmd_.roadwheel_angle = extern_cmd_.roadWheelAngle;
 		vehicleCtrlCmd_.gear = extern_cmd_.gear;
 	}
 	else
@@ -1006,7 +1003,7 @@ bool AutoDrive::waitGearOk(int gear)
 		ros::Duration(0.2).sleep();
 		waitTime += 0.2;
 		ROS_INFO("[%s] wait for gear: %d", __NAME__, gear);
-		if(waitTime > 3.0)
+		if(waitTime > 5.0)
 		{
 			ROS_ERROR("[%s] wait for gear: %d timeout!", __NAME__, gear);
 			return false;
@@ -1053,8 +1050,8 @@ void AutoDrive::resetVehicleCtrlCmd()
 	vehicleCtrlCmd_.roadwheel_angle = 0.0;
 	vehicleCtrlCmd_.emergency_brake = false;
 	vehicleCtrlCmd_.accelerate = 0.0;
-	vehicleCtrlCmd_.left_turn_light = false;
-	vehicleCtrlCmd_.right_turn_light = false;
+	vehicleCtrlCmd_.turnlight_l = false;
+	vehicleCtrlCmd_.turnlight_r = false;
 	vehicleCtrlCmd_.brake_light = false;
 	vehicleCtrlCmd_.horn = false;
 }
@@ -1081,7 +1078,4 @@ int main(int argc, char *argv[])
     if(auto_drive.init(nh, nh_private))
     	ros::waitForShutdown();
     return 0;
-}  
-
-
-	
+} 
