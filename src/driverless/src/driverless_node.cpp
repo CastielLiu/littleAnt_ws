@@ -590,7 +590,6 @@ const driverless_common::VehicleCtrlCmd AutoDrive::decisionMaking(const controlC
 
 		return vehicleCtrlCmd_;
 	}
-		std::cout << "tracker_cmd.brake:" << int(tracker_cmd.brake) << std::endl;
 	vehicleCtrlCmd_.roadwheel_angle = tracker_cmd.roadWheelAngle;
 	vehicleCtrlCmd_.speed = tracker_cmd.speed; //优先使用跟踪器速度指令
 	vehicleCtrlCmd_.brake = tracker_cmd.brake;
@@ -608,10 +607,6 @@ const driverless_common::VehicleCtrlCmd AutoDrive::decisionMaking(const controlC
 		vehicleCtrlCmd_.speed = std::min(vehicleCtrlCmd_.speed, follower_cmd_.speed);
 		vehicleCtrlCmd_.brake = max(vehicleCtrlCmd_.brake, follower_cmd_.brake);
 	}
-
-	std::cout <<"follower_cmd_.speed_validity：" << follower_cmd_.speed_validity<< std::endl;
-	std::cout <<"avoid_cmd_.speed_validity：" << avoid_cmd_.speed_validity<< std::endl;
-	std::cout <<"extern_cmd_.speed_validity：" << extern_cmd_.speed_validity<< std::endl;
 
 	//转向灯
 	if(extern_cmd_.turnLight == 1)
