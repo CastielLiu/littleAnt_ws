@@ -54,7 +54,7 @@
 	</node> 
 	
 	<!-- 连接云控制平台客户端 -->
-<!--	<include file="$(find cloud_client)/launch/cloud_client.launch"/>-->
+	<include file="$(find cloud_client)/launch/cloud_client.launch"/>
 
 	<group unless="$(arg offline_debug)">
 
