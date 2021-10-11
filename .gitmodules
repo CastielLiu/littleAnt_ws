@@ -1,33 +1,33 @@
 [submodule "src/drivers/can2serial"]
 	path = src/drivers/can2serial
-	url = https://github.com.cnpmjs.org/CastielLiu/can2serial.git
+	url = https://github.com/CastielLiu/can2serial.git
 [submodule "src/drivers/ros_can"]
 	path = src/drivers/ros_can
-	url = https://github.com.cnpmjs.org/CastielLiu/ros_can.git
+	url = https://github.com/CastielLiu/ros_can.git
 [submodule "src/drivers/gps_driver"]
 	path = src/drivers/gps_driver
-	url = https://github.com.cnpmjs.org/CastielLiu/gps_driver.git
+	url = https://github.com/CastielLiu/gps_driver.git
 [submodule "src/drivers/ant_driver"]
 	path = src/drivers/ant_driver
-	url = https://github.com.cnpmjs.org/CastielLiu/ant_driver.git
+	url = https://github.com/CastielLiu/ant_driver.git
 [submodule "src/drivers/esr_radar"]
 	path = src/drivers/esr_radar
-	url = https://github.com.cnpmjs.org/CastielLiu/esr_radar.git
+	url = https://github.com/CastielLiu/esr_radar.git
 [submodule "src/perception/lidar_detect"]
 	path = src/perception/lidar_detect
-	url = https://github.com.cnpmjs.org/CastielLiu/lidar_detect.git
+	url = https://github.com/CastielLiu/lidar_detect.git
 [submodule "src/av_console"]
 	path = src/av_console
-	url = https://github.com.cnpmjs.org/CastielLiu/av_console
+	url = https://github.com/CastielLiu/av_console
 [submodule "src/drivers/rtcm3.2"]
 	path = src/drivers/rtcm3.2
-	url = https://github.com.cnpmjs.org/CastielLiu/rtcm3.2.git
+	url = https://github.com/CastielLiu/rtcm3.2.git
 [submodule "src/common/driverless_common"]
 	path = src/common/driverless_common
-	url = https://github.com.cnpmjs.org/CastielLiu/driverless_common
+	url = https://github.com/CastielLiu/driverless_common
 [submodule "src/common/pathplan_msgs"]
 	path = src/common/pathplan_msgs
-	url = https://github.com.cnpmjs.org/CastielLiu/pathplan_msgs.git
+	url = https://github.com/CastielLiu/pathplan_msgs.git
 [submodule "src/av_cloudctrl_client"]
 	path = src/av_cloudctrl_client
 	url = https://github.com/CastielLiu/av_cloudctrl_client.git
