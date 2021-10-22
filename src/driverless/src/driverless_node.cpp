@@ -3,6 +3,7 @@
 #include "driverless/driverless_node.h"
 
 #define __NAME__ "driverless"
+using namespace DriverlessSystem;
 
 
 AutoDrive::AutoDrive():
@@ -243,7 +244,7 @@ bool AutoDrive::handleNewGoal(const driverless_common::DoDriverlessTaskGoalConst
 {
 	if(system_state_ != State_Idle)
 	{
-		result = "Current state not idle!";
+		result = "System busy, please stop current task before start new!";
 		return false;
 	}
 
@@ -273,7 +274,7 @@ bool AutoDrive::handleNewGoal(const driverless_common::DoDriverlessTaskGoalConst
 		ROS_INFO("[%s] %s",__NAME__, info.c_str());
         publishDiagnosticMsg(diagnostic_msgs::DiagnosticStatus::ERROR, info);
 
-        result = "Driverless System Not Ready!";
+        result = "Abnormal vehicle state: " + info;
 		return false;
 	}
 
@@ -590,7 +591,6 @@ const driverless_common::VehicleCtrlCmd AutoDrive::decisionMaking(const controlC
 
 		return vehicleCtrlCmd_;
 	}
-		std::cout << "tracker_cmd.brake:" << int(tracker_cmd.brake) << std::endl;
 	vehicleCtrlCmd_.roadwheel_angle = tracker_cmd.roadWheelAngle;
 	vehicleCtrlCmd_.speed = tracker_cmd.speed; //优先使用跟踪器速度指令
 	vehicleCtrlCmd_.brake = tracker_cmd.brake;
@@ -608,10 +608,6 @@ const driverless_common::VehicleCtrlCmd AutoDrive::decisionMaking(const controlC
 		vehicleCtrlCmd_.speed = std::min(vehicleCtrlCmd_.speed, follower_cmd_.speed);
 		vehicleCtrlCmd_.brake = max(vehicleCtrlCmd_.brake, follower_cmd_.brake);
 	}
-
-	std::cout <<"follower_cmd_.speed_validity：" << follower_cmd_.speed_validity<< std::endl;
-	std::cout <<"avoid_cmd_.speed_validity：" << avoid_cmd_.speed_validity<< std::endl;
-	std::cout <<"extern_cmd_.speed_validity：" << extern_cmd_.speed_validity<< std::endl;
 
 	//转向灯
 	if(extern_cmd_.turnLight == 1)
@@ -879,6 +875,7 @@ void AutoDrive::vehicleStateSet_CB(const driverless_common::VehicleState::ConstP
 
 	vehicle_state_.gear = msg->gear;
 	vehicle_state_.driverless_mode = msg->driverless;
+	vehicle_state_.base_ready = msg->base_ready;
 }
 
 
@@ -1034,7 +1031,7 @@ void AutoDrive::publishDriverlessState(const ros::TimerEvent&)
 		driverless_state.roadwheel_angle = vehicle_state_.getSteerAngle(LOCK);
 		// driverless_state.lateral_error = g_lateral_err_;
 		// driverless_state.yaw_error = g_yaw_err_;
-		driverless_state.task_state = StateName[system_state_];
+		driverless_state.state = system_state_;
 		driverless_state.command_speed = vehicleCtrlCmd_.speed;
 
 		pub_driverless_state_.publish(driverless_state);
