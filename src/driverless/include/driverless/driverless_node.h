@@ -74,8 +74,8 @@ private:
     bool  use_car_following_;
     bool  is_offline_debug_;
 
-    std::atomic<int> system_state_;
-    int last_system_state_;
+    std::atomic<int> task_state_;
+    int last_task_state_;
     std::atomic<bool> task_processing_;
     
     //工作线程条件变量
@@ -125,5 +125,11 @@ private:
 
     //AvoidObstacle avoider_;
     controlCmd_t avoid_cmd_;
+
+    std::atomic<double> lat_, lng_; //车辆位置经纬度
+
+    std::mutex system_state_set_mutex_;
+    driverless_common::SystemState system_state_set_;
+    
 };
 

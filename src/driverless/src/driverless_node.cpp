@@ -10,8 +10,8 @@ AutoDrive::AutoDrive():
 	AutoDriveBase(__NAME__),
     avoid_offset_(0.0),
     task_running_(false),
-	system_state_(State_Idle),
-	last_system_state_(State_Idle),
+	task_state_(State_Idle),
+	last_task_state_(State_Idle),
 	has_new_task_(false),
 	request_listen_(false),
 	as_(nullptr),
@@ -242,7 +242,7 @@ void AutoDrive::executeDriverlessCallback(const driverless_common::DoDriverlessT
 */
 bool AutoDrive::handleNewGoal(const driverless_common::DoDriverlessTaskGoalConstPtr& goal, std::string& result)
 {
-	if(system_state_ != State_Idle)
+	if(task_state_ != State_Idle)
 	{
 		result = "System busy, please stop current task before start new!";
 		return false;
@@ -439,7 +439,7 @@ void AutoDrive::workingThread()
 		work_cv_.wait(lock, [&](){return has_new_task_;});
 		has_new_task_ = false;
 
-		int state = system_state_;
+		int state = task_state_;
 		ROS_INFO("[%s] Current system_state: %d", __NAME__, state);
 		
 		if(state == State_Drive)
@@ -452,7 +452,7 @@ void AutoDrive::workingThread()
 			ROS_ERROR("[%s] Unknown task type in current state: %d.", __NAME__, state);
 		
 		// 任务函数退出后,系统状态有两种情况, 1是当前的任务状态(任务正常完成并退出) 2是空闲状态(任务被打断,车辆停止后状态空闲)
-		if(system_state_ != State_Idle)  // 情况1
+		if(task_state_ != State_Idle)  // 情况1
 			switchSystemState(State_TaskComplete);
 		
 		if(goal_preempt_){
@@ -492,7 +492,7 @@ void AutoDrive::doDriveWork()
 	// 2. 跟踪控制器停止运行,一般为到达终点
 	// 3. 系统状态变为空闲, 其他任意状态均应持续决策, 
 	//	  当任务被外部打断时,转向和速度决策应持续输出, 系统发布控制指令之前,对速度进行限制,直到车辆停止,状态跳变为State_Idle
-	while(ros::ok()  && tracker_.isRunning() && system_state_ != State_Idle)
+	while(ros::ok()  && tracker_.isRunning() && task_state_ != State_Idle)
 	{
 		tracker_cmd_ = tracker_.getControlCmd();
 		follower_cmd_= car_follower_.getControlCmd();
@@ -524,7 +524,7 @@ void AutoDrive::doReverseWork()
 	
 	ROS_ERROR("NOT ERROR: doReverseWork-> task_running_= true");
 	task_running_ = true;
-	while(ros::ok() && system_state_ != State_Idle && reverse_controler_.isRunning())
+	while(ros::ok() && task_state_ != State_Idle && reverse_controler_.isRunning())
 	{
 		//ROS_INFO("[%s] new cycle.", __NAME__);
 		reverse_cmd_ = reverse_controler_.getControlCmd();
@@ -551,7 +551,7 @@ void AutoDrive::doReverseWork()
 void AutoDrive::doOfflineDebugWork()
 {
 	float percentage = 0.0;
-	while(ros::ok() && system_state_ != State_Idle)
+	while(ros::ok() && task_state_ != State_Idle)
 	{
 		if(as_->isActive())
 		{
@@ -578,7 +578,7 @@ const driverless_common::VehicleCtrlCmd AutoDrive::decisionMaking(const controlC
 {
 	std::unique_lock<std::mutex> lock2(cmd_msg_mutex_);
 	//若当前状态为强制使用外部控制指令，则忽悠其他指令源
-	if(system_state_ == State_ForceExternControl)
+	if(task_state_ == State_ForceExternControl)
 	{
 		std::lock_guard<std::mutex> lock(extern_cmd_mutex_);
 		vehicleCtrlCmd_.roadwheel_angle = extern_cmd_.roadWheelAngle;
@@ -624,7 +624,7 @@ const driverless_common::VehicleCtrlCmd AutoDrive::decisionMaking(const controlC
 
 	// 任务中断标志 系统需控制车速直到停车, 但转角仍由当前任务决策(否则可能出现意外)
 	// 若将转角置零, 然后限速,在车停下来之前将继续行驶一段距离,可能冲出车道
-	if(system_state_ == State_TaskPreempt)
+	if(task_state_ == State_TaskPreempt)
 	{
 		// 系统任务被中断, 限制车速使车辆停车
 		// 当速度足够低时, 切换系统状态为空闲
@@ -660,10 +660,10 @@ bool AutoDrive::switchSystemState(int state)
 	RecursiveLock rlock(switchStateRMutex_);
 	
 	ROS_ERROR("[%s] NOT ERROR switchSystemState: %s", __NAME__, StateName[state].c_str());
-	if(system_state_ == state) return true; //防止重复操作
+	if(task_state_ == state) return true; //防止重复操作
 	
-	last_system_state_ = system_state_;
-    system_state_ = state;
+	last_task_state_ = task_state_;
+    task_state_ = state;
 
     //状态为前进，自动驾驶模式开，档位置D
 	if(state == State_Drive)
@@ -709,9 +709,9 @@ bool AutoDrive::switchSystemState(int state)
 	else if(state == State_Stop)  // 停车
 	{
 		// 上次状态为空闲, 当前为停止,则不进行处理
-		if(last_system_state_ == State_Idle)
+		if(last_task_state_ == State_Idle)
 		{
-			system_state_ = last_system_state_;
+			task_state_ = last_task_state_;
 			return true;
 		}
 
@@ -790,13 +790,6 @@ void AutoDrive::setSendControlCmdEnable(bool flag)
 }
 
 
-void AutoDrive::sendCmd_CB(const ros::TimerEvent&)
-{
-	std::lock_guard<std::mutex> lock(cmd_msg_mutex_);
-	pub_cmd_.publish(vehicleCtrlCmd_);
-}
-
-
 /*@brief 定时捕获外部控制指令,  
   -当系统正在执行任务时，由decisionMaking更新终端控制指令
   -而当系统处于其他状态时由captureExernCmd_callback定时更新终端控制指令,以确保外部控制器随时生效
@@ -813,7 +806,7 @@ void AutoDrive::captureExernCmd_callback(const ros::TimerEvent&)
 	if(extern_cmd_.validity) //当前外部指令有效
  	{
 		setSendControlCmdEnable(true); //使能控制指令发送
-		if(system_state_ != State_ForceExternControl)
+		if(task_state_ != State_ForceExternControl)
 			switchSystemState(State_ForceExternControl);
 		//extern_cmd_.display("Extern Cmd ");
 
@@ -828,22 +821,13 @@ void AutoDrive::captureExernCmd_callback(const ros::TimerEvent&)
 	{
 		 //当前无效，上次有效，切换为历史状态
 		if(last_validity)
-			switchSystemState(last_system_state_);
+			switchSystemState(last_task_state_);
 	}
 
 	last_validity = extern_cmd_.validity;
 	extern_cmd_mutex_.unlock();
 }
 
-void AutoDrive::odom_callback(const nav_msgs::Odometry::ConstPtr& msg)
-{
-	Pose pose;
-	pose.x =  msg->pose.pose.position.x;
-	pose.y =  msg->pose.pose.position.y;
-	pose.yaw = msg->pose.covariance[0];
-	
-	vehicle_state_.setPose(pose);
-}
 
 void AutoDrive::goal_callback(const pathplaning_msgs::expected_path::ConstPtr& msg)
 {
@@ -865,8 +849,44 @@ void AutoDrive::goal_callback(const pathplaning_msgs::expected_path::ConstPtr& m
 	ROS_INFO("[%s] Receive expect path from extern path planner.", __NAME__);
 }
 
+
+void AutoDrive::odom_callback(const nav_msgs::Odometry::ConstPtr& msg)
+{
+	Pose pose;
+	pose.x =  msg->pose.pose.position.x;
+	pose.y =  msg->pose.pose.position.y;
+	pose.yaw = msg->pose.covariance[0];
+	vehicle_state_.setPose(pose);
+
+	//system_state_set_:1/4 定位数据
+	system_state_set_mutex_.lock();
+	system_state_set_.position_x = pose.x ;
+	system_state_set_.position_y = pose.y ;
+	system_state_set_.yaw = pose.yaw ;
+	system_state_set_.longitude = msg->pose.covariance[1];
+	system_state_set_.latitude = msg->pose.covariance[2];
+	system_state_set_.location_source = msg->header.frame_id;
+	system_state_set_mutex_.unlock();
+}
+
+void AutoDrive::sendCmd_CB(const ros::TimerEvent&)
+{
+	std::lock_guard<std::mutex> lock(cmd_msg_mutex_);
+	pub_cmd_.publish(vehicleCtrlCmd_);
+
+	//system_state_set_:2/4 控制指令数据
+	system_state_set_mutex_.lock();
+	system_state_set_.control_cmd = vehicleCtrlCmd_;
+	system_state_set_mutex_.unlock();
+}
+
 void AutoDrive::vehicleStateSet_CB(const driverless_common::VehicleState::ConstPtr& msg)
 {
+	//system_state_set_:3/4 汽车状态数据
+	system_state_set_mutex_.lock();
+	system_state_set_.vehicle_state = *msg;
+	system_state_set_mutex_.unlock();
+
 	WriteLock writeLock(vehicle_state_.wr_mutex);
 	vehicle_state_.speed = msg->speed;
 	vehicle_state_.steer_angle = msg->roadwheel_angle;
@@ -876,6 +896,21 @@ void AutoDrive::vehicleStateSet_CB(const driverless_common::VehicleState::ConstP
 	vehicle_state_.gear = msg->gear;
 	vehicle_state_.driverless_mode = msg->driverless;
 	vehicle_state_.base_ready = msg->base_ready;
+}
+
+/*@brief 发布自动驾驶状态信息
+*/
+void AutoDrive::publishDriverlessState(const ros::TimerEvent&)
+{
+	if(pub_driverless_state_.getNumSubscribers())
+	{
+		system_state_set_.header.stamp = ros::Time::now();
+		system_state_set_.state = task_state_;
+		
+		system_state_set_mutex_.lock();
+		pub_driverless_state_.publish(system_state_set_);
+		system_state_set_mutex_.unlock();
+	}
 }
 
 
@@ -998,7 +1033,7 @@ void AutoDrive::waitSpeedZero()
 bool AutoDrive::waitGearOk(int gear)
 {
 	float waitTime = 0.0;
-    while(ros::ok() && vehicle_state_.getGear() != gear && system_state_!= State_Idle)
+    while(ros::ok() && vehicle_state_.getGear() != gear && task_state_!= State_Idle)
     {
 		ros::Duration(0.2).sleep();
 		waitTime += 0.2;
@@ -1012,31 +1047,6 @@ bool AutoDrive::waitGearOk(int gear)
 	return true;
 }
 
-/*@brief 发布自动驾驶状态信息
-*/
-void AutoDrive::publishDriverlessState(const ros::TimerEvent&)
-{
-	if(pub_driverless_state_.getNumSubscribers())
-	{
-		driverless_common::SystemState driverless_state;
-		const Pose pose = vehicle_state_.getPose(LOCK);
-		const float speed = vehicle_state_.getSpeed(LOCK);
-		driverless_state.header.stamp = ros::Time::now();
-		driverless_state.location_source = "gps";
-
-		driverless_state.position_x = pose.x;
-		driverless_state.position_y = pose.y;
-		driverless_state.yaw = pose.yaw;
-		driverless_state.vehicle_speed =  speed;
-		driverless_state.roadwheel_angle = vehicle_state_.getSteerAngle(LOCK);
-		// driverless_state.lateral_error = g_lateral_err_;
-		// driverless_state.yaw_error = g_yaw_err_;
-		driverless_state.state = system_state_;
-		driverless_state.command_speed = vehicleCtrlCmd_.speed;
-
-		pub_driverless_state_.publish(driverless_state);
-	}
-}
 
 void AutoDrive::resetVehicleCtrlCmd()
 {
